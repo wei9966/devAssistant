@@ -1,0 +1,80 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+build.log
+tauri-dev.log
+
+# Dependencies
+node_modules/
+dist-ssr
+*.local
+
+# Build outputs
+dist/
+dist-ssr/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Tauri
+src-tauri/target/
+src-tauri/Cargo.lock
+src-tauri/gen/
+
+# Temporary files
+*.tmp
+*.temp
+nul
+temp.dll
+
+# Backups
+backups/
+*.bak
+*.backup
+
+# Test outputs
+test_work_log.html
+
+# Documentation (if auto-generated)
+TASK_COMPLETION_REPORT.md
+IMPLEMENTATION_SUMMARY.md
+task_completion_notes.txt
+plan.md
+PROJECT_STRUCTURE.md
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+._*
+
+# Environment files (if contain secrets)
+.env
+.env.local
+.env.*.local
+
+# IDE
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.launch
+
+dist/**
+
+dist/index.html

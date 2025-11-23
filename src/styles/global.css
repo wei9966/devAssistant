@@ -1,0 +1,51 @@
+/* 自定义滚动条 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(71, 85, 105, 0.5);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(71, 85, 105, 0.7);
+}
+
+/* 全局颜色变量 */
+:root {
+  --color-primary: #6366f1;
+  --color-primary-hover: #818cf8;
+  --color-primary-pressed: #4f46e5;
+
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+}
+
+/* 通用动画 */
+.transition-all {
+  transition: all 0.2s ease;
+}
+
+/* 发光效果工具类 */
+.glow-indigo {
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
+}
+
+.glow-indigo-strong {
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+}

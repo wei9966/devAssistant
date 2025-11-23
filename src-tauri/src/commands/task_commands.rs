@@ -1,0 +1,125 @@
+use tauri::State;
+use crate::db::connection::DbConnection;
+use crate::models::task::{Task, TaskCategory, TaskPriority, WorkContext};
+use crate::services::task_service::TaskService;
+
+#[tauri::command]
+pub fn get_all_tasks(db: State<DbConnection>) -> Result<Vec<Task>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::get_all_tasks(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_completed_tasks(db: State<DbConnection>, days: i64) -> Result<Vec<Task>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::get_completed_tasks(&conn, days).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_task(
+    db: State<DbConnection>,
+    title: String,
+    description: Option<String>,
+    category: String,
+    priority: i32,
+) -> Result<i64, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let cat = TaskCategory::from_str(&category);
+    let pri = TaskPriority::from_i32(priority);
+    TaskService::create_task(
+        &conn,
+        &title,
+        description.as_deref(),
+        cat,
+        pri,
+    ).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn start_task(db: State<DbConnection>, task_id: i64) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::start_task(&conn, task_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn pause_task(
+    db: State<DbConnection>,
+    task_id: i64,
+    context: Option<WorkContext>
+) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::pause_task(&conn, task_id, context).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn defer_task(db: State<DbConnection>, task_id: i64) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::defer_task(&conn, task_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn complete_task(db: State<DbConnection>, task_id: i64) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::complete_task(&conn, task_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_task(
+    db: State<DbConnection>,
+    task_id: i64,
+    title: Option<String>,
+    description: Option<String>,
+    category: Option<String>,
+    priority: Option<i32>,
+    git_branch: Option<String>,
+    notes: Option<String>,
+) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+
+    let cat = category.map(|c| TaskCategory::from_str(&c));
+    let pri = priority.map(TaskPriority::from_i32);
+
+    TaskService::update_task(
+        &conn,
+        task_id,
+        title.as_deref(),
+        description.as_deref(),
+        cat,
+        pri,
+        git_branch.as_deref(),
+        notes.as_deref(),
+    ).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_task(db: State<DbConnection>, task_id: i64) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::delete_task(&conn, task_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_stale_tasks(db: State<DbConnection>, days: i64) -> Result<Vec<Task>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::get_stale_tasks(&conn, days).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_current_branch() -> Result<String, String> {
+    use std::process::Command;
+
+    let output = Command::new("git")
+        .args(["branch", "--show-current"])
+        .output()
+        .map_err(|e| format!("Failed to execute git command: {}", e))?;
+
+    if !output.status.success() {
+        return Err("Not a git repository or git command not available".to_string());
+    }
+
+    let branch = String::from_utf8(output.stdout)
+        .map_err(|e| format!("Failed to parse git output: {}", e))?
+        .trim()
+        .to_string();
+
+    Ok(branch)
+}

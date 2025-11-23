@@ -1,0 +1,425 @@
+import React, { useState } from 'react';
+import { 
+  LayoutDashboard, 
+  Database, 
+  BookOpen, 
+  Settings, 
+  Plus, 
+  Search, 
+  Play, 
+  Copy, 
+  Sparkles, 
+  CheckCircle2, 
+  Clock,
+  MoreHorizontal,
+  Terminal,
+  Command,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Archive,
+  Maximize2
+} from 'lucide-react';
+
+// --- Mock Data (保持不变) ---
+
+const TASKS = [
+  { id: 1, title: '重构 Auth 中间件', tag: 'Backend', status: 'doing', priority: 'high' },
+  { id: 2, title: '优化 SQL 查询性能', tag: 'Database', status: 'todo', priority: 'medium' },
+  { id: 3, title: '更新 API 文档', tag: 'Docs', status: 'done', priority: 'low' },
+  { id: 4, title: 'Tauri 窗口状态持久化', tag: 'Feature', status: 'doing', priority: 'medium' },
+];
+
+const SQL_HISTORY = [
+  { id: 1, query: 'SELECT * FROM users WHERE status = "active" ORDER BY created_at DESC LIMIT 10;', time: '10:23 AM', duration: '12ms', status: 'success' },
+  { id: 2, query: 'UPDATE orders SET status = "shipped" WHERE id = 1024;', time: '11:05 AM', duration: '45ms', status: 'success' },
+  { id: 3, query: 'DELETE FROM logs WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY);', time: 'Yesterday', duration: '1.2s', status: 'warning' },
+  { id: 4, query: 'SELEC * FROM products;', time: 'Yesterday', duration: 'Error', status: 'error' },
+];
+
+const LOGS = [
+  { id: 1, date: '2023-10-27', content: '今天主要修复了登录模块的 Bug，顺便优化了 Rust 端的日志收集逻辑。碰到了 Tauri IPC 通信的一个坑，已解决。' },
+  { id: 2, date: '2023-10-26', content: '完成 SQL 历史记录功能的 UI 开发。' },
+  { id: 3, date: '2023-10-25', content: '调研了几个图表库，决定还是自己手写简单的 SVG 组件，减少包体积。' },
+];
+
+// --- Components ---
+
+const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
+  <button 
+    onClick={onClick}
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative overflow-hidden ${
+      active 
+        ? 'bg-white/5 text-indigo-400 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]' 
+        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+    }`}
+  >
+    {active && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />}
+    <Icon size={20} className={`relative z-10 ${active ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+    <span className="relative z-10 font-medium text-sm tracking-wide">{label}</span>
+  </button>
+);
+
+const Badge = ({ children, type = 'default' }) => {
+  const styles = {
+    default: 'bg-slate-800 text-slate-400 border-slate-700',
+    high: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+    medium: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    low: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    Backend: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    Database: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    Feature: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
+    Docs: 'bg-slate-700 text-slate-300 border-slate-600',
+  };
+  return (
+    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${styles[children] || styles.default}`}>
+      {children}
+    </span>
+  );
+};
+
+// --- Views ---
+
+const TaskBoard = () => {
+  const columns = [
+    { id: 'todo', title: '待办', count: 1, color: 'bg-slate-500' },
+    { id: 'doing', title: '进行中', count: 2, color: 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]' },
+    { id: 'done', title: '已完成', count: 1, color: 'bg-emerald-500' },
+  ];
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-white tracking-tight">任务看板</h2>
+          <p className="text-xs text-slate-500 mt-1">管理你的开发冲刺与待办项</p>
+        </div>
+        <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 active:scale-95">
+          <Plus size={16} /> 新建任务
+        </button>
+      </div>
+      
+      <div className="flex-1 grid grid-cols-3 gap-6 overflow-hidden pb-2">
+        {columns.map(col => (
+          <div key={col.id} className="flex flex-col bg-slate-900/40 rounded-2xl border border-white/5 p-1 backdrop-blur-sm hover:border-white/10 transition-colors">
+            {/* Column Header */}
+            <div className="flex items-center justify-between p-4 pb-2">
+              <div className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full ${col.color}`} />
+                <span className="text-sm font-bold text-slate-200">{col.title}</span>
+              </div>
+              <span className="text-xs font-mono text-slate-500 bg-white/5 px-2 py-0.5 rounded border border-white/5">{col.count}</span>
+            </div>
+            
+            {/* Column Body */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+              {TASKS.filter(t => t.status === col.id).map(task => (
+                <div key={task.id} className="bg-slate-800/40 hover:bg-slate-800 border border-white/5 hover:border-slate-600/50 p-4 rounded-xl shadow-sm cursor-pointer group transition-all duration-200 relative overflow-hidden">
+                  {/* Hover Glow Effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 pointer-events-none" />
+                  
+                  <div className="flex justify-between items-start mb-3">
+                    <Badge>{task.tag}</Badge>
+                    <button className="text-slate-600 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                      <MoreHorizontal size={16} />
+                    </button>
+                  </div>
+                  <h3 className="text-slate-200 font-medium text-sm mb-4 leading-snug">{task.title}</h3>
+                  <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5">
+                    <div className="flex items-center gap-2">
+                       {/* Priority Indicator */}
+                       <div className={`w-1.5 h-1.5 rounded-full ${task.priority === 'high' ? 'bg-rose-500' : task.priority === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                       <span className="text-[10px] text-slate-500 uppercase font-medium">{task.priority}</span>
+                    </div>
+                    <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300 border border-slate-600">
+                      ME
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {col.id === 'todo' && (
+                <button className="w-full py-3 border border-dashed border-slate-700/50 rounded-xl text-slate-500 text-sm hover:bg-slate-800/50 hover:text-indigo-400 hover:border-indigo-500/30 transition-all flex items-center justify-center gap-2 group">
+                  <Plus size={14} className="group-hover:scale-110 transition-transform" /> 添加卡片
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const SqlHistory = () => {
+  return (
+    <div className="h-full flex flex-col">
+       <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-white tracking-tight">SQL 执行记录</h2>
+           <p className="text-xs text-slate-500 mt-1">最近 30 天的查询历史</p>
+        </div>
+        <div className="relative group">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+          <input 
+            type="text" 
+            placeholder="搜索 SQL 或时间..." 
+            className="bg-slate-900/50 border border-slate-700/50 text-slate-200 pl-9 pr-4 py-2 rounded-lg text-sm focus:outline-none focus:border-indigo-500/50 focus:bg-slate-900 focus:ring-1 focus:ring-indigo-500/20 w-64 transition-all placeholder:text-slate-600"
+          />
+        </div>
+      </div>
+
+      <div className="flex-1 bg-slate-900/40 rounded-2xl border border-white/5 overflow-hidden backdrop-blur-sm flex flex-col shadow-xl">
+        <div className="overflow-y-auto flex-1 custom-scrollbar">
+          <table className="w-full text-left text-sm border-collapse">
+            <thead className="bg-slate-950/50 text-slate-400 font-medium sticky top-0 z-10 backdrop-blur-md border-b border-white/5">
+              <tr>
+                <th className="px-6 py-4 w-16 text-center">#</th>
+                <th className="px-6 py-4">SQL 语句</th>
+                <th className="px-6 py-4 w-32">耗时</th>
+                <th className="px-6 py-4 w-32">时间</th>
+                <th className="px-6 py-4 w-24 text-right"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {SQL_HISTORY.map((item) => (
+                <tr key={item.id} className="hover:bg-white/5 group transition-colors">
+                  <td className="px-6 py-4 text-center">
+                    <div className="flex justify-center">
+                       {item.status === 'success' && <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />}
+                       {item.status === 'warning' && <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />}
+                       {item.status === 'error' && <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="font-mono text-slate-300 text-xs truncate max-w-lg opacity-90 group-hover:opacity-100">
+                      <span className="text-indigo-400 font-bold">{item.query.split(' ')[0]}</span> 
+                      <span className="text-slate-400">{item.query.substring(item.query.indexOf(' '))}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                     <span className={`text-xs px-2 py-0.5 rounded ${item.duration === 'Error' ? 'bg-rose-500/10 text-rose-400' : 'bg-slate-800 text-slate-400'}`}>
+                        {item.duration}
+                     </span>
+                  </td>
+                  <td className="px-6 py-4 text-slate-500 text-xs font-mono">{item.time}</td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0">
+                      <button className="p-2 hover:bg-indigo-500/10 rounded-lg text-slate-400 hover:text-indigo-400 transition-colors" title="Run Again">
+                        <Play size={14} />
+                      </button>
+                      <button className="p-2 hover:bg-indigo-500/10 rounded-lg text-slate-400 hover:text-indigo-400 transition-colors" title="Copy">
+                        <Copy size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const WorkLog = () => {
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  return (
+    <div className="h-full flex gap-6">
+      {/* Editor Area */}
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${isMaximized ? 'w-full' : ''}`}>
+        
+        {/* Header / Toolbar */}
+        <div className="flex justify-between items-end mb-4 pb-2 border-b border-white/5">
+          <div>
+             <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+               工作日志 
+               <span className="text-xs font-normal text-slate-500 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">Draft</span>
+             </h2>
+             <div className="flex items-center gap-2 mt-2 text-slate-400 text-sm group cursor-pointer hover:text-indigo-400 transition-colors">
+                <Calendar size={14} />
+                <span>2023年 11月 24日 (星期五)</span>
+                <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+             </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <button 
+               onClick={() => setIsMaximized(!isMaximized)}
+               className="p-2 text-slate-500 hover:text-slate-200 hover:bg-white/5 rounded-lg transition-colors" 
+               title={isMaximized ? "Exit Focus Mode" : "Focus Mode"}
+            >
+              <Maximize2 size={18} />
+            </button>
+            <div className="h-9 w-px bg-white/10 mx-1" />
+            <button className="flex items-center gap-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white border border-indigo-500/20 hover:border-indigo-500 px-4 py-1.5 rounded-lg text-sm font-medium transition-all">
+              <Sparkles size={16} /> 
+              <span>AI 周报</span>
+            </button>
+            <button className="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 border border-white/5 rounded-lg transition-colors">
+               <Archive size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Editor Container */}
+        <div className="flex-1 bg-slate-900/40 rounded-2xl border border-white/5 p-6 backdrop-blur-sm flex flex-col shadow-inner relative group">
+           <textarea 
+            className="flex-1 bg-transparent border-none focus:ring-0 resize-none text-slate-300 placeholder:text-slate-600/50 leading-relaxed custom-scrollbar text-base p-2"
+            placeholder="记录你的想法..."
+            defaultValue="1. 完成了 Auth 模块的重构，性能提升约 30%。&#10;2. 修复了 Dashboard 页面在 4K 屏幕下的布局错乱问题。&#10;3. 开始调研 Tauri v2 的迁移成本。"
+           />
+           
+           {/* Bottom Status Bar inside Editor */}
+           <div className="absolute bottom-4 right-6 text-xs text-slate-600 group-focus-within:text-indigo-400/60 transition-colors">
+             Markdown supported · 324 words
+           </div>
+        </div>
+        
+        {/* Tag Bar */}
+        <div className="mt-3 flex gap-2 pl-1">
+             {['#Rust', '#Frontend', '#Bugfix'].map(tag => (
+               <button key={tag} className="text-xs text-slate-500 bg-slate-900/50 border border-slate-800 hover:border-indigo-500/50 hover:text-indigo-400 px-3 py-1 rounded-full transition-all">
+                 {tag}
+               </button>
+             ))}
+             <button className="text-xs text-slate-600 hover:text-slate-400 px-2 py-1 flex items-center gap-1 transition-colors">
+               <Plus size={12} /> Add Tag
+             </button>
+        </div>
+      </div>
+
+      {/* Sidebar Timeline (Collapsible) */}
+      {!isMaximized && (
+        <div className="w-80 bg-slate-900/20 border-l border-white/5 p-4 flex flex-col">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-6 flex items-center gap-2">
+             <Clock size={12} /> 最近记录
+          </h3>
+          
+          <div className="flex-1 space-y-6 relative ml-2">
+            {/* Continuous Line */}
+            <div className="absolute left-[5px] top-2 bottom-2 w-px bg-slate-800/80" />
+            
+            {LOGS.map((log, idx) => (
+              <div key={log.id} className="relative pl-6 group cursor-pointer">
+                {/* Timeline Dot */}
+                <div className={`absolute left-0 top-1.5 w-[11px] h-[11px] rounded-full border-[3px] transition-all z-10 ${idx === 0 ? 'bg-indigo-500 border-slate-950 shadow-[0_0_0_2px_rgba(99,102,241,0.3)]' : 'bg-slate-900 border-slate-700 group-hover:border-indigo-400'}`} />
+                
+                <div className="flex justify-between items-baseline mb-1">
+                  <span className={`text-xs font-medium font-mono ${idx === 0 ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`}>
+                    {log.date}
+                  </span>
+                </div>
+                
+                <div className="p-3 rounded-lg bg-slate-800/30 border border-white/5 group-hover:bg-slate-800/60 group-hover:border-white/10 transition-all">
+                   <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed">
+                    {log.content}
+                   </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const SettingsView = () => (
+  <div className="flex items-center justify-center h-full text-slate-500">
+    Settings Placeholder
+  </div>
+);
+
+// --- Main Layout ---
+
+export default function DevAssistant() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+
+  return (
+    <div className="flex h-screen bg-[#0a0a0c] text-slate-200 font-sans selection:bg-indigo-500/30 selection:text-indigo-200 overflow-hidden">
+      {/* Sidebar */}
+      <div className="w-64 flex-shrink-0 bg-[#0f0f12] border-r border-white/5 flex flex-col p-4 z-20 shadow-2xl">
+        {/* Brand */}
+        <div className="flex items-center gap-3 px-4 py-6 mb-2">
+          <div className="relative">
+             <div className="w-8 h-8 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.4)]">
+               <Terminal size={16} className="text-white" />
+             </div>
+             <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-[#0f0f12] rounded-full flex items-center justify-center">
+               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+             </div>
+          </div>
+          <div>
+            <h1 className="font-bold text-lg tracking-tight text-white leading-none">DevAssistant</h1>
+            <p className="text-[9px] text-slate-500 font-medium tracking-[0.2em] mt-1.5 uppercase">Personal Hub</p>
+          </div>
+        </div>
+
+        {/* Nav */}
+        <nav className="space-y-1 flex-1 mt-4">
+          <SidebarItem 
+            icon={LayoutDashboard} 
+            label="任务看板" 
+            active={activeTab === 'dashboard'} 
+            onClick={() => setActiveTab('dashboard')} 
+          />
+          <SidebarItem 
+            icon={Database} 
+            label="SQL 历史" 
+            active={activeTab === 'sql'} 
+            onClick={() => setActiveTab('sql')} 
+          />
+          <SidebarItem 
+            icon={BookOpen} 
+            label="工作日志" 
+            active={activeTab === 'log'} 
+            onClick={() => setActiveTab('log')} 
+          />
+          <SidebarItem 
+            icon={Settings} 
+            label="设置" 
+            active={activeTab === 'settings'} 
+            onClick={() => setActiveTab('settings')} 
+          />
+        </nav>
+
+        {/* Footer Info */}
+        <div className="px-2 py-4 mt-auto">
+          <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">System</span>
+              <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded">ONLINE</span>
+            </div>
+            <div className="flex justify-between items-end text-xs text-slate-500 mb-1">
+               <span>CPU</span>
+               <span className="text-indigo-400 font-mono">14%</span>
+            </div>
+            <div className="w-full bg-slate-800/50 h-1 rounded-full overflow-hidden">
+              <div className="bg-indigo-500 h-full w-[14%] shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-w-0 bg-[#0a0a0c] relative z-10">
+         {/* Decorative Glow */}
+         <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-indigo-900/10 to-transparent pointer-events-none" />
+
+         {/* Top Bar (Window Drag Region) */}
+        <div data-tauri-drag-region className="h-8 w-full shrink-0 flex justify-end px-4 items-center gap-2 z-50">
+           {/* Window controls */}
+        </div>
+
+        <div className="flex-1 p-8 pt-2 overflow-hidden relative z-10">
+          {activeTab === 'dashboard' && <TaskBoard />}
+          {activeTab === 'sql' && <SqlHistory />}
+          {activeTab === 'log' && <WorkLog />}
+          {activeTab === 'settings' && <SettingsView />}
+        </div>
+      </main>
+    </div>
+  );
+}
