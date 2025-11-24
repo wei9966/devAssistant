@@ -129,14 +129,21 @@
     <n-modal v-model:show="showCreateModal" preset="card" :title="isEditing ? '编辑任务' : '新建任务'" style="width: 600px">
       <n-form ref="formRef" :model="formData" :rules="formRules">
         <n-form-item label="任务标题" path="title">
-          <n-input v-model:value="formData.title" placeholder="请输入任务标题" />
+          <n-input
+            v-model:value="formData.title"
+            placeholder="请输入任务标题"
+            :maxlength="200"
+            show-count
+          />
         </n-form-item>
         <n-form-item label="任务描述" path="description">
           <n-input
             v-model:value="formData.description"
             type="textarea"
-            placeholder="请输入任务描述"
+            placeholder="请输入任务描述（最多10000字符）"
             :rows="3"
+            :maxlength="10000"
+            show-count
           />
         </n-form-item>
         <n-form-item label="分类" path="category">
@@ -231,6 +238,21 @@ onMounted(() => {
 async function handleCreate() {
   try {
     await formRef.value?.validate();
+
+    // 前端额外验证
+    if (formData.title.trim().length === 0) {
+      message.error('任务标题不能为空');
+      return;
+    }
+    if (formData.title.length > 200) {
+      message.error('任务标题不能超过200个字符');
+      return;
+    }
+    if (formData.description && formData.description.length > 10000) {
+      message.error('任务描述不能超过10000个字符');
+      return;
+    }
+
     await taskStore.createTask(
       formData.title,
       formData.description || undefined,
@@ -239,8 +261,9 @@ async function handleCreate() {
     );
     message.success('任务创建成功');
     handleCancelEdit();
-  } catch (error) {
+  } catch (error: any) {
     console.error('创建任务失败:', error);
+    message.error(error?.message || '创建任务失败，请检查输入内容');
   }
 }
 
@@ -272,6 +295,21 @@ async function handleEdit(task: Task) {
 async function handleUpdate() {
   try {
     await formRef.value?.validate();
+
+    // 前端额外验证
+    if (formData.title.trim().length === 0) {
+      message.error('任务标题不能为空');
+      return;
+    }
+    if (formData.title.length > 200) {
+      message.error('任务标题不能超过200个字符');
+      return;
+    }
+    if (formData.description && formData.description.length > 10000) {
+      message.error('任务描述不能超过10000个字符');
+      return;
+    }
+
     await taskStore.updateTask(editingTaskId.value!, {
       title: formData.title,
       description: formData.description || undefined,
@@ -280,8 +318,9 @@ async function handleUpdate() {
     });
     message.success('任务更新成功');
     handleCancelEdit();
-  } catch (error) {
+  } catch (error: any) {
     console.error('更新任务失败:', error);
+    message.error(error?.message || '更新任务失败，请检查输入内容');
   }
 }
 

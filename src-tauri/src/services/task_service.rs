@@ -52,10 +52,28 @@ impl TaskService {
         category: TaskCategory,
         priority: TaskPriority,
     ) -> Result<i64> {
+        // 验证标题长度
+        if title.trim().is_empty() {
+            return Err(anyhow::anyhow!("任务标题不能为空"));
+        }
+        if title.len() > 200 {
+            return Err(anyhow::anyhow!("任务标题不能超过200个字符"));
+        }
+
+        // 验证描述长度
+        if let Some(desc) = description {
+            if desc.len() > 10000 {
+                return Err(anyhow::anyhow!("任务描述不能超过10000个字符"));
+            }
+        }
+
+        let trimmed_title = title.trim();
+        let trimmed_description = description.map(|d| d.trim()).filter(|d| !d.is_empty());
+
         conn.execute(
             "INSERT INTO tasks (title, description, category, priority, status, created_at)
              VALUES (?, ?, ?, ?, 'todo', datetime('now'))",
-            params![title, description, category.as_str(), priority.as_i32()],
+            params![trimmed_title, trimmed_description, category.as_str(), priority.as_i32()],
         )?;
 
         Ok(conn.last_insert_rowid())
@@ -130,16 +148,41 @@ impl TaskService {
         git_branch: Option<&str>,
         notes: Option<&str>,
     ) -> Result<()> {
+        // 验证标题
+        if let Some(t) = title {
+            if t.trim().is_empty() {
+                return Err(anyhow::anyhow!("任务标题不能为空"));
+            }
+            if t.len() > 200 {
+                return Err(anyhow::anyhow!("任务标题不能超过200个字符"));
+            }
+        }
+
+        // 验证描述
+        if let Some(d) = description {
+            if d.len() > 10000 {
+                return Err(anyhow::anyhow!("任务描述不能超过10000个字符"));
+            }
+        }
+
+        // 验证备注
+        if let Some(n) = notes {
+            if n.len() > 5000 {
+                return Err(anyhow::anyhow!("任务备注不能超过5000个字符"));
+            }
+        }
+
         let mut updates = Vec::new();
         let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
         if let Some(t) = title {
             updates.push("title = ?");
-            params_vec.push(Box::new(t.to_string()));
+            params_vec.push(Box::new(t.trim().to_string()));
         }
         if let Some(d) = description {
             updates.push("description = ?");
-            params_vec.push(Box::new(d.to_string()));
+            let trimmed = d.trim();
+            params_vec.push(Box::new(if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }));
         }
         if let Some(c) = category {
             updates.push("category = ?");
@@ -155,7 +198,8 @@ impl TaskService {
         }
         if let Some(n) = notes {
             updates.push("notes = ?");
-            params_vec.push(Box::new(n.to_string()));
+            let trimmed = n.trim();
+            params_vec.push(Box::new(if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }));
         }
 
         if updates.is_empty() {
@@ -209,10 +253,48 @@ impl TaskService {
 
     /// 辅助方法：将数据库行映射为 Task 对象
     fn map_row_to_task(row: &rusqlite::Row) -> rusqlite::Result<Task> {
+        // 读取描述字段，如果超过限制则截断
+        let description: Option<String> = row.get(2)?;
+        let safe_description = description.map(|d| {
+            if d.len() > 10000 {
+                format!("{}...[内容过长已截断]", &d[..10000])
+            } else {
+                d
+            }
+        });
+
+        // 读取context_json，如果解析失败则记录错误并设为None
+        let context = row.get::<_, Option<String>>(13)?
+            .and_then(|json| {
+                if json.len() > 100000 {
+                    // context_json过大，直接忽略
+                    eprintln!("警告: context_json过大 ({}字节)，已忽略", json.len());
+                    None
+                } else {
+                    match serde_json::from_str(&json) {
+                        Ok(ctx) => Some(ctx),
+                        Err(e) => {
+                            eprintln!("警告: 解析context_json失败: {}", e);
+                            None
+                        }
+                    }
+                }
+            });
+
+        // 读取备注字段，如果超过限制则截断
+        let notes: Option<String> = row.get(14)?;
+        let safe_notes = notes.map(|n| {
+            if n.len() > 5000 {
+                format!("{}...[内容过长已截断]", &n[..5000])
+            } else {
+                n
+            }
+        });
+
         Ok(Task {
             id: Some(row.get(0)?),
             title: row.get(1)?,
-            description: row.get(2)?,
+            description: safe_description,
             category: TaskCategory::from_str(&row.get::<_, String>(3)?),
             priority: TaskPriority::from_i32(row.get(4)?),
             status: TaskStatus::from_str(&row.get::<_, String>(5)?),
@@ -223,9 +305,8 @@ impl TaskService {
             completed_at: row.get(10)?,
             estimated_hours: row.get(11)?,
             actual_hours: row.get(12)?,
-            context: row.get::<_, Option<String>>(13)?
-                .and_then(|json| serde_json::from_str(&json).ok()),
-            notes: row.get(14)?,
+            context,
+            notes: safe_notes,
         })
     }
 }

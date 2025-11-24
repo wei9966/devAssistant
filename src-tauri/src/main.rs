@@ -94,6 +94,9 @@ fn main() {
             commands::work_log_commands::get_recent_work_logs,
             commands::work_log_commands::delete_work_log,
             commands::work_log_commands::get_all_work_logs,
+            // 数据库修复命令
+            commands::db_repair_commands::repair_database,
+            commands::db_repair_commands::get_database_stats,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");

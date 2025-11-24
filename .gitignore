@@ -18,6 +18,9 @@ dist-ssr
 dist/
 dist-ssr/
 
+# Keep distribution package (optional - comment out if you don't want to commit binaries)
+# !dist-package/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -78,3 +81,5 @@ Desktop.ini
 dist/**
 
 dist/index.html
+dist-package/**
+dist-package

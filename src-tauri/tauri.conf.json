@@ -29,11 +29,6 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "windows": {
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": ""
-    }
+    "targets": []
   }
 }

@@ -31,12 +31,15 @@ impl ClipboardService {
 
                     // 检查是否是新内容
                     if content != *last && !content.is_empty() {
-                        println!("检测到新的剪贴板内容 (前50字符): {}", &content[..50.min(content.len())]);
+                        // 安全地截取前50个字符（处理UTF-8字符边界）
+                        let preview = content.chars().take(50).collect::<String>();
+                        println!("检测到新的剪贴板内容 (前50字符): {}", preview);
                         *last = content.clone();
 
                         // 检查是否是 SQL 语句
                         if SqlService::is_valid_sql(&content) {
-                            println!("✓ 确认为 SQL 语句: {}", &content[..50.min(content.len())]);
+                            let preview = content.chars().take(50).collect::<String>();
+                            println!("✓ 确认为 SQL 语句: {}", preview);
 
                             // 保存到数据库
                             if let Ok(conn) = rusqlite::Connection::open(&db_path) {
