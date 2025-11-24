@@ -161,6 +161,7 @@ mod task_crud_tests {
             Some(TaskPriority::High),
             Some("feature/test-branch"),
             Some("测试备注"),
+            None, // quadrant
         ).unwrap();
 
         // 验证更新

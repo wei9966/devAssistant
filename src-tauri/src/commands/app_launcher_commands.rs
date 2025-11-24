@@ -362,6 +362,28 @@ pub async fn import_config(
     Ok(())
 }
 
+// ==================== 图标管理 ====================
+
+/// 刷新所有应用的图标
+#[tauri::command]
+pub async fn refresh_all_icons(db: State<'_, DbConnection>) -> Result<u32, String> {
+    let conn = db.0.clone();
+    let service = AppLauncherService::new(conn);
+    service.refresh_all_icons().await
+}
+
+/// 更新应用的自定义图标
+#[tauri::command]
+pub async fn update_app_icon(
+    db: State<'_, DbConnection>,
+    app_id: String,
+    icon_data: Option<String>,
+) -> Result<(), String> {
+    let conn = db.0.clone();
+    let service = AppLauncherService::new(conn);
+    service.update_app_icon(&app_id, icon_data).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

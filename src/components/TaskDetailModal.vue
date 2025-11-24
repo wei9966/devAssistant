@@ -1,0 +1,725 @@
+<template>
+  <n-modal
+    v-model:show="showModal"
+    preset="card"
+    :title="task?.title || '任务详情'"
+    class="task-detail-modal"
+    style="width: 700px; max-width: 90vw;"
+    :segmented="{
+      content: 'soft',
+      footer: 'soft'
+    }"
+  >
+    <div v-if="task" class="modal-content">
+      <!-- 任务头部信息 -->
+      <div class="task-header-section">
+        <div class="task-badges-row">
+          <Badge :type="getCategoryBadgeType(task.category)">
+            {{ CATEGORY_LABELS[task.category] || '其他' }}
+          </Badge>
+          <div class="priority-badge" :class="`priority-${getPriorityBadgeType(task.priority)}`">
+            <div class="priority-dot"></div>
+            <span>{{ PRIORITY_LABELS[task.priority] }}</span>
+          </div>
+          <div class="status-badge" :class="`status-${task.status}`">
+            {{ STATUS_LABELS[task.status] }}
+          </div>
+          <!-- 四象限标识 -->
+          <div
+            v-if="task.quadrant"
+            class="quadrant-badge"
+            :style="{
+              background: QUADRANT_CONFIG[task.quadrant].bgColor,
+              borderColor: QUADRANT_CONFIG[task.quadrant].borderColor,
+              color: QUADRANT_CONFIG[task.quadrant].color
+            }"
+          >
+            <n-icon size="14">
+              <GridOutline />
+            </n-icon>
+            <span>{{ QUADRANT_CONFIG[task.quadrant].shortLabel }}</span>
+          </div>
+        </div>
+
+        <!-- 标签展示 -->
+        <div v-if="task.tags && task.tags.length > 0" class="task-tags-row">
+          <div
+            v-for="tag in task.tags"
+            :key="tag.id"
+            class="task-tag"
+            :style="{
+              background: `${tag.color}30`,
+              color: tag.color,
+              borderColor: `${tag.color}60`
+            }"
+          >
+            <n-icon size="12">
+              <PricetagOutline />
+            </n-icon>
+            <span>{{ tag.name }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 任务描述 -->
+      <div v-if="task.description" class="detail-section">
+        <div class="section-header">
+          <n-icon size="18" class="section-icon">
+            <DocumentTextOutline />
+          </n-icon>
+          <span class="section-title">任务描述</span>
+        </div>
+        <div class="section-content">
+          <p class="description-text">{{ task.description }}</p>
+        </div>
+      </div>
+
+      <!-- 任务信息网格 -->
+      <div class="detail-section">
+        <div class="section-header">
+          <n-icon size="18" class="section-icon">
+            <InformationCircleOutline />
+          </n-icon>
+          <span class="section-title">任务信息</span>
+        </div>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">任务ID</span>
+            <span class="info-value">{{ task.id || 'N/A' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">分类</span>
+            <span class="info-value">{{ CATEGORY_LABELS[task.category] || '其他' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">优先级</span>
+            <span class="info-value">{{ PRIORITY_LABELS[task.priority] }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">状态</span>
+            <span class="info-value">{{ STATUS_LABELS[task.status] }}</span>
+          </div>
+          <div v-if="task.gitBranch" class="info-item">
+            <span class="info-label">Git分支</span>
+            <span class="info-value monospace">{{ task.gitBranch }}</span>
+          </div>
+          <div v-if="task.estimatedHours" class="info-item">
+            <span class="info-label">预估时长</span>
+            <span class="info-value">{{ task.estimatedHours }} 小时</span>
+          </div>
+          <div v-if="task.actualHours" class="info-item">
+            <span class="info-label">实际时长</span>
+            <span class="info-value">{{ task.actualHours }} 小时</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 时间信息 -->
+      <div class="detail-section">
+        <div class="section-header">
+          <n-icon size="18" class="section-icon">
+            <TimeOutline />
+          </n-icon>
+          <span class="section-title">时间轴</span>
+        </div>
+        <div class="timeline">
+          <div v-if="task.createdAt" class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <span class="timeline-label">创建时间</span>
+              <span class="timeline-value">{{ formatDateTime(task.createdAt) }}</span>
+              <span class="timeline-relative">{{ formatRelativeTime(task.createdAt) }}</span>
+            </div>
+          </div>
+          <div v-if="task.startedAt" class="timeline-item">
+            <div class="timeline-dot active"></div>
+            <div class="timeline-content">
+              <span class="timeline-label">开始时间</span>
+              <span class="timeline-value">{{ formatDateTime(task.startedAt) }}</span>
+              <span class="timeline-relative">{{ formatRelativeTime(task.startedAt) }}</span>
+            </div>
+          </div>
+          <div v-if="task.lastActiveAt" class="timeline-item">
+            <div class="timeline-dot active"></div>
+            <div class="timeline-content">
+              <span class="timeline-label">最后活跃</span>
+              <span class="timeline-value">{{ formatDateTime(task.lastActiveAt) }}</span>
+              <span class="timeline-relative">{{ formatRelativeTime(task.lastActiveAt) }}</span>
+            </div>
+          </div>
+          <div v-if="task.completedAt" class="timeline-item">
+            <div class="timeline-dot completed"></div>
+            <div class="timeline-content">
+              <span class="timeline-label">完成时间</span>
+              <span class="timeline-value">{{ formatDateTime(task.completedAt) }}</span>
+              <span class="timeline-relative">{{ formatRelativeTime(task.completedAt) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 工作上下文 -->
+      <div v-if="task.context" class="detail-section">
+        <div class="section-header">
+          <n-icon size="18" class="section-icon">
+            <CodeSlashOutline />
+          </n-icon>
+          <span class="section-title">工作上下文</span>
+        </div>
+        <div class="section-content">
+          <ContextViewer :context="task.context" />
+        </div>
+      </div>
+
+      <!-- 四象限选择器 -->
+      <div v-if="!readonly && isEditing" class="detail-section">
+        <QuadrantSelector v-model="editQuadrant" />
+      </div>
+
+      <!-- 标签选择器 -->
+      <div v-if="!readonly && isEditing" class="detail-section">
+        <TagSelector
+          v-model="editTagIds"
+          :available-tags="availableTags"
+          @manage="showTagManager = true"
+        />
+      </div>
+
+      <!-- 任务备注 -->
+      <div v-if="task.notes" class="detail-section">
+        <div class="section-header">
+          <n-icon size="18" class="section-icon">
+            <CreateOutline />
+          </n-icon>
+          <span class="section-title">备注</span>
+        </div>
+        <div class="section-content">
+          <p class="notes-text">{{ task.notes }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 标签管理弹窗 -->
+    <TagManager
+      v-model:show="showTagManager"
+      :tags="availableTags"
+      @create="handleCreateTag"
+      @update="handleUpdateTag"
+      @delete="handleDeleteTag"
+    />
+
+    <template #footer>
+      <n-space justify="end">
+        <n-button v-if="isEditing" @click="handleCancelEdit">取消</n-button>
+        <n-button v-else @click="handleClose">关闭</n-button>
+        <n-button v-if="!readonly && task?.status !== 'done' && !isEditing" type="primary" @click="startEdit">
+          编辑任务
+        </n-button>
+        <n-button v-if="isEditing" type="primary" @click="handleSaveEdit">
+          保存修改
+        </n-button>
+      </n-space>
+    </template>
+  </n-modal>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue';
+import { NModal, NIcon, NSpace, NButton, useMessage } from 'naive-ui';
+import {
+  DocumentTextOutline,
+  InformationCircleOutline,
+  TimeOutline,
+  CodeSlashOutline,
+  CreateOutline,
+  GridOutline,
+  PricetagOutline,
+} from '@vicons/ionicons5';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import 'dayjs/locale/zh-cn';
+import { CATEGORY_LABELS, PRIORITY_LABELS, STATUS_LABELS, QUADRANT_CONFIG } from '@/types/task';
+import type { Task, TaskQuadrant, Tag } from '@/types/task';
+import { tagApi } from '@/api/tagApi';
+import ContextViewer from './ContextViewer.vue';
+import Badge from './Badge.vue';
+import QuadrantSelector from './QuadrantSelector.vue';
+import TagSelector from './TagSelector.vue';
+import TagManager from './TagManager.vue';
+
+dayjs.extend(relativeTime);
+dayjs.locale('zh-cn');
+
+const message = useMessage();
+
+const props = withDefaults(
+  defineProps<{
+    task: Task | null;
+    show: boolean;
+    readonly?: boolean;
+  }>(),
+  {
+    readonly: false,
+  }
+);
+
+const emit = defineEmits<{
+  'update:show': [value: boolean];
+  'update': [task: Task, updates: Partial<Task>];
+}>();
+
+const showModal = computed({
+  get: () => props.show,
+  set: (value) => emit('update:show', value),
+});
+
+// 编辑状态
+const isEditing = ref(false);
+const editQuadrant = ref<TaskQuadrant>('urgent_not_important');
+const editTagIds = ref<number[]>([]);
+const showTagManager = ref(false);
+
+// 标签数据
+const availableTags = ref<Tag[]>([]);
+
+// 加载标签
+onMounted(async () => {
+  await loadTags();
+});
+
+async function loadTags() {
+  try {
+    availableTags.value = await tagApi.getAllTags();
+  } catch (error) {
+    console.error('加载标签失败:', error);
+  }
+}
+
+const handleClose = () => {
+  isEditing.value = false;
+  showModal.value = false;
+};
+
+const startEdit = () => {
+  if (props.task) {
+    isEditing.value = true;
+    editQuadrant.value = props.task.quadrant || 'urgent_not_important';
+    editTagIds.value = props.task.tags?.map(t => t.id!).filter(id => id !== undefined) || [];
+  }
+};
+
+const handleCancelEdit = () => {
+  isEditing.value = false;
+};
+
+const handleSaveEdit = async () => {
+  if (props.task) {
+    const updates: Partial<Task> = {
+      quadrant: editQuadrant.value,
+    };
+
+    // 调用emit更新任务基本信息(包括四象限)
+    emit('update', props.task, updates);
+
+    // 单独处理标签的更新
+    try {
+      await tagApi.removeAllTagsFromTask(props.task.id!);
+      if (editTagIds.value.length > 0) {
+        await tagApi.addTagsToTask(props.task.id!, editTagIds.value);
+      }
+      message.success('任务更新成功');
+    } catch (error) {
+      console.error('更新标签失败:', error);
+      message.warning('任务更新成功,但标签更新失败');
+    }
+
+    isEditing.value = false;
+  }
+};
+
+// 标签管理回调
+const handleCreateTag = async (tag: Omit<Tag, 'id'>) => {
+  try {
+    await tagApi.createTag(tag.name, tag.color);
+    await loadTags();
+    message.success('标签创建成功');
+  } catch (error) {
+    console.error('创建标签失败:', error);
+    message.error('创建标签失败');
+  }
+};
+
+const handleUpdateTag = async (id: number, updates: Partial<Tag>) => {
+  try {
+    await tagApi.updateTag(id, updates.name!, updates.color!);
+    await loadTags();
+    message.success('标签更新成功');
+  } catch (error) {
+    console.error('更新标签失败:', error);
+    message.error('更新标签失败');
+  }
+};
+
+const handleDeleteTag = async (id: number) => {
+  try {
+    await tagApi.deleteTag(id);
+    await loadTags();
+    editTagIds.value = editTagIds.value.filter(tagId => tagId !== id);
+    message.success('标签删除成功');
+  } catch (error) {
+    console.error('删除标签失败:', error);
+    message.error('删除标签失败');
+  }
+};
+
+// 重置编辑状态
+watch(() => props.show, (newVal) => {
+  if (!newVal) {
+    isEditing.value = false;
+  }
+});
+
+const formatDateTime = (dateString: string) => {
+  return dayjs(dateString).format('YYYY-MM-DD HH:mm:ss');
+};
+
+const formatRelativeTime = (dateString: string) => {
+  return dayjs(dateString).fromNow();
+};
+
+const getCategoryBadgeType = (category: string | undefined) => {
+  if (!category) return 'default';
+  const categoryMap: Record<string, 'Backend' | 'Database' | 'Feature' | 'Docs' | 'default'> = {
+    'backend': 'Backend',
+    'database': 'Database',
+    'feature': 'Feature',
+    'docs': 'Docs',
+    'dev': 'Backend',
+    'ops': 'Database',
+    'study': 'Feature',
+  };
+  return categoryMap[category] || 'default';
+};
+
+const getPriorityBadgeType = (priority: number) => {
+  const priorityMap: Record<number, 'high' | 'medium' | 'low'> = {
+    1: 'high',
+    2: 'medium',
+    3: 'low',
+  };
+  return priorityMap[priority] || 'medium';
+};
+</script>
+
+<style scoped>
+.task-detail-modal {
+  border-radius: 16px;
+}
+
+.modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  color: #e2e8f0;
+}
+
+/* 任务头部 */
+.task-header-section {
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-badges-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.quadrant-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.task-tags-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.task-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.priority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.priority-badge .priority-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.priority-badge.priority-high {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fca5a5;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+.priority-badge.priority-high .priority-dot {
+  background: #f43f5e;
+  box-shadow: 0 0 6px rgba(244, 63, 94, 0.6);
+}
+
+.priority-badge.priority-medium {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.priority-badge.priority-medium .priority-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+}
+
+.priority-badge.priority-low {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.priority-badge.priority-low .priority-dot {
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.status-todo {
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+}
+
+.status-badge.status-active {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.status-badge.status-done {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-badge.status-deferred {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* 详情区块 */
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.section-icon {
+  color: #6366f1;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #cbd5e1;
+  letter-spacing: -0.01em;
+}
+
+.section-content {
+  padding-left: 26px;
+}
+
+/* 描述文本 */
+.description-text {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #cbd5e1;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 信息网格 */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  padding-left: 26px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.info-value {
+  font-size: 14px;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.monospace {
+  font-family: 'Consolas', 'Monaco', monospace;
+  background: rgba(15, 23, 42, 0.5);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+/* 时间轴 */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-left: 26px;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  position: relative;
+}
+
+.timeline-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 16px;
+  width: 1px;
+  height: calc(100% + 16px);
+  background: rgba(51, 65, 85, 0.5);
+}
+
+.timeline-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #64748b;
+  border: 2px solid rgba(15, 23, 42, 1);
+  flex-shrink: 0;
+  margin-top: 4px;
+  position: relative;
+  z-index: 1;
+}
+
+.timeline-dot.active {
+  background: #6366f1;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+}
+
+.timeline-dot.completed {
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+}
+
+.timeline-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.timeline-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.timeline-value {
+  font-size: 14px;
+  color: #e2e8f0;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.timeline-relative {
+  font-size: 12px;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* 备注文本 */
+.notes-text {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #94a3b8;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-style: italic;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 8px;
+  border-left: 3px solid #6366f1;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

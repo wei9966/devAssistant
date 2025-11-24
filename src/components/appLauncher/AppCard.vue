@@ -1,12 +1,18 @@
 <template>
-  <n-card class="app-card" :class="{ pinned: app.isPinned, hidden: app.isHidden }">
+  <n-card
+    class="app-card"
+    :class="{ pinned: app.isPinned, hidden: app.isHidden, dragging: isDragging }"
+    draggable="true"
+    @dragstart="handleDragStart"
+    @dragend="handleDragEnd"
+  >
     <!-- Hover Glow Effect -->
     <div class="hover-glow"></div>
 
-    <div class="card-content" @click="handleLaunch">
+    <div class="card-content" @click="handleLaunch" @dragstart.stop>
       <!-- 应用图标 -->
       <div class="app-icon">
-        <img v-if="app.icon" :src="app.icon" :alt="app.name" @error="handleIconError" />
+        <img v-if="app.icon" :src="app.icon" :alt="app.name" @error="handleIconError" draggable="false" />
         <div v-else class="icon-placeholder">
           <n-icon size="32"><AppsOutline /></n-icon>
         </div>
@@ -55,7 +61,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { NCard, NButton, NIcon, useDialog } from 'naive-ui';
+import { NCard, NButton, NIcon } from 'naive-ui';
 import { AppsOutline, CreateOutline, TrashOutline, Pin } from '@vicons/ionicons5';
 import type { AppItem } from '@/types/appLauncher';
 
@@ -68,12 +74,19 @@ const emit = defineEmits<{
   pin: [appId: string];
   edit: [app: AppItem];
   delete: [appId: string];
+  dragstart: [app: AppItem];
+  dragend: [];
 }>();
 
-const dialog = useDialog();
+const isDragging = ref(false);
 const iconError = ref(false);
+const dragStartTime = ref(0);
 
 const handleLaunch = () => {
+  // 如果刚刚拖拽过，不触发点击
+  if (Date.now() - dragStartTime.value < 200) {
+    return;
+  }
   emit('launch', props.app.id);
 };
 
@@ -86,19 +99,32 @@ const handleEdit = () => {
 };
 
 const handleDelete = () => {
-  dialog.warning({
-    title: '删除应用',
-    content: `确定要删除 "${props.app.name}" 吗？`,
-    positiveText: '删除',
-    negativeText: '取消',
-    onPositiveClick: () => {
-      emit('delete', props.app.id);
-    },
-  });
+  // 直接触发删除事件，由父组件处理确认逻辑
+  emit('delete', props.app.id);
 };
 
 const handleIconError = () => {
   iconError.value = true;
+};
+
+const handleDragStart = (e: DragEvent) => {
+  e.stopPropagation(); // 阻止事件冒泡
+  isDragging.value = true;
+  dragStartTime.value = Date.now();
+
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/json', JSON.stringify(props.app));
+  }
+  emit('dragstart', props.app);
+};
+
+const handleDragEnd = (e: DragEvent) => {
+  isDragging.value = false;
+  if (e.target instanceof HTMLElement) {
+    e.target.style.opacity = '1';
+  }
+  emit('dragend');
 };
 </script>
 
@@ -110,8 +136,16 @@ const handleIconError = () => {
   border-radius: 16px !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
-  cursor: pointer;
+  cursor: grab;
   height: 160px;
+  user-select: none;
+  -webkit-user-drag: element;
+}
+
+.app-card.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+  transform: scale(0.95);
 }
 
 .app-card :deep(.n-card__content) {
@@ -160,6 +194,7 @@ const handleIconError = () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  pointer-events: none;
   gap: 12px;
   position: relative;
 }

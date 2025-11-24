@@ -18,6 +18,8 @@ pub struct Task {
     pub actual_hours: Option<f32>,
     pub context: Option<WorkContext>,
     pub notes: Option<String>,
+    pub quadrant: Option<TaskQuadrant>,
+    pub tags: Option<Vec<Tag>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -146,4 +148,54 @@ pub struct ImportResult {
     pub success: usize,
     pub failed: usize,
     pub errors: Vec<String>,
+}
+
+/// 四象限枚举（基于紧急和重要程度）
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskQuadrant {
+    UrgentImportant,        // 紧急且重要
+    UrgentNotImportant,     // 紧急不重要
+    NotUrgentImportant,     // 不紧急但重要
+    NotUrgentNotImportant,  // 不紧急不重要
+}
+
+impl TaskQuadrant {
+    pub fn as_str(&self) -> &str {
+        match self {
+            TaskQuadrant::UrgentImportant => "urgent_important",
+            TaskQuadrant::UrgentNotImportant => "urgent_not_important",
+            TaskQuadrant::NotUrgentImportant => "not_urgent_important",
+            TaskQuadrant::NotUrgentNotImportant => "not_urgent_not_important",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "urgent_important" => TaskQuadrant::UrgentImportant,
+            "urgent_not_important" => TaskQuadrant::UrgentNotImportant,
+            "not_urgent_important" => TaskQuadrant::NotUrgentImportant,
+            "not_urgent_not_important" => TaskQuadrant::NotUrgentNotImportant,
+            _ => TaskQuadrant::UrgentNotImportant, // 默认值
+        }
+    }
+}
+
+/// 标签结构
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Tag {
+    pub id: Option<i64>,
+    pub name: String,
+    pub color: String,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
+}
+
+/// 四象限统计结构
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuadrantStatistics {
+    pub quadrant: String,
+    pub count: i64,
 }

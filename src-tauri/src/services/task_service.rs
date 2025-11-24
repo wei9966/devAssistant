@@ -1,6 +1,6 @@
 use rusqlite::{params, Connection};
 use anyhow::Result;
-use crate::models::task::{Task, TaskStatus, TaskCategory, TaskPriority, WorkContext, ImportTask, ImportResult};
+use crate::models::task::{Task, TaskStatus, TaskCategory, TaskPriority, TaskQuadrant, WorkContext, ImportTask, ImportResult};
 
 pub struct TaskService;
 
@@ -10,7 +10,7 @@ impl TaskService {
         let mut stmt = conn.prepare(
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
-                    estimated_hours, actual_hours, context_json, notes
+                    estimated_hours, actual_hours, context_json, notes, quadrant
              FROM tasks
              WHERE status != 'done'
              ORDER BY priority ASC, last_active_at DESC"
@@ -29,7 +29,7 @@ impl TaskService {
         let mut stmt = conn.prepare(
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
-                    estimated_hours, actual_hours, context_json, notes
+                    estimated_hours, actual_hours, context_json, notes, quadrant
              FROM tasks
              WHERE status = 'done'
                AND completed_at >= datetime('now', ? || ' days')
@@ -147,6 +147,7 @@ impl TaskService {
         priority: Option<TaskPriority>,
         git_branch: Option<&str>,
         notes: Option<&str>,
+        quadrant: Option<TaskQuadrant>,
     ) -> Result<()> {
         // 验证标题
         if let Some(t) = title {
@@ -201,6 +202,10 @@ impl TaskService {
             let trimmed = n.trim();
             params_vec.push(Box::new(if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }));
         }
+        if let Some(q) = quadrant {
+            updates.push("quadrant = ?");
+            params_vec.push(Box::new(q.as_str().to_string()));
+        }
 
         if updates.is_empty() {
             return Ok(());
@@ -234,7 +239,7 @@ impl TaskService {
         let mut stmt = conn.prepare(
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
-                    estimated_hours, actual_hours, context_json, notes
+                    estimated_hours, actual_hours, context_json, notes, quadrant
              FROM tasks
              WHERE status = 'todo'
                AND created_at < datetime('now', ? || ' days')
@@ -391,6 +396,45 @@ impl TaskService {
         serde_json::to_string_pretty(&template).unwrap()
     }
 
+    /// 按四象限筛选任务
+    pub fn get_tasks_by_quadrant(conn: &Connection, quadrant: TaskQuadrant) -> Result<Vec<Task>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, title, description, category, priority, status, git_branch,
+                    created_at, started_at, last_active_at, completed_at,
+                    estimated_hours, actual_hours, context_json, notes, quadrant
+             FROM tasks
+             WHERE status != 'done' AND quadrant = ?
+             ORDER BY priority ASC, last_active_at DESC"
+        )?;
+
+        let tasks = stmt.query_map(params![quadrant.as_str()], |row| {
+            Self::map_row_to_task(row)
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(tasks)
+    }
+
+    /// 统计各象限任务数量
+    pub fn get_quadrant_statistics(conn: &Connection) -> Result<Vec<(String, i64)>> {
+        let mut stmt = conn.prepare(
+            "SELECT quadrant, COUNT(*) as count
+             FROM tasks
+             WHERE status != 'done'
+             GROUP BY quadrant"
+        )?;
+
+        let stats = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?
+            ))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(stats)
+    }
+
     /// 辅助方法：将数据库行映射为 Task 对象
     fn map_row_to_task(row: &rusqlite::Row) -> rusqlite::Result<Task> {
         // 读取描述字段，如果超过限制则截断
@@ -431,6 +475,10 @@ impl TaskService {
             }
         });
 
+        // 读取 quadrant 字段
+        let quadrant_str: Option<String> = row.get(15)?;
+        let quadrant = quadrant_str.map(|s| TaskQuadrant::from_str(&s));
+
         Ok(Task {
             id: Some(row.get(0)?),
             title: row.get(1)?,
@@ -447,6 +495,8 @@ impl TaskService {
             actual_hours: row.get(12)?,
             context,
             notes: safe_notes,
+            quadrant,
+            tags: None, // 标签需要单独查询，暂时设为 None
         })
     }
 }

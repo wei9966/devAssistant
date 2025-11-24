@@ -6,8 +6,14 @@
         v-for="category in categories"
         :key="category.id"
         class="category-tab"
-        :class="{ active: selectedCategory === category.id }"
+        :class="{
+          active: selectedCategory === category.id,
+          'drag-over': dragOverCategory === category.id
+        }"
         @click="handleSelectCategory(category.id)"
+        @dragover.prevent="handleDragOver(category.id, $event)"
+        @dragleave="handleDragLeave"
+        @drop.prevent="handleDrop(category.id, $event)"
       >
         <span v-if="category.icon" class="category-icon">{{ category.icon }}</span>
         <span class="category-name">{{ category.name }}</span>
@@ -56,7 +62,10 @@ const emit = defineEmits<{
   'update:selectedCategory': [categoryId: string];
   select: [categoryId: string];
   manage: [];
+  drop: [categoryId: string, appData: any];
 }>();
+
+const dragOverCategory = ref<string | null>(null);
 
 const categoryTabsRef = ref<HTMLDivElement>();
 const showScrollIndicator = ref(false);
@@ -75,6 +84,31 @@ const handleSelectCategory = (categoryId: string) => {
 // 管理分类
 const handleManageCategories = () => {
   emit('manage');
+};
+
+// 拖放处理
+const handleDragOver = (categoryId: string, e: DragEvent) => {
+  dragOverCategory.value = categoryId;
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move';
+  }
+};
+
+const handleDragLeave = () => {
+  dragOverCategory.value = null;
+};
+
+const handleDrop = (categoryId: string, e: DragEvent) => {
+  dragOverCategory.value = null;
+
+  if (e.dataTransfer) {
+    try {
+      const appData = JSON.parse(e.dataTransfer.getData('application/json'));
+      emit('drop', categoryId, appData);
+    } catch (error) {
+      console.error('解析拖放数据失败:', error);
+    }
+  }
 };
 
 // 滚动控制
@@ -163,6 +197,23 @@ onMounted(() => {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.1));
   border-color: #6366f1;
   box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2), 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+.category-tab.drag-over {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1));
+  border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3), 0 4px 16px rgba(34, 197, 94, 0.2);
+  transform: scale(1.05);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3), 0 4px 16px rgba(34, 197, 94, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.4), 0 4px 20px rgba(34, 197, 94, 0.3);
+  }
 }
 
 .category-icon {

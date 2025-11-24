@@ -6,6 +6,9 @@ use crate::models::AppItem;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
+#[cfg(target_os = "windows")]
+use base64::{engine::general_purpose, Engine as _};
+
 /// 应用扫描服务
 pub struct AppScannerService;
 
@@ -108,8 +111,11 @@ impl AppScannerService {
                                 let target_path = path.to_string_lossy().to_string();
                                 let app_id = Self::generate_app_id(&app_name, &target_path);
 
-                                let mut app = AppItem::new(app_id, app_name, target_path);
+                                let mut app = AppItem::new(app_id, app_name, target_path.clone());
                                 app.category = Some(Self::auto_categorize(&app.name, &app.path));
+
+                                // 提取图标
+                                app.icon = Self::extract_icon_base64(&path);
 
                                 apps.push(app);
                             }
@@ -258,6 +264,9 @@ impl AppScannerService {
 
         // 尝试自动分类（基于目标程序路径进行分类）
         app.category = Some(Self::auto_categorize(&app.name, &target_path));
+
+        // 提取图标（从目标程序提取）
+        app.icon = Self::extract_icon_base64(Path::new(&target_path));
 
         Ok(app)
     }
@@ -549,6 +558,64 @@ impl AppScannerService {
         app.category = Some(Self::auto_categorize(&app.name, &app.path));
 
         Ok(app)
+    }
+
+    /// 提取文件图标并转换为base64
+    #[cfg(target_os = "windows")]
+    pub fn extract_icon_base64(file_path: &Path) -> Option<String> {
+        use std::process::Command;
+
+        // 使用PowerShell提取图标
+        // 我们将使用一个简单的方法：调用PowerShell脚本提取图标到临时文件
+        let temp_icon = std::env::temp_dir().join(format!("icon_{}.png", std::process::id()));
+
+        let ps_script = format!(
+            r#"
+            Add-Type -AssemblyName System.Drawing
+            $path = '{}'
+            $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
+            if ($icon) {{
+                $bitmap = $icon.ToBitmap()
+                $bitmap.Save('{}', [System.Drawing.Imaging.ImageFormat]::Png)
+                $bitmap.Dispose()
+                $icon.Dispose()
+            }}
+            "#,
+            file_path.display().to_string().replace("'", "''"),
+            temp_icon.display().to_string().replace("'", "''")
+        );
+
+        let output = Command::new("powershell")
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
+            .arg("-NoProfile")
+            .arg("-NonInteractive")
+            .arg("-Command")
+            .arg(&ps_script)
+            .output();
+
+        if output.is_err() {
+            return None;
+        }
+
+        // 读取临时图标文件并转换为base64
+        if temp_icon.exists() {
+            if let Ok(icon_data) = fs::read(&temp_icon) {
+                // 清理临时文件
+                let _ = fs::remove_file(&temp_icon);
+
+                // 转换为base64
+                let base64_icon = general_purpose::STANDARD.encode(&icon_data);
+                return Some(format!("data:image/png;base64,{}", base64_icon));
+            }
+        }
+
+        None
+    }
+
+    /// 非Windows平台的图标提取（占位）
+    #[cfg(not(target_os = "windows"))]
+    pub fn extract_icon_base64(_file_path: &Path) -> Option<String> {
+        None
     }
 }
 

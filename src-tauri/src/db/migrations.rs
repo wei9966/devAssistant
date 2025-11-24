@@ -34,6 +34,16 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     // 创建 app_settings 表
     create_app_settings_table(conn)?;
 
+    // 创建标签相关表
+    create_tags_table(conn)?;
+    create_tags_indexes(conn)?;
+
+    create_task_tags_table(conn)?;
+    create_task_tags_indexes(conn)?;
+
+    // 迁移 tasks 表：添加 quadrant 字段
+    migrate_tasks_add_quadrant(conn)?;
+
     Ok(())
 }
 
@@ -689,6 +699,135 @@ mod tests {
             .unwrap();
         assert!(index_count >= 2); // 至少有2个索引
     }
+
+    #[test]
+    fn test_tags_table_created() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+
+        // 验证 tags 表已创建
+        let table_exists: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='tags'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(table_exists, 1);
+
+        // 测试插入标签
+        let result = conn.execute(
+            "INSERT INTO tags (name, color) VALUES (?, ?)",
+            ["测试标签", "#FF5733"],
+        );
+        assert!(result.is_ok());
+
+        // 验证数据已插入
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tags", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_task_tags_table_created() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+
+        // 验证 task_tags 表已创建
+        let table_exists: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='task_tags'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(table_exists, 1);
+
+        // 先创建一个任务和一个标签
+        conn.execute(
+            "INSERT INTO tasks (title, description, category, priority, status) VALUES (?, ?, ?, ?, ?)",
+            ["测试任务", "测试描述", "dev", "1", "todo"],
+        )
+        .unwrap();
+
+        conn.execute(
+            "INSERT INTO tags (name, color) VALUES (?, ?)",
+            ["测试标签", "#FF5733"],
+        )
+        .unwrap();
+
+        // 测试插入任务-标签关联
+        let result = conn.execute(
+            "INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)",
+            ["1", "1"],
+        );
+        assert!(result.is_ok());
+
+        // 验证数据已插入
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM task_tags", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_tasks_quadrant_field() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+
+        // 验证 quadrant 字段存在
+        let has_quadrant: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name='quadrant'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(has_quadrant, 1);
+
+        // 测试插入带 quadrant 的任务
+        let result = conn.execute(
+            "INSERT INTO tasks (title, description, category, priority, status, quadrant)
+             VALUES (?, ?, ?, ?, ?, ?)",
+            ["测试任务", "测试描述", "dev", "1", "todo", "urgent_important"],
+        );
+        assert!(result.is_ok());
+
+        // 验证 quadrant 值正确
+        let quadrant: String = conn
+            .query_row(
+                "SELECT quadrant FROM tasks WHERE title = ?",
+                ["测试任务"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(quadrant, "urgent_important");
+    }
+
+    #[test]
+    fn test_quadrant_default_value() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+
+        // 插入不指定 quadrant 的任务
+        conn.execute(
+            "INSERT INTO tasks (title, description, category, priority, status)
+             VALUES (?, ?, ?, ?, ?)",
+            ["测试任务", "测试描述", "dev", "1", "todo"],
+        )
+        .unwrap();
+
+        // 验证默认值为 urgent_not_important
+        let quadrant: String = conn
+            .query_row(
+                "SELECT quadrant FROM tasks WHERE title = ?",
+                ["测试任务"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(quadrant, "urgent_not_important");
+    }
 }
 
 /// 创建 app_settings 表（应用设置）
@@ -701,6 +840,104 @@ fn create_app_settings_table(conn: &Connection) -> Result<()> {
         )",
         [],
     )?;
+
+    Ok(())
+}
+
+/// 创建 tags 表（标签）
+fn create_tags_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            color TEXT NOT NULL DEFAULT '#6366f1',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 tags 表索引
+fn create_tags_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tags_created_at ON tags(created_at DESC)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 task_tags 关联表（任务-标签多对多关系）
+fn create_task_tags_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS task_tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+            UNIQUE(task_id, tag_id)
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 task_tags 表索引
+fn create_task_tags_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_task_tags_task_id ON task_tags(task_id)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_task_tags_tag_id ON task_tags(tag_id)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 迁移 tasks 表：添加 quadrant 字段（四象限）
+fn migrate_tasks_add_quadrant(conn: &Connection) -> Result<()> {
+    // 检查 quadrant 列是否存在
+    let has_quadrant: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name='quadrant'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_quadrant == 0 {
+        // 添加 quadrant 列
+        conn.execute(
+            "ALTER TABLE tasks ADD COLUMN quadrant TEXT DEFAULT 'urgent_not_important'",
+            [],
+        )?;
+
+        // 为所有现有任务设置默认值
+        conn.execute(
+            "UPDATE tasks SET quadrant = 'urgent_not_important' WHERE quadrant IS NULL",
+            [],
+        )?;
+
+        println!("✓ 已添加 quadrant 列到 tasks 表，默认值为 'urgent_not_important'");
+
+        // 创建索引以提高查询性能
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tasks_quadrant ON tasks(quadrant)",
+            [],
+        )?;
+    }
 
     Ok(())
 }

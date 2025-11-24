@@ -17,14 +17,31 @@ export const taskApi = {
     title: string,
     description?: string,
     category: string = 'other',
-    priority: number = 2
+    priority: number = 2,
+    quadrant?: string
   ): Promise<number> {
-    return await invoke('create_task', {
+    const taskId = await invoke<number>('create_task', {
       title,
       description: description || null,
       category,
       priority
     });
+
+    // 如果指定了四象限,更新任务
+    if (quadrant && taskId) {
+      await invoke('update_task', {
+        taskId,
+        title: null,
+        description: null,
+        category: null,
+        priority: null,
+        gitBranch: null,
+        notes: null,
+        quadrant
+      });
+    }
+
+    return taskId;
   },
 
   // 开始任务
@@ -57,6 +74,7 @@ export const taskApi = {
       priority?: number;
       gitBranch?: string;
       notes?: string;
+      quadrant?: string;
     }
   ): Promise<void> {
     await invoke('update_task', {
@@ -67,6 +85,7 @@ export const taskApi = {
       priority: updates.priority || null,
       gitBranch: updates.gitBranch || null,
       notes: updates.notes || null,
+      quadrant: updates.quadrant || null,
     });
   },
 

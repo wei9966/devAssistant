@@ -25,6 +25,62 @@
       </n-space>
     </div>
 
+    <!-- 筛选器 -->
+    <div class="filters-section">
+      <n-space align="center" :size="16">
+        <!-- 四象限筛选 -->
+        <div class="filter-group">
+          <span class="filter-label">
+            <n-icon size="14"><GridOutline /></n-icon>
+            四象限:
+          </span>
+          <n-select
+            v-model:value="filterQuadrant"
+            :options="quadrantFilterOptions"
+            placeholder="全部"
+            clearable
+            style="width: 160px"
+            size="small"
+          />
+        </div>
+
+        <!-- 标签筛选 -->
+        <div class="filter-group">
+          <span class="filter-label">
+            <n-icon size="14"><PricetagsOutline /></n-icon>
+            标签:
+          </span>
+          <n-select
+            v-model:value="filterTags"
+            :options="tagFilterOptions"
+            placeholder="全部标签"
+            multiple
+            clearable
+            style="width: 200px"
+            size="small"
+          />
+        </div>
+
+        <!-- 重置筛选 -->
+        <n-button
+          v-if="filterQuadrant || filterTags.length > 0"
+          text
+          size="small"
+          @click="resetFilters"
+        >
+          <template #icon>
+            <n-icon><CloseCircleOutline /></n-icon>
+          </template>
+          重置筛选
+        </n-button>
+
+        <!-- 筛选结果统计 -->
+        <span v-if="isFiltering" class="filter-stats">
+          筛选结果: {{ filteredTasksCount }} 个任务
+        </span>
+      </n-space>
+    </div>
+
     <!-- Three Column Board -->
     <div class="board-columns">
       <!-- 待办列 -->
@@ -39,7 +95,7 @@
 
         <div class="column-content custom-scrollbar">
           <TaskCard
-            v-for="task in taskStore.todoTasks"
+            v-for="task in filteredTodoTasks"
             :key="task.id"
             :task="task"
             @start="handleStart"
@@ -47,22 +103,24 @@
             @edit="handleEdit"
             @delete="handleDelete"
             @defer="handleDefer"
+            @click="handleTaskClick"
             class="task-card-item"
           />
 
-          <div v-if="taskStore.deferredTasks.length > 0" class="deferred-section">
+          <div v-if="filteredDeferredTasks.length > 0" class="deferred-section">
             <div class="deferred-header">
               <span class="deferred-title">延后任务</span>
-              <span class="deferred-count">{{ taskStore.deferredTasks.length }}</span>
+              <span class="deferred-count">{{ filteredDeferredTasks.length }}</span>
             </div>
             <TaskCard
-              v-for="task in taskStore.deferredTasks"
+              v-for="task in filteredDeferredTasks"
               :key="task.id"
               :task="task"
               @start="handleStart"
               @complete="handleComplete"
               @edit="handleEdit"
               @delete="handleDelete"
+              @click="handleTaskClick"
               class="task-card-item deferred-task"
             />
           </div>
@@ -86,17 +144,18 @@
 
         <div class="column-content custom-scrollbar">
           <TaskCard
-            v-for="task in taskStore.activeTasks"
+            v-for="task in filteredActiveTasks"
             :key="task.id"
             :task="task"
             @pause="handlePause"
             @complete="handleComplete"
             @edit="handleEdit"
+            @click="handleTaskClick"
             class="task-card-item"
           />
 
           <n-empty
-            v-if="taskStore.activeTasks.length === 0"
+            v-if="filteredActiveTasks.length === 0"
             description="暂无进行中的任务"
             class="empty-placeholder"
           />
@@ -115,15 +174,16 @@
 
         <div class="column-content custom-scrollbar">
           <TaskCard
-            v-for="task in taskStore.completedTasks"
+            v-for="task in filteredCompletedTasks"
             :key="task.id"
             :task="task"
+            @click="handleTaskClick"
             readonly
             class="task-card-item"
           />
 
           <n-empty
-            v-if="taskStore.completedTasks.length === 0"
+            v-if="filteredCompletedTasks.length === 0"
             description="暂无已完成任务"
             class="empty-placeholder"
           />
@@ -132,39 +192,52 @@
     </div>
 
     <!-- 创建/编辑任务对话框 -->
-    <n-modal v-model:show="showCreateModal" preset="card" :title="isEditing ? '编辑任务' : '新建任务'" style="width: 600px">
-      <n-form ref="formRef" :model="formData" :rules="formRules">
-        <n-form-item label="任务标题" path="title">
-          <n-input
-            v-model:value="formData.title"
-            placeholder="请输入任务标题"
-            :maxlength="200"
-            show-count
-          />
-        </n-form-item>
-        <n-form-item label="任务描述" path="description">
-          <n-input
-            v-model:value="formData.description"
-            type="textarea"
-            placeholder="请输入任务描述（最多10000字符）"
-            :rows="3"
-            :maxlength="10000"
-            show-count
-          />
-        </n-form-item>
-        <n-form-item label="分类" path="category">
-          <n-select
-            v-model:value="formData.category"
-            :options="categoryOptions"
-          />
-        </n-form-item>
-        <n-form-item label="优先级" path="priority">
-          <n-select
-            v-model:value="formData.priority"
-            :options="priorityOptions"
-          />
-        </n-form-item>
-      </n-form>
+    <n-modal v-model:show="showCreateModal" preset="card" :title="isEditing ? '编辑任务' : '新建任务'" style="width: 700px; max-height: 90vh;">
+      <div style="max-height: 70vh; overflow-y: auto; padding-right: 8px;">
+        <n-form ref="formRef" :model="formData" :rules="formRules">
+          <n-form-item label="任务标题" path="title">
+            <n-input
+              v-model:value="formData.title"
+              placeholder="请输入任务标题"
+              :maxlength="200"
+              show-count
+            />
+          </n-form-item>
+          <n-form-item label="任务描述" path="description">
+            <n-input
+              v-model:value="formData.description"
+              type="textarea"
+              placeholder="请输入任务描述（最多10000字符）"
+              :rows="3"
+              :maxlength="10000"
+              show-count
+            />
+          </n-form-item>
+          <!-- 分类选择器 -->
+          <n-form-item label="分类" path="category">
+            <CategorySelector v-model="formData.category" />
+          </n-form-item>
+
+          <!-- 四象限选择器 -->
+          <n-form-item label="四象限" path="quadrant">
+            <QuadrantSelector v-model="formData.quadrant" />
+          </n-form-item>
+
+          <!-- 优先级和标签在同一行 -->
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px;">
+            <n-form-item label="优先级" path="priority">
+              <PrioritySelector v-model="formData.priority" />
+            </n-form-item>
+            <n-form-item label="标签" path="tagIds">
+              <TagSelector
+                v-model="formData.tagIds"
+                :available-tags="availableTags"
+                @manage="showTagManager = true"
+              />
+            </n-form-item>
+          </div>
+        </n-form>
+      </div>
       <template #footer>
         <n-space justify="end">
           <n-button @click="handleCancelEdit">取消</n-button>
@@ -179,32 +252,67 @@
     <n-modal v-model:show="showImportModal" :mask-closable="false">
       <TaskImport @close="showImportModal = false" @success="handleImportSuccess" />
     </n-modal>
+
+    <!-- 任务详情弹窗 -->
+    <TaskDetailModal
+      :task="selectedTask"
+      v-model:show="showDetailModal"
+      @update="handleTaskUpdate"
+    />
+
+    <!-- 标签管理弹窗 -->
+    <TagManager
+      v-model:show="showTagManager"
+      :tags="availableTags"
+      @create="handleCreateTag"
+      @update="handleUpdateTag"
+      @delete="handleDeleteTag"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { NCard, NSpace, NButton, NIcon, NEmpty, NCollapse, NCollapseItem, NModal, NForm, NFormItem, NInput, NSelect, useMessage } from 'naive-ui';
-import { AddOutline, RefreshOutline, CloudUploadOutline } from '@vicons/ionicons5';
+import { AddOutline, RefreshOutline, CloudUploadOutline, GridOutline, PricetagsOutline, CloseCircleOutline } from '@vicons/ionicons5';
 import { useTaskStore } from '@/stores/taskStore';
+import { tagApi } from '@/api/tagApi';
 import TaskCard from '@/components/TaskCard.vue';
 import TaskImport from '@/components/TaskImport.vue';
-import { CATEGORY_LABELS, PRIORITY_LABELS } from '@/types/task';
-import type { Task } from '@/types/task';
+import TaskDetailModal from '@/components/TaskDetailModal.vue';
+import QuadrantSelector from '@/components/QuadrantSelector.vue';
+import TagSelector from '@/components/TagSelector.vue';
+import TagManager from '@/components/TagManager.vue';
+import PrioritySelector from '@/components/PrioritySelector.vue';
+import CategorySelector from '@/components/CategorySelector.vue';
+import { CATEGORY_LABELS, PRIORITY_LABELS, QUADRANT_LABELS } from '@/types/task';
+import type { Task, TaskQuadrant, Tag } from '@/types/task';
 
 const taskStore = useTaskStore();
 const message = useMessage();
 const showCreateModal = ref(false);
 const showImportModal = ref(false);
+const showDetailModal = ref(false);
+const showTagManager = ref(false);
+const selectedTask = ref<Task | null>(null);
 const formRef = ref();
 const isEditing = ref(false);
 const editingTaskId = ref<number | null>(null);
+
+// 标签数据
+const availableTags = ref<Tag[]>([]);
+
+// 筛选器状态
+const filterQuadrant = ref<TaskQuadrant | null>(null);
+const filterTags = ref<number[]>([]);
 
 const formData = reactive({
   title: '',
   description: '',
   category: 'other' as Task['category'],
   priority: 2 as Task['priority'],
+  quadrant: 'urgent_not_important' as TaskQuadrant,
+  tagIds: [] as number[],
 });
 
 const formRules = {
@@ -225,9 +333,77 @@ const priorityOptions = Object.entries(PRIORITY_LABELS).map(([value, label]) => 
   value: Number(value),
 }));
 
+// 四象限筛选选项
+const quadrantFilterOptions = Object.entries(QUADRANT_LABELS).map(([value, label]) => ({
+  label,
+  value: value as TaskQuadrant,
+}));
+
+// 标签筛选选项（Mock数据，实际应从store获取）
+const tagFilterOptions = computed(() => {
+  // 从所有任务中提取唯一标签
+  const allTags = new Map<number, { id: number; name: string; color: string }>();
+
+  [...taskStore.todoTasks, ...taskStore.activeTasks, ...taskStore.completedTasks, ...taskStore.deferredTasks].forEach(task => {
+    task.tags?.forEach(tag => {
+      if (tag.id && !allTags.has(tag.id)) {
+        allTags.set(tag.id, tag);
+      }
+    });
+  });
+
+  return Array.from(allTags.values()).map(tag => ({
+    label: tag.name,
+    value: tag.id,
+  }));
+});
+
+// 筛选逻辑
+const filterTasks = (tasks: Task[]) => {
+  return tasks.filter(task => {
+    // 四象限筛选
+    if (filterQuadrant.value && task.quadrant !== filterQuadrant.value) {
+      return false;
+    }
+
+    // 标签筛选
+    if (filterTags.value.length > 0) {
+      const taskTagIds = task.tags?.map(t => t.id).filter(id => id !== undefined) || [];
+      const hasMatchingTag = filterTags.value.some(tagId => taskTagIds.includes(tagId));
+      if (!hasMatchingTag) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+};
+
+const filteredTodoTasks = computed(() => filterTasks(taskStore.todoTasks));
+const filteredActiveTasks = computed(() => filterTasks(taskStore.activeTasks));
+const filteredCompletedTasks = computed(() => filterTasks(taskStore.completedTasks));
+const filteredDeferredTasks = computed(() => filterTasks(taskStore.deferredTasks));
+
+const isFiltering = computed(() => !!filterQuadrant.value || filterTags.value.length > 0);
+
+const filteredTasksCount = computed(() =>
+  filteredTodoTasks.value.length +
+  filteredActiveTasks.value.length +
+  filteredCompletedTasks.value.length +
+  filteredDeferredTasks.value.length
+);
+
+const resetFilters = () => {
+  filterQuadrant.value = null;
+  filterTags.value = [];
+};
+
 onMounted(async () => {
   await taskStore.loadTasks();
   await taskStore.loadCompletedTasks(7);
+
+  // 加载标签
+  await loadTags();
 
   // 检查僵尸任务
   const staleTasks = await taskStore.checkStaleTasks(3);
@@ -266,12 +442,28 @@ async function handleCreate() {
       return;
     }
 
-    await taskStore.createTask(
+    // 创建任务
+    const taskId = await taskStore.createTask(
       formData.title,
       formData.description || undefined,
       formData.category,
-      formData.priority
+      formData.priority,
+      formData.quadrant
     );
+
+    // 如果选择了标签,添加标签
+    if (formData.tagIds.length > 0) {
+      try {
+        await tagApi.addTagsToTask(taskId, formData.tagIds);
+      } catch (error) {
+        console.error('添加标签失败:', error);
+        message.warning('任务创建成功,但添加标签失败');
+      }
+    }
+
+    // 刷新任务列表
+    await taskStore.loadTasks();
+
     message.success('任务创建成功');
     handleCancelEdit();
   } catch (error: any) {
@@ -302,6 +494,8 @@ async function handleEdit(task: Task) {
   formData.description = task.description || '';
   formData.category = task.category;
   formData.priority = task.priority;
+  formData.quadrant = task.quadrant || 'urgent_not_important';
+  formData.tagIds = task.tags?.map(t => t.id!).filter(id => id !== undefined) || [];
   showCreateModal.value = true;
 }
 
@@ -323,12 +517,29 @@ async function handleUpdate() {
       return;
     }
 
+    // 更新任务基本信息
     await taskStore.updateTask(editingTaskId.value!, {
       title: formData.title,
       description: formData.description || undefined,
       category: formData.category,
       priority: formData.priority,
+      quadrant: formData.quadrant,
     });
+
+    // 处理标签更新:先移除所有标签,再添加选中的标签
+    try {
+      await tagApi.removeAllTagsFromTask(editingTaskId.value!);
+      if (formData.tagIds.length > 0) {
+        await tagApi.addTagsToTask(editingTaskId.value!, formData.tagIds);
+      }
+    } catch (error) {
+      console.error('更新标签失败:', error);
+      message.warning('任务更新成功,但标签更新失败');
+    }
+
+    // 刷新任务列表
+    await taskStore.loadTasks();
+
     message.success('任务更新成功');
     handleCancelEdit();
   } catch (error: any) {
@@ -345,6 +556,8 @@ function handleCancelEdit() {
   formData.description = '';
   formData.category = 'other';
   formData.priority = 2;
+  formData.quadrant = 'urgent_not_important';
+  formData.tagIds = [];
 }
 
 async function handleDefer(taskId: number) {
@@ -367,6 +580,70 @@ function handleImportSuccess() {
   message.success('任务导入成功');
   handleRefresh();
 }
+
+function handleTaskClick(task: Task) {
+  selectedTask.value = task;
+  showDetailModal.value = true;
+}
+
+async function handleTaskUpdate(task: Task, updates: Partial<Task>) {
+  try {
+    await taskStore.updateTask(task.id!, updates);
+    message.success('任务更新成功');
+
+    // 更新selectedTask以反映最新状态
+    if (selectedTask.value?.id === task.id) {
+      selectedTask.value = { ...selectedTask.value, ...updates };
+    }
+  } catch (error: any) {
+    console.error('更新任务失败:', error);
+    message.error(error?.message || '更新任务失败');
+  }
+}
+
+// 加载标签
+async function loadTags() {
+  try {
+    availableTags.value = await tagApi.getAllTags();
+  } catch (error: any) {
+    console.error('加载标签失败:', error);
+    message.error('加载标签失败');
+  }
+}
+
+// 标签管理回调
+async function handleCreateTag(tag: Omit<Tag, 'id'>) {
+  try {
+    const tagId = await tagApi.createTag(tag.name, tag.color);
+    await loadTags();
+    message.success('标签创建成功');
+  } catch (error: any) {
+    console.error('创建标签失败:', error);
+    message.error(error?.message || '创建标签失败');
+  }
+}
+
+async function handleUpdateTag(id: number, updates: Partial<Tag>) {
+  try {
+    await tagApi.updateTag(id, updates.name!, updates.color!);
+    await loadTags();
+    message.success('标签更新成功');
+  } catch (error: any) {
+    console.error('更新标签失败:', error);
+    message.error(error?.message || '更新标签失败');
+  }
+}
+
+async function handleDeleteTag(id: number) {
+  try {
+    await tagApi.deleteTag(id);
+    await loadTags();
+    message.success('标签删除成功');
+  } catch (error: any) {
+    console.error('删除标签失败:', error);
+    message.error(error?.message || '删除标签失败');
+  }
+}
 </script>
 
 <style scoped>
@@ -382,7 +659,7 @@ function handleImportSuccess() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .board-title {
@@ -391,6 +668,42 @@ function handleImportSuccess() {
   color: #f1f5f9; /* slate-100 */
   margin: 0;
   letter-spacing: -0.025em;
+}
+
+/* 筛选器 */
+.filters-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 12px;
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  backdrop-filter: blur(12px);
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.filter-stats {
+  font-size: 12px;
+  color: #6366f1;
+  font-weight: 600;
+  padding: 4px 10px;
+  background: rgba(99, 102, 241, 0.15);
+  border-radius: 6px;
+  border: 1px solid rgba(99, 102, 241, 0.3);
 }
 
 /* Board Columns */

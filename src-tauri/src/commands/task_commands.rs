@@ -1,6 +1,6 @@
 use tauri::State;
 use crate::db::connection::DbConnection;
-use crate::models::task::{Task, TaskCategory, TaskPriority, WorkContext, ImportTask, ImportResult};
+use crate::models::task::{Task, TaskCategory, TaskPriority, TaskQuadrant, WorkContext, ImportTask, ImportResult, QuadrantStatistics};
 use crate::services::task_service::TaskService;
 
 #[tauri::command]
@@ -73,11 +73,13 @@ pub fn update_task(
     priority: Option<i32>,
     git_branch: Option<String>,
     notes: Option<String>,
+    quadrant: Option<String>,
 ) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
 
     let cat = category.map(|c| TaskCategory::from_str(&c));
     let pri = priority.map(TaskPriority::from_i32);
+    let quad = quadrant.map(|q| TaskQuadrant::from_str(&q));
 
     TaskService::update_task(
         &conn,
@@ -88,6 +90,7 @@ pub fn update_task(
         pri,
         git_branch.as_deref(),
         notes.as_deref(),
+        quad,
     ).map_err(|e| e.to_string())
 }
 
@@ -133,4 +136,27 @@ pub fn import_tasks(db: State<DbConnection>, tasks: Vec<ImportTask>) -> Result<I
 #[tauri::command]
 pub fn get_import_template() -> Result<String, String> {
     Ok(TaskService::generate_import_template())
+}
+
+#[tauri::command]
+pub fn get_tasks_by_quadrant(
+    db: State<DbConnection>,
+    quadrant: String,
+) -> Result<Vec<Task>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let quad = TaskQuadrant::from_str(&quadrant);
+    TaskService::get_tasks_by_quadrant(&conn, quad).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_quadrant_statistics(db: State<DbConnection>) -> Result<Vec<QuadrantStatistics>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let stats = TaskService::get_quadrant_statistics(&conn).map_err(|e| e.to_string())?;
+
+    // 将 (String, i64) 转换为 QuadrantStatistics
+    let result = stats.into_iter()
+        .map(|(quadrant, count)| QuadrantStatistics { quadrant, count })
+        .collect();
+
+    Ok(result)
 }

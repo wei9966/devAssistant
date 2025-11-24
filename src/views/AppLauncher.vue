@@ -10,6 +10,12 @@
           </template>
           扫描应用
         </n-button>
+        <n-button @click="handleRefreshIcons" :loading="refreshingIcons">
+          <template #icon>
+            <n-icon><RefreshOutline /></n-icon>
+          </template>
+          刷新图标
+        </n-button>
         <n-button class="primary-button" @click="handleAddApp">
           <template #icon>
             <n-icon><AddOutline /></n-icon>
@@ -44,6 +50,7 @@
         :category-counts="categoryCounts"
         @select="handleSelectCategory"
         @manage="handleManageCategories"
+        @drop="handleCategoryDrop"
       />
     </div>
 
@@ -179,6 +186,7 @@ import {
 import {
   AddOutline,
   ScanOutline,
+  RefreshOutline,
   EllipsisHorizontal,
   GridOutline,
   ListOutline,
@@ -203,6 +211,7 @@ const dialog = useDialog();
 
 // 状态
 const scanning = ref(false);
+const refreshingIcons = ref(false);
 const searchKeyword = ref('');
 const selectedCategory = ref('all');
 const viewMode = ref<'grid' | 'list'>('grid');
@@ -374,6 +383,27 @@ const handleScanApps = async () => {
     console.error('扫描失败:', error);
   } finally {
     scanning.value = false;
+  }
+};
+
+const handleRefreshIcons = async () => {
+  refreshingIcons.value = true;
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const updatedCount = await invoke('refresh_all_icons') as number;
+
+    if (updatedCount > 0) {
+      message.success(`成功刷新 ${updatedCount} 个应用的图标`);
+      // 重新加载应用列表以显示新图标
+      await loadAppsFromDatabase();
+    } else {
+      message.info('所有应用的图标都是最新的');
+    }
+  } catch (error) {
+    message.error('刷新图标失败: ' + error);
+    console.error('刷新图标失败:', error);
+  } finally {
+    refreshingIcons.value = false;
   }
 };
 
@@ -561,6 +591,44 @@ const handleCancelEdit = () => {
 
 const handleManageCategories = () => {
   showCategoryManager.value = true;
+};
+
+// 处理拖放到分类
+const handleCategoryDrop = async (categoryId: string, appData: any) => {
+  try {
+    // 找到被拖拽的应用
+    const app = allApps.value.find((a) => a.id === appData.id);
+    if (!app) {
+      message.error('未找到该应用');
+      return;
+    }
+
+    // 如果分类没变，不做处理
+    if (app.category === categoryId) {
+      message.info('应用已在该分类中');
+      return;
+    }
+
+    // 更新应用分类
+    const updatedApp = { ...app, category: categoryId };
+
+    // 调用后端更新
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('update_app', { app: updatedApp });
+
+    // 更新本地状态
+    const index = allApps.value.findIndex((a) => a.id === app.id);
+    if (index !== -1) {
+      allApps.value[index] = updatedApp;
+    }
+
+    // 显示成功消息
+    const categoryName = categories.value.find((c) => c.id === categoryId)?.name || categoryId;
+    message.success(`已将「${app.name}」移动到「${categoryName}」分类`);
+  } catch (error) {
+    message.error('更新分类失败: ' + error);
+    console.error('更新分类失败:', error);
+  }
 };
 
 const handleMoreAction = (key: string) => {

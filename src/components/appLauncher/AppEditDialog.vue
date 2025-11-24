@@ -63,16 +63,30 @@
         <n-switch v-model:value="formData.isPinned" />
       </n-form-item>
 
-      <!-- 图标预览 -->
-      <n-form-item v-if="formData.icon" label="应用图标">
-        <div class="icon-preview">
-          <img :src="formData.icon" alt="应用图标" />
-          <n-button text @click="handleRemoveIcon">
-            <template #icon>
-              <n-icon><TrashOutline /></n-icon>
-            </template>
-            移除图标
-          </n-button>
+      <!-- 图标管理 -->
+      <n-form-item label="应用图标">
+        <div class="icon-section">
+          <div v-if="formData.icon" class="icon-preview">
+            <img :src="formData.icon" alt="应用图标" />
+          </div>
+          <div v-else class="icon-placeholder">
+            <n-icon size="48"><ImageOutline /></n-icon>
+            <span>暂无图标</span>
+          </div>
+          <div class="icon-actions">
+            <n-button size="small" @click="handleUploadIcon">
+              <template #icon>
+                <n-icon><CloudUploadOutline /></n-icon>
+              </template>
+              上传自定义图标
+            </n-button>
+            <n-button v-if="formData.icon" size="small" text @click="handleRemoveIcon">
+              <template #icon>
+                <n-icon><TrashOutline /></n-icon>
+              </template>
+              移除图标
+            </n-button>
+          </div>
         </div>
       </n-form-item>
     </n-form>
@@ -105,7 +119,7 @@ import {
   type FormInst,
   type FormRules,
 } from 'naive-ui';
-import { FolderOpenOutline, TrashOutline } from '@vicons/ionicons5';
+import { FolderOpenOutline, TrashOutline, ImageOutline, CloudUploadOutline } from '@vicons/ionicons5';
 import type { AppItem, Category } from '@/types/appLauncher';
 
 interface AppFormData {
@@ -254,6 +268,43 @@ const handleRemoveIcon = () => {
   formData.value.icon = undefined;
 };
 
+// 上传自定义图标
+const handleUploadIcon = async () => {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({
+      multiple: false,
+      directory: false,
+      title: '选择图标文件',
+      filters: [{
+        name: '图片文件',
+        extensions: ['png', 'jpg', 'jpeg', 'ico', 'svg']
+      }]
+    });
+
+    if (selected && typeof selected === 'string') {
+      // 读取文件并转换为base64
+      const { readFile } = await import('@tauri-apps/plugin-fs');
+      const fileData = await readFile(selected);
+
+      // 判断文件类型
+      const extension = selected.split('.').pop()?.toLowerCase() || 'png';
+      const mimeType = extension === 'svg' ? 'image/svg+xml' :
+                      extension === 'ico' ? 'image/x-icon' :
+                      `image/${extension}`;
+
+      // 转换为base64
+      const base64 = btoa(String.fromCharCode.apply(null, Array.from(fileData)));
+      formData.value.icon = `data:${mimeType};base64,${base64}`;
+
+      message.success('图标上传成功');
+    }
+  } catch (error) {
+    message.error('上传图标失败: ' + error);
+    console.error('上传图标失败:', error);
+  }
+};
+
 // 提交表单
 const handleSubmit = async () => {
   try {
@@ -297,20 +348,48 @@ const handleCancel = () => {
   font-weight: 600;
 }
 
-.icon-preview {
+.icon-section {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 12px;
 }
 
-.icon-preview img {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  padding: 8px;
+.icon-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
   background: rgba(99, 102, 241, 0.1);
   border-radius: 8px;
   border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.icon-preview img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.icon-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 80px;
+  height: 80px;
+  background: rgba(71, 85, 105, 0.2);
+  border-radius: 8px;
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  color: rgba(148, 163, 184, 0.6);
+  font-size: 12px;
+}
+
+.icon-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .dialog-footer {

@@ -9,3 +9,4 @@ pub mod db_repair_commands;
 pub mod app_launcher_commands;
 pub mod shortcut_commands;
 pub mod system_commands;
+pub mod tag_commands;

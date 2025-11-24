@@ -133,6 +133,8 @@ fn main() {
             commands::task_commands::get_current_branch,
             commands::task_commands::import_tasks,
             commands::task_commands::get_import_template,
+            commands::task_commands::get_tasks_by_quadrant,
+            commands::task_commands::get_quadrant_statistics,
             // SQL 相关命令
             commands::sql_commands::save_sql,
             commands::sql_commands::get_recent_sqls,
@@ -181,6 +183,8 @@ fn main() {
             commands::app_launcher_commands::validate_path,
             commands::app_launcher_commands::export_config,
             commands::app_launcher_commands::import_config,
+            commands::app_launcher_commands::refresh_all_icons,
+            commands::app_launcher_commands::update_app_icon,
             // 快捷键相关命令
             commands::shortcut_commands::get_shortcut_config,
             commands::shortcut_commands::update_shortcut_config,
@@ -189,6 +193,21 @@ fn main() {
             commands::shortcut_commands::get_available_shortcuts,
             // 系统监控相关命令
             commands::system_commands::get_system_info,
+            // 标签相关命令
+            commands::tag_commands::create_tag,
+            commands::tag_commands::get_all_tags,
+            commands::tag_commands::get_tag_by_id,
+            commands::tag_commands::update_tag,
+            commands::tag_commands::delete_tag,
+            commands::tag_commands::add_tag_to_task,
+            commands::tag_commands::remove_tag_from_task,
+            commands::tag_commands::get_task_tags,
+            commands::tag_commands::get_tasks_by_tag,
+            commands::tag_commands::add_tags_to_task,
+            commands::tag_commands::remove_all_tags_from_task,
+            commands::tag_commands::get_tag_usage_count,
+            commands::tag_commands::get_tags_with_usage_count,
+            commands::tag_commands::search_tags,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");

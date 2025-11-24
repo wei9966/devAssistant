@@ -546,6 +546,60 @@ impl AppLauncherService {
 
         Ok(())
     }
+
+    // ==================== 图标管理 ====================
+
+    /// 刷新所有应用的图标
+    pub async fn refresh_all_icons(&self) -> Result<u32, String> {
+        use crate::services::AppScannerService;
+        use std::path::Path;
+
+        // 获取所有应用
+        let apps = self.get_all_apps().await?;
+        let mut updated_count = 0u32;
+
+        for app in apps {
+            // 跳过已有自定义图标的应用
+            if app.icon.is_some() && app.icon.as_ref().unwrap().starts_with("data:image/") {
+                // 检查是否是提取的图标（包含 base64）还是自定义图标
+                // 我们只刷新提取的图标，不覆盖用户上传的自定义图标
+                // 简单判断：如果图标很大（>100KB），可能是用户上传的，跳过
+                if let Some(icon) = &app.icon {
+                    if icon.len() > 102400 { // 100KB
+                        continue;
+                    }
+                }
+            }
+
+            // 提取新图标
+            if let Some(new_icon) = AppScannerService::extract_icon_base64(Path::new(&app.path)) {
+                // 更新数据库
+                let db = self.db.lock().map_err(|e| e.to_string())?;
+                db.execute(
+                    "UPDATE apps SET icon = ?, updated_at = ? WHERE id = ?",
+                    rusqlite::params![new_icon, chrono::Utc::now().timestamp(), app.id],
+                )
+                .map_err(|e| e.to_string())?;
+
+                updated_count += 1;
+            }
+        }
+
+        Ok(updated_count)
+    }
+
+    /// 更新应用的自定义图标
+    pub async fn update_app_icon(&self, app_id: &str, icon_data: Option<String>) -> Result<(), String> {
+        let db = self.db.lock().map_err(|e| e.to_string())?;
+
+        db.execute(
+            "UPDATE apps SET icon = ?, updated_at = ? WHERE id = ?",
+            rusqlite::params![icon_data, chrono::Utc::now().timestamp(), app_id],
+        )
+        .map_err(|e| e.to_string())?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

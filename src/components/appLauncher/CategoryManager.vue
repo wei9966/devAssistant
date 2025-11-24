@@ -107,8 +107,11 @@ const dialogVisible = computed({
   set: (val) => emit('update:show', val),
 });
 
-// 可编辑的分类列表（排除"全部"分类）
+// 可编辑的分类列表（包含所有分类）
 const editableCategories = ref<Category[]>([]);
+
+// 默认分类ID集合（用于标记默认分类）
+const defaultCategoryIds = new Set(['all', 'dev', 'office', 'browser', 'design', 'media', 'game', 'other']);
 
 // 新分类表单
 const newCategory = ref({
@@ -119,9 +122,8 @@ const newCategory = ref({
 
 // 监听props变化，初始化可编辑列表
 const initCategories = () => {
-  editableCategories.value = props.categories
-    .filter((cat) => cat.id !== 'all')
-    .map((cat) => ({ ...cat }));
+  // 包含所有分类，包括默认分类
+  editableCategories.value = props.categories.map((cat) => ({ ...cat }));
 };
 
 // 当对话框显示时初始化
@@ -145,12 +147,18 @@ const columns: DataTableColumns<Category> = [
     title: '分类名称',
     key: 'name',
     render: (row) => {
-      return h(NInput, {
-        value: row.name,
-        onUpdateValue: (val: string) => {
-          row.name = val;
-        },
-      });
+      const isDefault = defaultCategoryIds.has(row.id);
+      return h('div', { style: 'display: flex; align-items: center; gap: 8px;' }, [
+        h(NInput, {
+          value: row.name,
+          onUpdateValue: (val: string) => {
+            row.name = val;
+          },
+        }),
+        isDefault ? h('span', {
+          style: 'font-size: 11px; color: #94a3b8; white-space: nowrap;'
+        }, '(默认)') : null,
+      ]);
     },
   },
   {
@@ -216,11 +224,15 @@ const handleAddCategory = () => {
     return;
   }
 
+  // 计算新分类的 sortOrder（最大值+1）
+  const maxSortOrder = Math.max(...editableCategories.value.map(cat => cat.sortOrder), 0);
+
   const newCat: Category = {
     id: `cat_${Date.now()}`,
     name: newCategory.value.name.trim(),
     icon: newCategory.value.icon || '📁',
     color: newCategory.value.color,
+    sortOrder: maxSortOrder + 1,
     createdAt: Date.now(),
   };
 
@@ -247,13 +259,8 @@ const handleDeleteCategory = (categoryId: string) => {
 
 // 保存
 const handleSave = () => {
-  // 添加"全部"分类
-  const allCategory = props.categories.find((cat) => cat.id === 'all');
-  const finalCategories = allCategory
-    ? [allCategory, ...editableCategories.value]
-    : editableCategories.value;
-
-  emit('save', finalCategories);
+  // 直接保存所有编辑后的分类（包括默认分类）
+  emit('save', editableCategories.value);
   dialogVisible.value = false;
 };
 

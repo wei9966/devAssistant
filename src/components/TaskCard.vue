@@ -1,13 +1,28 @@
 <template>
-  <n-card class="task-card" :class="`status-${task.status}`">
+  <n-card class="task-card" :class="`status-${task.status}`" @click="handleCardClick">
     <!-- Hover Glow Effect -->
     <div class="hover-glow"></div>
 
     <div class="card-header">
       <div class="task-badges">
         <Badge :type="getCategoryBadgeType(task.category)">{{ CATEGORY_LABELS[task.category] || 'Other' }}</Badge>
+        <!-- 四象限标识 -->
+        <div
+          v-if="task.quadrant"
+          class="quadrant-mini-badge"
+          :style="{
+            background: QUADRANT_CONFIG[task.quadrant].bgColor,
+            borderColor: QUADRANT_CONFIG[task.quadrant].borderColor,
+            color: QUADRANT_CONFIG[task.quadrant].color
+          }"
+          :title="QUADRANT_CONFIG[task.quadrant].label"
+        >
+          <n-icon size="12">
+            <GridOutline />
+          </n-icon>
+        </div>
       </div>
-      <div class="task-actions-menu">
+      <div class="task-actions-menu" @click.stop>
         <n-dropdown :options="dropdownOptions" @select="handleDropdownSelect">
           <n-button text size="small" class="more-btn">
             <template #icon>
@@ -20,7 +35,27 @@
 
     <h3 class="task-title">{{ task.title }}</h3>
 
-    <div class="task-footer">
+    <!-- 标签展示 -->
+    <div v-if="task.tags && task.tags.length > 0" class="task-tags" @click.stop>
+      <div
+        v-for="tag in task.tags.slice(0, 3)"
+        :key="tag.id"
+        class="task-tag-mini"
+        :style="{
+          background: `${tag.color}40`,
+          color: tag.color,
+          borderColor: `${tag.color}60`
+        }"
+        :title="tag.name"
+      >
+        <span>{{ tag.name }}</span>
+      </div>
+      <div v-if="task.tags.length > 3" class="task-tag-more" :title="`还有 ${task.tags.length - 3} 个标签`">
+        +{{ task.tags.length - 3 }}
+      </div>
+    </div>
+
+    <div class="task-footer" @click.stop>
       <div class="priority-section">
         <div class="priority-dot" :class="`priority-${getPriorityBadgeType(task.priority)}`"></div>
         <span class="priority-label">{{ PRIORITY_LABELS[task.priority] }}</span>
@@ -32,33 +67,18 @@
         <n-button v-if="!readonly" type="error" text size="small" @click="handleDelete">删除</n-button>
       </div>
     </div>
-
-    <div v-if="task.description" class="task-description">
-      <p>{{ task.description }}</p>
-    </div>
-
-    <div v-if="task.context && showContext" class="context-section">
-      <ContextViewer :context="task.context" />
-    </div>
-
-    <div v-if="task.context" class="context-footer">
-      <n-button text class="context-toggle-btn" size="small" @click="showContext = !showContext">
-        {{ showContext ? '隐藏' : '查看' }}上下文
-      </n-button>
-    </div>
   </n-card>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, h } from 'vue';
 import { NCard, NButton, NIcon, NDropdown, useDialog } from 'naive-ui';
-import { EllipsisHorizontal, CreateOutline, TrashOutline, TimeOutline } from '@vicons/ionicons5';
+import { EllipsisHorizontal, CreateOutline, TrashOutline, TimeOutline, GridOutline } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
-import { CATEGORY_LABELS, PRIORITY_LABELS } from '@/types/task';
+import { CATEGORY_LABELS, PRIORITY_LABELS, QUADRANT_CONFIG } from '@/types/task';
 import type { Task } from '@/types/task';
-import ContextViewer from './ContextViewer.vue';
 import Badge from './Badge.vue';
 
 dayjs.extend(relativeTime);
@@ -81,10 +101,10 @@ const emit = defineEmits<{
   edit: [task: Task];
   delete: [taskId: number];
   defer: [taskId: number];
+  click: [task: Task];
 }>();
 
 const dialog = useDialog();
-const showContext = ref(false);
 
 const dropdownOptions = computed(() => {
   const options = [];
@@ -149,6 +169,10 @@ const handleDelete = () => {
   });
 };
 
+const handleCardClick = () => {
+  emit('click', props.task);
+};
+
 const handleDropdownSelect = (key: string) => {
   switch (key) {
     case 'edit':
@@ -198,14 +222,14 @@ const getPriorityBadgeType = (priority: number) => {
   position: relative;
   overflow: hidden;
   cursor: pointer;
-  min-height: 160px;
+  min-height: 120px;
 }
 
 /* 确保 n-card 内部内容正确布局 */
 .task-card :deep(.n-card__content) {
   display: flex;
   flex-direction: column;
-  min-height: 140px;
+  min-height: 100px;
   padding: 16px !important;
 }
 
@@ -260,6 +284,23 @@ const getPriorityBadgeType = (priority: number) => {
 .task-badges {
   display: flex;
   gap: 6px;
+  align-items: center;
+}
+
+.quadrant-mini-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.quadrant-mini-badge:hover {
+  transform: scale(1.1);
 }
 
 .task-actions-menu {
@@ -285,7 +326,7 @@ const getPriorityBadgeType = (priority: number) => {
   font-weight: 500;
   color: #e2e8f0;
   line-height: 1.6;
-  margin: 0 0 12px 0;
+  margin: 0 0 8px 0;
   flex-shrink: 0;
   min-height: 44px;
   display: -webkit-box;
@@ -295,29 +336,55 @@ const getPriorityBadgeType = (priority: number) => {
   word-break: break-word;
 }
 
-.task-description {
-  margin-bottom: 12px;
-  flex: 1;
-  overflow: hidden;
-  max-height: 60px;
+/* 标签展示 */
+.task-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 8px;
+  min-height: 20px;
 }
 
-.task-description p {
-  font-size: 13px;
-  color: #94a3b8;
-  margin: 0;
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+.task-tag-mini {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid;
+  max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.task-tag-mini:hover {
+  transform: translateY(-1px);
+  max-width: none;
+}
+
+.task-tag-more {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(100, 116, 139, 0.2);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.4);
+  cursor: help;
 }
 
 .task-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: auto;
   padding-top: 12px;
   border-top: 1px solid rgba(51, 65, 85, 0.3);
@@ -363,9 +430,25 @@ const getPriorityBadgeType = (priority: number) => {
 
 .task-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   opacity: 0.6;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 响应式优化: 在小屏幕上保持按钮可见 */
+@media (max-width: 1200px) {
+  .task-actions {
+    opacity: 1;
+  }
+
+  .task-footer {
+    gap: 6px;
+  }
+
+  .priority-section {
+    flex-shrink: 0;
+  }
 }
 
 .task-card:hover .task-actions {
@@ -390,28 +473,5 @@ const getPriorityBadgeType = (priority: number) => {
 :deep(.primary-button:active) {
   background-color: #4338ca;
   border-color: #4338ca;
-}
-
-.context-section {
-  margin-top: 12px;
-  padding: 12px;
-  background: rgba(15, 23, 42, 0.5);
-  border-radius: 8px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
-}
-
-.context-footer {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(51, 65, 85, 0.3);
-}
-
-.context-toggle-btn {
-  color: #6366f1;
-  transition: color 0.2s;
-}
-
-.context-toggle-btn:hover {
-  color: #818cf8;
 }
 </style>
