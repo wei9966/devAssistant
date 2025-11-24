@@ -10,6 +10,12 @@
           </template>
           新建任务
         </n-button>
+        <n-button @click="showImportModal = true">
+          <template #icon>
+            <n-icon><CloudUploadOutline /></n-icon>
+          </template>
+          导入任务
+        </n-button>
         <n-button @click="handleRefresh">
           <template #icon>
             <n-icon><RefreshOutline /></n-icon>
@@ -168,21 +174,28 @@
         </n-space>
       </template>
     </n-modal>
+
+    <!-- 导入任务对话框 -->
+    <n-modal v-model:show="showImportModal" :mask-closable="false">
+      <TaskImport @close="showImportModal = false" @success="handleImportSuccess" />
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
 import { NCard, NSpace, NButton, NIcon, NEmpty, NCollapse, NCollapseItem, NModal, NForm, NFormItem, NInput, NSelect, useMessage } from 'naive-ui';
-import { AddOutline, RefreshOutline } from '@vicons/ionicons5';
+import { AddOutline, RefreshOutline, CloudUploadOutline } from '@vicons/ionicons5';
 import { useTaskStore } from '@/stores/taskStore';
 import TaskCard from '@/components/TaskCard.vue';
+import TaskImport from '@/components/TaskImport.vue';
 import { CATEGORY_LABELS, PRIORITY_LABELS } from '@/types/task';
 import type { Task } from '@/types/task';
 
 const taskStore = useTaskStore();
 const message = useMessage();
 const showCreateModal = ref(false);
+const showImportModal = ref(false);
 const formRef = ref();
 const isEditing = ref(false);
 const editingTaskId = ref<number | null>(null);
@@ -348,6 +361,11 @@ async function handleRefresh() {
   await taskStore.loadTasks();
   await taskStore.loadCompletedTasks(7);
   message.success('刷新成功');
+}
+
+function handleImportSuccess() {
+  message.success('任务导入成功');
+  handleRefresh();
 }
 </script>
 

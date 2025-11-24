@@ -32,6 +32,14 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/app-launcher',
+    name: 'app-launcher',
+    component: () => import('../views/AppLauncher.vue'),
+    meta: {
+      title: '应用启动器'
+    }
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('../views/Settings.vue'),

@@ -5,6 +5,8 @@ pub mod task_service;
 pub mod sql_service;
 pub mod clipboard_service;
 pub mod work_log_service;
+pub mod app_scanner_service;
+pub mod app_launcher_service;
 
 // 以下模块暂时注释，因为依赖其他额外的crate
 // pub mod git_service;
@@ -15,3 +17,5 @@ pub use task_service::TaskService;
 pub use sql_service::{SqlService, SqlRecord};
 pub use clipboard_service::ClipboardService;
 pub use work_log_service::WorkLogService;
+pub use app_scanner_service::AppScannerService;
+pub use app_launcher_service::AppLauncherService;

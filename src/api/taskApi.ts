@@ -88,4 +88,37 @@ export const taskApi = {
       return '';
     }
   },
+
+  // 导入任务
+  async importTasks(tasks: ImportTask[]): Promise<ImportResult> {
+    return await invoke('import_tasks', { tasks });
+  },
+
+  // 获取导入模板
+  async getImportTemplate(): Promise<string> {
+    return await invoke('get_import_template');
+  },
 };
+
+// 导入任务的数据结构
+export interface ImportTask {
+  title: string;
+  description?: string;
+  category?: string;
+  priority?: number;
+  status?: string;
+  gitBranch?: string;
+  createdAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  estimatedHours?: number;
+  actualHours?: number;
+  notes?: string;
+}
+
+// 导入结果
+export interface ImportResult {
+  success: number;
+  failed: number;
+  errors: string[];
+}

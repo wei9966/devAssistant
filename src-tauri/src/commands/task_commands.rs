@@ -1,6 +1,6 @@
 use tauri::State;
 use crate::db::connection::DbConnection;
-use crate::models::task::{Task, TaskCategory, TaskPriority, WorkContext};
+use crate::models::task::{Task, TaskCategory, TaskPriority, WorkContext, ImportTask, ImportResult};
 use crate::services::task_service::TaskService;
 
 #[tauri::command]
@@ -122,4 +122,15 @@ pub fn get_current_branch() -> Result<String, String> {
         .to_string();
 
     Ok(branch)
+}
+
+#[tauri::command]
+pub fn import_tasks(db: State<DbConnection>, tasks: Vec<ImportTask>) -> Result<ImportResult, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::import_tasks(&conn, tasks).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_import_template() -> Result<String, String> {
+    Ok(TaskService::generate_import_template())
 }

@@ -1,0 +1,379 @@
+<template>
+  <n-modal
+    v-model:show="dialogVisible"
+    preset="card"
+    title="分类管理"
+    class="category-manager"
+    style="width: 700px"
+    :mask-closable="false"
+  >
+    <div class="manager-content">
+      <!-- 添加新分类 -->
+      <div class="add-section">
+        <n-form inline :model="newCategory">
+          <n-form-item label="分类名称">
+            <n-input
+              v-model:value="newCategory.name"
+              placeholder="例如：开发工具"
+              style="width: 150px"
+              @keydown.enter.prevent="handleAddCategory"
+            />
+          </n-form-item>
+          <n-form-item label="图标">
+            <n-input
+              v-model:value="newCategory.icon"
+              placeholder="📁"
+              style="width: 80px"
+              @keydown.enter.prevent="handleAddCategory"
+            />
+          </n-form-item>
+          <n-form-item label="颜色">
+            <n-color-picker
+              v-model:value="newCategory.color"
+              :modes="['hex']"
+              style="width: 100px"
+            />
+          </n-form-item>
+          <n-form-item>
+            <n-button type="primary" @click="handleAddCategory">
+              <template #icon>
+                <n-icon><AddOutline /></n-icon>
+              </template>
+              添加
+            </n-button>
+          </n-form-item>
+        </n-form>
+      </div>
+
+      <!-- 分类列表 -->
+      <div class="category-list">
+        <n-data-table
+          :columns="columns"
+          :data="editableCategories"
+          :bordered="false"
+          :single-line="false"
+          striped
+        />
+      </div>
+    </div>
+
+    <template #footer>
+      <div class="dialog-footer">
+        <n-button @click="handleCancel">取消</n-button>
+        <n-button type="primary" @click="handleSave">保存</n-button>
+      </div>
+    </template>
+  </n-modal>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, h } from 'vue';
+import {
+  NModal,
+  NForm,
+  NFormItem,
+  NInput,
+  NColorPicker,
+  NButton,
+  NIcon,
+  NDataTable,
+  NSpace,
+  useMessage,
+  type DataTableColumns,
+} from 'naive-ui';
+import { AddOutline, CreateOutline, TrashOutline } from '@vicons/ionicons5';
+import type { Category } from '@/types/appLauncher';
+
+const props = withDefaults(
+  defineProps<{
+    show: boolean;
+    categories: Category[];
+  }>(),
+  {
+    show: false,
+  }
+);
+
+const emit = defineEmits<{
+  'update:show': [value: boolean];
+  save: [categories: Category[]];
+  cancel: [];
+}>();
+
+const message = useMessage();
+
+const dialogVisible = computed({
+  get: () => props.show,
+  set: (val) => emit('update:show', val),
+});
+
+// 可编辑的分类列表（排除"全部"分类）
+const editableCategories = ref<Category[]>([]);
+
+// 新分类表单
+const newCategory = ref({
+  name: '',
+  icon: '',
+  color: '#6366f1',
+});
+
+// 监听props变化，初始化可编辑列表
+const initCategories = () => {
+  editableCategories.value = props.categories
+    .filter((cat) => cat.id !== 'all')
+    .map((cat) => ({ ...cat }));
+};
+
+// 当对话框显示时初始化
+const handleOpen = () => {
+  if (dialogVisible.value) {
+    initCategories();
+  }
+};
+
+// 表格列定义
+const columns: DataTableColumns<Category> = [
+  {
+    title: '图标',
+    key: 'icon',
+    width: 80,
+    render: (row) => {
+      return h('div', { class: 'category-icon' }, row.icon || '📁');
+    },
+  },
+  {
+    title: '分类名称',
+    key: 'name',
+    render: (row) => {
+      return h(NInput, {
+        value: row.name,
+        onUpdateValue: (val: string) => {
+          row.name = val;
+        },
+      });
+    },
+  },
+  {
+    title: '图标emoji',
+    key: 'icon',
+    width: 120,
+    render: (row) => {
+      return h(NInput, {
+        value: row.icon,
+        placeholder: '📁',
+        onUpdateValue: (val: string) => {
+          row.icon = val;
+        },
+      });
+    },
+  },
+  {
+    title: '颜色',
+    key: 'color',
+    width: 120,
+    render: (row) => {
+      return h(NColorPicker, {
+        value: row.color,
+        modes: ['hex'],
+        onUpdateValue: (val: string) => {
+          row.color = val;
+        },
+      });
+    },
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 100,
+    render: (row) => {
+      return h(
+        NSpace,
+        {},
+        {
+          default: () => [
+            h(
+              NButton,
+              {
+                text: true,
+                type: 'error',
+                onClick: () => handleDeleteCategory(row.id),
+              },
+              {
+                icon: () => h(NIcon, {}, { default: () => h(TrashOutline) }),
+              }
+            ),
+          ],
+        }
+      );
+    },
+  },
+];
+
+// 添加新分类
+const handleAddCategory = () => {
+  if (!newCategory.value.name.trim()) {
+    message.warning('请输入分类名称');
+    return;
+  }
+
+  const newCat: Category = {
+    id: `cat_${Date.now()}`,
+    name: newCategory.value.name.trim(),
+    icon: newCategory.value.icon || '📁',
+    color: newCategory.value.color,
+    createdAt: Date.now(),
+  };
+
+  editableCategories.value.push(newCat);
+
+  // 重置表单
+  newCategory.value = {
+    name: '',
+    icon: '',
+    color: '#6366f1',
+  };
+
+  message.success('分类已添加');
+};
+
+// 删除分类
+const handleDeleteCategory = (categoryId: string) => {
+  const index = editableCategories.value.findIndex((cat) => cat.id === categoryId);
+  if (index !== -1) {
+    editableCategories.value.splice(index, 1);
+    message.success('分类已删除');
+  }
+};
+
+// 保存
+const handleSave = () => {
+  // 添加"全部"分类
+  const allCategory = props.categories.find((cat) => cat.id === 'all');
+  const finalCategories = allCategory
+    ? [allCategory, ...editableCategories.value]
+    : editableCategories.value;
+
+  emit('save', finalCategories);
+  dialogVisible.value = false;
+};
+
+// 取消
+const handleCancel = () => {
+  dialogVisible.value = false;
+  emit('cancel');
+};
+
+// 监听对话框显示状态
+computed(() => {
+  if (props.show) {
+    handleOpen();
+  }
+  return props.show;
+});
+</script>
+
+<style scoped>
+.category-manager {
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(16px);
+}
+
+.category-manager :deep(.n-card) {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+}
+
+.category-manager :deep(.n-card__header) {
+  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.manager-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.add-section {
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 8px;
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.category-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.category-icon {
+  font-size: 24px;
+  text-align: center;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* 表单样式覆盖 */
+.category-manager :deep(.n-form-item-label) {
+  color: #cbd5e1;
+}
+
+.category-manager :deep(.n-input) {
+  background: rgba(15, 23, 42, 0.5);
+  border-color: rgba(51, 65, 85, 0.5);
+}
+
+.category-manager :deep(.n-input:hover) {
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.category-manager :deep(.n-input:focus) {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+/* 表格样式 */
+.category-manager :deep(.n-data-table) {
+  background: transparent;
+}
+
+.category-manager :deep(.n-data-table-th) {
+  background: rgba(15, 23, 42, 0.5);
+  color: #cbd5e1;
+  border-color: rgba(51, 65, 85, 0.5);
+}
+
+.category-manager :deep(.n-data-table-td) {
+  background: transparent;
+  border-color: rgba(51, 65, 85, 0.3);
+  color: #e2e8f0;
+}
+
+.category-manager :deep(.n-data-table-tr:hover .n-data-table-td) {
+  background: rgba(99, 102, 241, 0.05);
+}
+
+/* 滚动条样式 */
+.category-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.category-list::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.3);
+  border-radius: 4px;
+}
+
+.category-list::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 4px;
+}
+
+.category-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
+}
+</style>

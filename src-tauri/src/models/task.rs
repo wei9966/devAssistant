@@ -120,3 +120,30 @@ pub struct FileContext {
     pub line: usize,
     pub column: usize,
 }
+
+/// 导入任务的数据结构
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportTask {
+    pub title: String,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub priority: Option<i32>,
+    pub status: Option<String>,
+    pub git_branch: Option<String>,
+    pub created_at: Option<String>,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+    pub estimated_hours: Option<f32>,
+    pub actual_hours: Option<f32>,
+    pub notes: Option<String>,
+}
+
+/// 导入结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportResult {
+    pub success: usize,
+    pub failed: usize,
+    pub errors: Vec<String>,
+}

@@ -37,6 +37,7 @@
                   <!-- 底部信息区 -->
                   <div class="sidebar-footer">
                     <div class="info-card">
+                      <!-- CPU Usage -->
                       <div class="info-header">
                         <span class="info-label">CPU Usage</span>
                         <span class="info-value">{{ cpuUsage }}%</span>
@@ -44,6 +45,19 @@
                       <div class="progress-bar">
                         <div class="progress-fill" :style="{ width: cpuUsage + '%' }"></div>
                       </div>
+
+                      <!-- Memory Usage -->
+                      <div class="info-header" style="margin-top: 12px;">
+                        <span class="info-label">Memory</span>
+                        <span class="info-value">{{ memoryUsage }}%</span>
+                      </div>
+                      <div class="progress-bar">
+                        <div class="progress-fill-memory" :style="{ width: memoryUsage + '%' }"></div>
+                      </div>
+                      <div class="memory-details">
+                        <span class="memory-text">{{ formatMemory(memoryUsed) }} / {{ formatMemory(memoryTotal) }}</span>
+                      </div>
+
                       <div class="shortcut-hint">
                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="shortcut-icon">
                           <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
@@ -94,12 +108,24 @@ import {
   CheckboxOutline as TaskIcon,
   DocumentTextOutline as SqlIcon,
   BookOutline as LogIcon,
+  RocketOutline as LauncherIcon,
   SettingsOutline as SettingsIcon
 } from '@vicons/ionicons5'
+import { invoke } from '@tauri-apps/api/core'
+
+interface SystemInfo {
+  cpu_usage: number
+  memory_usage: number
+  memory_total: number
+  memory_used: number
+}
 
 const router = useRouter()
 const activeKey = ref<string>('task-board')
-const cpuUsage = ref<number>(12)
+const cpuUsage = ref<number>(0)
+const memoryUsage = ref<number>(0)
+const memoryTotal = ref<number>(0)
+const memoryUsed = ref<number>(0)
 
 // 主题配置 - 使用深色主题
 const theme = darkTheme
@@ -149,6 +175,11 @@ const menuOptions: MenuOption[] = [
     icon: () => h(LogIcon)
   },
   {
+    label: '应用启动器',
+    key: 'app-launcher',
+    icon: () => h(LauncherIcon)
+  },
+  {
     label: '设置',
     key: 'settings',
     icon: () => h(SettingsIcon)
@@ -167,17 +198,37 @@ router.afterEach((to) => {
   }
 })
 
-// CPU使用率模拟（可以后续接入真实系统监控）
-let cpuInterval: number | null = null
+// 获取系统信息
+const getSystemInfo = async () => {
+  try {
+    const info = await invoke<SystemInfo>('get_system_info')
+    cpuUsage.value = Math.round(info.cpu_usage)
+    memoryUsage.value = Math.round(info.memory_usage)
+    memoryTotal.value = info.memory_total
+    memoryUsed.value = info.memory_used
+  } catch (error) {
+    console.error('获取系统信息失败:', error)
+  }
+}
+
+// 格式化内存大小
+const formatMemory = (bytes: number): string => {
+  const gb = bytes / (1024 * 1024 * 1024)
+  return gb.toFixed(1) + ' GB'
+}
+
+// 定时获取系统信息
+let systemInterval: number | null = null
 onMounted(() => {
-  cpuInterval = window.setInterval(() => {
-    cpuUsage.value = Math.floor(Math.random() * 30) + 5 // 5-35%范围
+  getSystemInfo() // 立即获取一次
+  systemInterval = window.setInterval(() => {
+    getSystemInfo()
   }, 3000)
 })
 
 onUnmounted(() => {
-  if (cpuInterval) {
-    clearInterval(cpuInterval)
+  if (systemInterval) {
+    clearInterval(systemInterval)
   }
 })
 </script>
@@ -379,6 +430,26 @@ onUnmounted(() => {
   background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%); /* indigo-500 to purple-500 */
   border-radius: 9999px;
   transition: width 0.5s ease;
+}
+
+.progress-fill-memory {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #34d399 100%); /* green-500 to green-400 */
+  border-radius: 9999px;
+  transition: width 0.5s ease;
+}
+
+.memory-details {
+  margin-top: 6px;
+  display: flex;
+  justify-content: center;
+}
+
+.memory-text {
+  font-size: 10px;
+  color: #64748b; /* slate-500 */
+  font-family: 'Courier New', monospace;
+  font-weight: 500;
 }
 
 .shortcut-hint {

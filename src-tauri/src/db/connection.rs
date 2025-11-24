@@ -1,8 +1,8 @@
 use rusqlite::{Connection, Result};
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-pub struct DbConnection(pub Mutex<Connection>);
+pub struct DbConnection(pub Arc<Mutex<Connection>>);
 
 /// 初始化数据库连接
 pub fn init_database() -> Result<Connection> {

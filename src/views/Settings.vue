@@ -3,223 +3,329 @@
     <h2 class="page-title">设置</h2>
 
     <div class="settings-container">
-      <!-- 通用设置 -->
-      <section class="settings-card">
-        <div class="card-header">
-          <h3 class="card-title">通用设置</h3>
-        </div>
-        <div class="card-content">
-          <div class="setting-item">
-            <div class="setting-info">
-              <div class="setting-label">开机自启</div>
-              <div class="setting-desc">设置应用启动时的默认行为</div>
-            </div>
-            <div class="setting-control">
-              <n-switch v-model:value="settings.autoStart" />
-            </div>
-          </div>
-
-          <div class="setting-item">
-            <div class="setting-info">
-              <div class="setting-label">主题偏好</div>
-              <div class="setting-desc">当前锁定为：Midnight Dark</div>
-            </div>
-            <div class="setting-control">
-              <n-select
-                v-model:value="settings.theme"
-                :options="[
-                  { label: '跟随系统', value: 'auto' },
-                  { label: '深色模式', value: 'dark' },
-                  { label: '浅色模式', value: 'light' },
-                ]"
-                class="theme-select"
-              />
-            </div>
-          </div>
-
-          <div class="setting-item">
-            <div class="setting-info">
-              <div class="setting-label">窗口置顶</div>
-              <div class="setting-desc">窗口始终显示在最前面</div>
-            </div>
-            <div class="setting-control">
-              <n-switch v-model:value="settings.alwaysOnTop" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 剪贴板监听 -->
-      <section class="settings-card">
-        <div class="card-header">
-          <h3 class="card-title">剪贴板监听</h3>
-          <span class="status-badge">{{ settings.clipboardMonitor ? '运行中' : '已停止' }}</span>
-        </div>
-        <div class="card-content">
-          <div class="setting-item">
-            <div class="setting-info-with-icon">
-              <div class="icon-wrapper">
-                <n-icon :component="TimeOutline" size="18" />
+      <n-tabs type="line" animated>
+        <!-- 通用设置标签 -->
+        <n-tab-pane name="general" tab="通用">
+          <div class="tab-content">
+            <section class="settings-card">
+              <div class="card-header">
+                <h3 class="card-title">通用设置</h3>
               </div>
-              <div>
-                <div class="setting-label">监听间隔</div>
-                <div class="setting-desc">设置轮询剪贴板的频率（秒）</div>
+              <div class="card-content">
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">开机自启</div>
+                    <div class="setting-desc">设置应用启动时的默认行为</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-switch v-model:value="settings.autoStart" />
+                  </div>
+                </div>
+
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">主题偏好</div>
+                    <div class="setting-desc">当前锁定为：Midnight Dark</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-select
+                      v-model:value="settings.theme"
+                      :options="[
+                        { label: '跟随系统', value: 'auto' },
+                        { label: '深色模式', value: 'dark' },
+                        { label: '浅色模式', value: 'light' },
+                      ]"
+                      class="theme-select"
+                    />
+                  </div>
+                </div>
+
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">窗口置顶</div>
+                    <div class="setting-desc">窗口始终显示在最前面</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-switch v-model:value="settings.alwaysOnTop" />
+                  </div>
+                </div>
               </div>
-            </div>
-            <div class="number-adjuster">
-              <button class="adjuster-btn" @click="decreaseInterval">-</button>
-              <span class="adjuster-value">{{ settings.clipboardInterval }}</span>
-              <button class="adjuster-btn" @click="increaseInterval">+</button>
-            </div>
-          </div>
+            </section>
 
-          <div class="setting-item">
-            <div class="setting-info">
-              <div class="setting-label">启用监听</div>
-              <div class="setting-desc">自动监控剪贴板变化</div>
-            </div>
-            <div class="setting-control">
-              <n-switch v-model:value="settings.clipboardMonitor" />
-            </div>
-          </div>
-        </div>
-      </section>
+            <!-- 剪贴板监听 -->
+            <section class="settings-card">
+              <div class="card-header">
+                <h3 class="card-title">剪贴板监听</h3>
+                <span class="status-badge">{{ settings.clipboardMonitor ? '运行中' : '已停止' }}</span>
+              </div>
+              <div class="card-content">
+                <div class="setting-item">
+                  <div class="setting-info-with-icon">
+                    <div class="icon-wrapper">
+                      <n-icon :component="TimeOutline" size="18" />
+                    </div>
+                    <div>
+                      <div class="setting-label">监听间隔</div>
+                      <div class="setting-desc">设置轮询剪贴板的频率（秒）</div>
+                    </div>
+                  </div>
+                  <div class="number-adjuster">
+                    <button class="adjuster-btn" @click="decreaseInterval">-</button>
+                    <span class="adjuster-value">{{ settings.clipboardInterval }}</span>
+                    <button class="adjuster-btn" @click="increaseInterval">+</button>
+                  </div>
+                </div>
 
-      <!-- Git集成 -->
-      <section class="settings-card">
-        <div class="card-header">
-          <h3 class="card-title">Git 集成</h3>
-        </div>
-        <div class="card-content">
-          <div class="setting-item">
-            <div class="setting-info">
-              <div class="setting-label">启用 Git</div>
-              <div class="setting-desc">启用版本控制功能</div>
-            </div>
-            <div class="setting-control">
-              <n-switch v-model:value="settings.gitEnabled" />
-            </div>
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">启用监听</div>
+                    <div class="setting-desc">自动监控剪贴板变化</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-switch v-model:value="settings.clipboardMonitor" />
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
+        </n-tab-pane>
 
-          <div v-if="settings.gitEnabled" class="setting-item">
-            <div class="setting-info">
-              <div class="setting-label">仓库路径</div>
-              <div class="setting-desc">Git 仓库的本地路径</div>
-            </div>
-            <div class="setting-control-wide">
-              <n-input
-                v-model:value="settings.gitPath"
-                placeholder="请输入 Git 仓库路径"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
+        <!-- 快捷键设置标签 -->
+        <n-tab-pane name="shortcuts" tab="快捷键">
+          <div class="tab-content">
+            <section class="settings-card">
+              <div class="card-header">
+                <h3 class="card-title">全局快捷键</h3>
+                <n-button text @click="resetShortcuts" :disabled="loadingShortcuts">
+                  <template #icon>
+                    <n-icon :component="RefreshOutline" />
+                  </template>
+                  重置为默认
+                </n-button>
+              </div>
+              <div class="card-content">
+                <div v-if="loadingShortcuts" class="loading-state">
+                  <n-spin size="small" />
+                  <span>加载中...</span>
+                </div>
+                <template v-else>
+                  <div class="setting-item">
+                    <div class="setting-info">
+                      <div class="setting-label">任务看板</div>
+                      <div class="setting-desc">快速打开任务看板页面</div>
+                    </div>
+                    <div class="shortcut-input">
+                      <n-input
+                        v-model:value="shortcuts.taskBoard"
+                        placeholder="如: Ctrl+Shift+N"
+                        @keydown="handleShortcutKeyDown($event, 'taskBoard')"
+                      />
+                    </div>
+                  </div>
 
-      <!-- AI集成 -->
-      <section class="settings-card">
-        <div class="card-header">
-          <h3 class="card-title">AI 集成</h3>
-        </div>
-        <div class="card-content">
-          <div class="setting-item">
-            <div class="setting-info">
-              <div class="setting-label">启用 AI</div>
-              <div class="setting-desc">使用 Claude AI 辅助功能</div>
-            </div>
-            <div class="setting-control">
-              <n-switch v-model:value="settings.aiEnabled" />
-            </div>
-          </div>
+                  <div class="setting-item">
+                    <div class="setting-info">
+                      <div class="setting-label">SQL历史</div>
+                      <div class="setting-desc">快速打开SQL历史记录</div>
+                    </div>
+                    <div class="shortcut-input">
+                      <n-input
+                        v-model:value="shortcuts.sqlHistory"
+                        placeholder="如: Ctrl+Shift+S"
+                        @keydown="handleShortcutKeyDown($event, 'sqlHistory')"
+                      />
+                    </div>
+                  </div>
 
-          <div v-if="settings.aiEnabled" class="setting-item">
-            <div class="setting-info">
-              <div class="setting-label">Claude API Key</div>
-              <div class="setting-desc">从 Anthropic 获取的 API 密钥</div>
-            </div>
-            <div class="setting-control-wide">
-              <n-input
-                v-model:value="settings.claudeApiKey"
-                type="password"
-                placeholder="请输入 Claude API Key"
-                show-password-on="click"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
+                  <div class="setting-item">
+                    <div class="setting-info">
+                      <div class="setting-label">应用启动器</div>
+                      <div class="setting-desc">快速打开应用启动器</div>
+                    </div>
+                    <div class="shortcut-input">
+                      <n-input
+                        v-model:value="shortcuts.appLauncher"
+                        placeholder="如: Ctrl+Shift+Space"
+                        @keydown="handleShortcutKeyDown($event, 'appLauncher')"
+                      />
+                    </div>
+                  </div>
 
-      <!-- 通知设置 -->
-      <section class="settings-card">
-        <div class="card-header">
-          <h3 class="card-title">通知设置</h3>
-        </div>
-        <div class="card-content">
-          <div class="setting-item">
-            <div class="setting-info">
-              <div class="setting-label">任务提醒</div>
-              <div class="setting-desc">自动提醒待办任务</div>
-            </div>
-            <div class="setting-control">
-              <n-switch v-model:value="settings.taskNotification" />
-            </div>
+                  <div class="shortcut-tips">
+                    <n-alert type="info" :bordered="false">
+                      <template #icon>
+                        <n-icon :component="InformationCircleOutline" />
+                      </template>
+                      <div>
+                        <p><strong>提示：</strong></p>
+                        <ul>
+                          <li>点击输入框后直接按下快捷键组合</li>
+                          <li>支持的修饰键：Ctrl、Shift、Alt</li>
+                          <li>建议使用组合键以避免冲突</li>
+                          <li>修改后需要点击保存按钮才能生效</li>
+                        </ul>
+                      </div>
+                    </n-alert>
+                  </div>
+                </template>
+              </div>
+            </section>
           </div>
+        </n-tab-pane>
 
-          <div class="setting-item">
-            <div class="setting-info">
-              <div class="setting-label">僵尸任务天数</div>
-              <div class="setting-desc">多少天未完成算作僵尸任务</div>
-            </div>
-            <div class="number-adjuster">
-              <button class="adjuster-btn" @click="decreaseStaleDays">-</button>
-              <span class="adjuster-value">{{ settings.staleTaskDays }}</span>
-              <button class="adjuster-btn" @click="increaseStaleDays">+</button>
-            </div>
-          </div>
+        <!-- 集成设置标签 -->
+        <n-tab-pane name="integrations" tab="集成">
+          <div class="tab-content">
+            <!-- Git集成 -->
+            <section class="settings-card">
+              <div class="card-header">
+                <h3 class="card-title">Git 集成</h3>
+              </div>
+              <div class="card-content">
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">启用 Git</div>
+                    <div class="setting-desc">启用版本控制功能</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-switch v-model:value="settings.gitEnabled" />
+                  </div>
+                </div>
 
-          <div class="setting-item">
-            <div class="setting-info">
-              <div class="setting-label">日志生成提醒</div>
-              <div class="setting-desc">每日提醒生成工作日志</div>
-            </div>
-            <div class="setting-control">
-              <n-switch v-model:value="settings.worklogReminder" />
-            </div>
-          </div>
-        </div>
-      </section>
+                <div v-if="settings.gitEnabled" class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">仓库路径</div>
+                    <div class="setting-desc">Git 仓库的本地路径</div>
+                  </div>
+                  <div class="setting-control-wide">
+                    <n-input
+                      v-model:value="settings.gitPath"
+                      placeholder="请输入 Git 仓库路径"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
 
-      <!-- 数据管理 -->
-      <section class="settings-card">
-        <div class="card-header">
-          <h3 class="card-title">数据管理</h3>
-        </div>
-        <div class="card-content">
-          <div class="data-path-info">
-            <div class="setting-label">数据库位置</div>
-            <code class="db-path">{{ dataPath }}</code>
-          </div>
-          <n-space class="action-buttons">
-            <n-button @click="openDataFolder">打开数据文件夹</n-button>
-            <n-button @click="handleExport">导出数据</n-button>
-            <n-button type="error" @click="handleClearData">清空数据</n-button>
-          </n-space>
-        </div>
-      </section>
+            <!-- AI集成 -->
+            <section class="settings-card">
+              <div class="card-header">
+                <h3 class="card-title">AI 集成</h3>
+              </div>
+              <div class="card-content">
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">启用 AI</div>
+                    <div class="setting-desc">使用 Claude AI 辅助功能</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-switch v-model:value="settings.aiEnabled" />
+                  </div>
+                </div>
 
-      <!-- 关于 -->
-      <section class="settings-card">
-        <div class="card-header">
-          <h3 class="card-title">关于</h3>
-        </div>
-        <div class="card-content">
-          <div class="about-info">
-            <p><strong>应用名称:</strong> DevAssistant</p>
-            <p><strong>版本:</strong> 0.1.0</p>
-            <p><strong>技术栈:</strong> Tauri + Rust + Vue3 + TypeScript + Naive UI</p>
+                <div v-if="settings.aiEnabled" class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">Claude API Key</div>
+                    <div class="setting-desc">从 Anthropic 获取的 API 密钥</div>
+                  </div>
+                  <div class="setting-control-wide">
+                    <n-input
+                      v-model:value="settings.claudeApiKey"
+                      type="password"
+                      placeholder="请输入 Claude API Key"
+                      show-password-on="click"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
-        </div>
-      </section>
+        </n-tab-pane>
+
+        <!-- 通知设置标签 -->
+        <n-tab-pane name="notifications" tab="通知">
+          <div class="tab-content">
+            <section class="settings-card">
+              <div class="card-header">
+                <h3 class="card-title">通知设置</h3>
+              </div>
+              <div class="card-content">
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">任务提醒</div>
+                    <div class="setting-desc">自动提醒待办任务</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-switch v-model:value="settings.taskNotification" />
+                  </div>
+                </div>
+
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">僵尸任务天数</div>
+                    <div class="setting-desc">多少天未完成算作僵尸任务</div>
+                  </div>
+                  <div class="number-adjuster">
+                    <button class="adjuster-btn" @click="decreaseStaleDays">-</button>
+                    <span class="adjuster-value">{{ settings.staleTaskDays }}</span>
+                    <button class="adjuster-btn" @click="increaseStaleDays">+</button>
+                  </div>
+                </div>
+
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">日志生成提醒</div>
+                    <div class="setting-desc">每日提醒生成工作日志</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-switch v-model:value="settings.worklogReminder" />
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </n-tab-pane>
+
+        <!-- 数据管理标签 -->
+        <n-tab-pane name="data" tab="数据">
+          <div class="tab-content">
+            <section class="settings-card">
+              <div class="card-header">
+                <h3 class="card-title">数据管理</h3>
+              </div>
+              <div class="card-content">
+                <div class="data-path-info">
+                  <div class="setting-label">数据库位置</div>
+                  <code class="db-path">{{ dataPath }}</code>
+                </div>
+                <n-space class="action-buttons">
+                  <n-button @click="openDataFolder">打开数据文件夹</n-button>
+                  <n-button @click="handleExport">导出数据</n-button>
+                  <n-button type="error" @click="handleClearData">清空数据</n-button>
+                </n-space>
+              </div>
+            </section>
+          </div>
+        </n-tab-pane>
+
+        <!-- 关于标签 -->
+        <n-tab-pane name="about" tab="关于">
+          <div class="tab-content">
+            <section class="settings-card">
+              <div class="card-header">
+                <h3 class="card-title">关于</h3>
+              </div>
+              <div class="card-content">
+                <div class="about-info">
+                  <p><strong>应用名称:</strong> DevAssistant</p>
+                  <p><strong>版本:</strong> 0.1.0</p>
+                  <p><strong>技术栈:</strong> Tauri + Rust + Vue3 + TypeScript + Naive UI</p>
+                </div>
+              </div>
+            </section>
+          </div>
+        </n-tab-pane>
+      </n-tabs>
 
       <!-- 保存按钮 -->
       <div class="save-section">
@@ -233,13 +339,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { NSpace, NSwitch, NSelect, NInput, NButton, NIcon, useMessage, useDialog } from 'naive-ui';
-import { TimeOutline } from '@vicons/ionicons5';
+import { NTabs, NTabPane, NSpace, NSwitch, NSelect, NInput, NButton, NIcon, NSpin, NAlert, useMessage, useDialog } from 'naive-ui';
+import { TimeOutline, RefreshOutline, InformationCircleOutline } from '@vicons/ionicons5';
+import { invoke } from '@tauri-apps/api/core';
 
 const message = useMessage();
 const dialog = useDialog();
 
 const saving = ref(false);
+const loadingShortcuts = ref(false);
 const dataPath = ref('~/.dev-assistant/db.sqlite');
 
 const settings = ref({
@@ -257,19 +365,112 @@ const settings = ref({
   worklogReminder: true,
 });
 
+const shortcuts = ref({
+  taskBoard: 'Ctrl+Shift+N',
+  sqlHistory: 'Ctrl+Shift+S',
+  appLauncher: 'Ctrl+Shift+Space',
+});
+
 onMounted(() => {
   loadSettings();
+  loadShortcuts();
 });
 
 function loadSettings() {
   // TODO: 从API加载设置
-  // 这里暂时使用默认值
+}
+
+async function loadShortcuts() {
+  loadingShortcuts.value = true;
+  try {
+    const config = await invoke<{
+      task_board: string;
+      sql_history: string;
+      app_launcher: string;
+    }>('get_shortcut_config');
+
+    shortcuts.value = {
+      taskBoard: config.task_board,
+      sqlHistory: config.sql_history,
+      appLauncher: config.app_launcher,
+    };
+  } catch (error) {
+    console.error('加载快捷键配置失败:', error);
+    message.error('加载快捷键配置失败');
+  } finally {
+    loadingShortcuts.value = false;
+  }
+}
+
+async function saveShortcuts() {
+  try {
+    await invoke('update_shortcut_config', {
+      config: {
+        task_board: shortcuts.value.taskBoard,
+        sql_history: shortcuts.value.sqlHistory,
+        app_launcher: shortcuts.value.appLauncher,
+      },
+    });
+    message.success('快捷键已更新');
+  } catch (error: any) {
+    message.error(error || '更新快捷键失败');
+    console.error('更新快捷键失败:', error);
+    throw error;
+  }
+}
+
+async function resetShortcuts() {
+  dialog.warning({
+    title: '重置快捷键',
+    content: '确定要重置所有快捷键为默认值吗?',
+    positiveText: '重置',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await invoke('reset_shortcut_config');
+        await loadShortcuts();
+        message.success('快捷键已重置');
+      } catch (error) {
+        message.error('重置快捷键失败');
+        console.error('重置快捷键失败:', error);
+      }
+    },
+  });
+}
+
+function handleShortcutKeyDown(event: KeyboardEvent, field: 'taskBoard' | 'sqlHistory' | 'appLauncher') {
+  event.preventDefault();
+
+  const modifiers: string[] = [];
+  if (event.ctrlKey) modifiers.push('Ctrl');
+  if (event.shiftKey) modifiers.push('Shift');
+  if (event.altKey) modifiers.push('Alt');
+
+  let key = event.key;
+
+  // 处理特殊键
+  if (key === ' ') key = 'Space';
+  else if (key.length === 1) key = key.toUpperCase();
+  else if (key.startsWith('F') && key.length <= 3) key = key; // F1-F12
+  else return; // 忽略其他特殊键
+
+  if (modifiers.length === 0) {
+    message.warning('请使用组合键（需要包含 Ctrl、Shift 或 Alt）');
+    return;
+  }
+
+  const shortcut = [...modifiers, key].join('+');
+  shortcuts.value[field] = shortcut;
 }
 
 async function handleSave() {
   saving.value = true;
   try {
-    // TODO: 调用API保存设置
+    // 保存快捷键
+    await saveShortcuts();
+
+    // TODO: 保存其他设置
+
     message.success('设置已保存');
   } catch (error) {
     message.error('保存失败');
@@ -345,7 +546,14 @@ function increaseStaleDays() {
 }
 
 .settings-container {
-  max-width: 768px;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.tab-content {
+  padding-top: 24px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -442,6 +650,40 @@ function increaseStaleDays() {
 .setting-control-wide {
   flex: 1;
   max-width: 400px;
+}
+
+/* 快捷键输入框 */
+.shortcut-input {
+  min-width: 220px;
+}
+
+.shortcut-tips {
+  margin-top: 8px;
+}
+
+.shortcut-tips ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+}
+
+.shortcut-tips li {
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgb(148, 163, 184);
+}
+
+.shortcut-tips p {
+  margin: 0 0 4px 0;
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  color: rgb(148, 163, 184);
 }
 
 /* 主题选择器 */
@@ -559,6 +801,14 @@ function increaseStaleDays() {
 }
 
 /* Naive UI 组件自定义样式 */
+:deep(.n-tabs) {
+  --n-tab-text-color: rgb(148, 163, 184);
+  --n-tab-text-color-active: rgb(99, 102, 241);
+  --n-tab-text-color-hover: rgb(203, 213, 225);
+  --n-bar-color: rgb(99, 102, 241);
+  --n-tab-border-color: rgba(51, 65, 85, 0.6);
+}
+
 :deep(.n-switch) {
   --n-rail-color: rgb(51, 65, 85);
   --n-rail-color-active: rgb(99, 102, 241);
@@ -583,6 +833,14 @@ function increaseStaleDays() {
   --n-text-color: rgb(203, 213, 225);
   --n-caret-color: rgb(99, 102, 241);
   --n-placeholder-color: rgb(100, 116, 139);
+}
+
+:deep(.n-alert) {
+  --n-color: rgba(99, 102, 241, 0.1);
+  --n-title-text-color: rgb(203, 213, 225);
+  --n-content-text-color: rgb(148, 163, 184);
+  --n-icon-color: rgb(99, 102, 241);
+  --n-border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
 :deep(.n-button) {

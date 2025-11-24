@@ -1,6 +1,6 @@
 use rusqlite::{params, Connection};
 use anyhow::Result;
-use crate::models::task::{Task, TaskStatus, TaskCategory, TaskPriority, WorkContext};
+use crate::models::task::{Task, TaskStatus, TaskCategory, TaskPriority, WorkContext, ImportTask, ImportResult};
 
 pub struct TaskService;
 
@@ -249,6 +249,146 @@ impl TaskService {
         .collect::<Result<Vec<_>, _>>()?;
 
         Ok(tasks)
+    }
+
+    /// 批量导入任务
+    pub fn import_tasks(conn: &Connection, tasks: Vec<ImportTask>) -> Result<ImportResult> {
+        let mut success = 0;
+        let mut failed = 0;
+        let mut errors = Vec::new();
+
+        for (index, task) in tasks.iter().enumerate() {
+            match Self::import_single_task(conn, task) {
+                Ok(_) => success += 1,
+                Err(e) => {
+                    failed += 1;
+                    errors.push(format!("第{}行: {}", index + 1, e));
+                }
+            }
+        }
+
+        Ok(ImportResult {
+            success,
+            failed,
+            errors,
+        })
+    }
+
+    /// 导入单个任务
+    fn import_single_task(conn: &Connection, task: &ImportTask) -> Result<()> {
+        // 验证标题
+        if task.title.trim().is_empty() {
+            return Err(anyhow::anyhow!("任务标题不能为空"));
+        }
+        if task.title.len() > 200 {
+            return Err(anyhow::anyhow!("任务标题不能超过200个字符"));
+        }
+
+        // 解析分类
+        let category = task.category.as_deref()
+            .map(|c| TaskCategory::from_str(c))
+            .unwrap_or(TaskCategory::Other);
+
+        // 解析优先级
+        let priority = task.priority
+            .map(|p| TaskPriority::from_i32(p))
+            .unwrap_or(TaskPriority::Medium);
+
+        // 解析状态
+        let status = task.status.as_deref()
+            .map(|s| TaskStatus::from_str(s))
+            .unwrap_or(TaskStatus::Todo);
+
+        // 处理时间字段
+        let created_at = task.created_at.as_deref().unwrap_or("datetime('now')");
+        let started_at = task.started_at.as_deref();
+        let completed_at = task.completed_at.as_deref();
+
+        // 如果有创建时间，使用提供的值；否则使用当前时间
+        let sql = if task.created_at.is_some() {
+            "INSERT INTO tasks (
+                title, description, category, priority, status,
+                git_branch, created_at, started_at, completed_at,
+                estimated_hours, actual_hours, notes, last_active_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        } else {
+            "INSERT INTO tasks (
+                title, description, category, priority, status,
+                git_branch, created_at, started_at, completed_at,
+                estimated_hours, actual_hours, notes, last_active_at
+            ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)"
+        };
+
+        let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![
+            Box::new(task.title.trim().to_string()),
+            Box::new(task.description.clone()),
+            Box::new(category.as_str().to_string()),
+            Box::new(priority.as_i32()),
+            Box::new(status.as_str().to_string()),
+            Box::new(task.git_branch.clone()),
+        ];
+
+        if task.created_at.is_some() {
+            params_vec.push(Box::new(created_at.to_string()));
+        }
+
+        params_vec.push(Box::new(started_at.map(|s| s.to_string())));
+        params_vec.push(Box::new(completed_at.map(|s| s.to_string())));
+        params_vec.push(Box::new(task.estimated_hours));
+        params_vec.push(Box::new(task.actual_hours));
+        params_vec.push(Box::new(task.notes.clone()));
+
+        // last_active_at 使用 completed_at 或 started_at 或 created_at
+        let last_active = completed_at
+            .or(started_at)
+            .or(Some(created_at))
+            .map(|s| s.to_string());
+        params_vec.push(Box::new(last_active));
+
+        let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec
+            .iter()
+            .map(|b| b.as_ref())
+            .collect();
+
+        conn.execute(sql, params_refs.as_slice())?;
+
+        Ok(())
+    }
+
+    /// 生成导入模板（JSON格式）
+    pub fn generate_import_template() -> String {
+        let template = vec![
+            ImportTask {
+                title: "示例任务1".to_string(),
+                description: Some("这是一个示例任务的描述".to_string()),
+                category: Some("dev".to_string()),
+                priority: Some(2),
+                status: Some("todo".to_string()),
+                git_branch: None,
+                created_at: Some("2024-01-15 10:00:00".to_string()),
+                started_at: None,
+                completed_at: None,
+                estimated_hours: Some(4.0),
+                actual_hours: None,
+                notes: Some("备注信息".to_string()),
+            },
+            ImportTask {
+                title: "示例任务2（已完成）".to_string(),
+                description: Some("这是一个已完成的任务".to_string()),
+                category: Some("ops".to_string()),
+                priority: Some(1),
+                status: Some("done".to_string()),
+                git_branch: Some("feature/example".to_string()),
+                created_at: Some("2024-01-10 09:00:00".to_string()),
+                started_at: Some("2024-01-10 09:30:00".to_string()),
+                completed_at: Some("2024-01-11 18:00:00".to_string()),
+                estimated_hours: Some(8.0),
+                actual_hours: Some(9.5),
+                notes: None,
+            },
+        ];
+
+        serde_json::to_string_pretty(&template).unwrap()
     }
 
     /// 辅助方法：将数据库行映射为 Task 对象

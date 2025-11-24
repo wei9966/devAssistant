@@ -18,6 +18,22 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     create_git_commits_table(conn)?;
     create_git_commits_indexes(conn)?;
 
+    // 创建 AppLauncher 表
+    create_apps_table(conn)?;
+    create_apps_indexes(conn)?;
+
+    create_categories_table(conn)?;
+    create_categories_indexes(conn)?;
+
+    create_workflows_table(conn)?;
+    create_workflows_indexes(conn)?;
+
+    create_launch_history_table(conn)?;
+    create_launch_history_indexes(conn)?;
+
+    // 创建 app_settings 表
+    create_app_settings_table(conn)?;
+
     Ok(())
 }
 
@@ -227,6 +243,140 @@ fn create_git_commits_indexes(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// 创建 apps 表（应用管理）
+fn create_apps_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS apps (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            path TEXT NOT NULL,
+            icon TEXT,
+            category TEXT,
+            tags TEXT,
+            launch_count INTEGER DEFAULT 0,
+            last_launched_at INTEGER,
+            is_pinned INTEGER DEFAULT 0,
+            is_hidden INTEGER DEFAULT 0,
+            launch_args TEXT,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 apps 表索引
+fn create_apps_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_apps_category ON apps(category)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_apps_launch_count ON apps(launch_count DESC)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_apps_last_launched ON apps(last_launched_at DESC)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_apps_is_pinned ON apps(is_pinned)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_apps_is_hidden ON apps(is_hidden)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 categories 表（应用分类）
+fn create_categories_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS categories (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            color TEXT,
+            icon TEXT,
+            sort_order INTEGER DEFAULT 0,
+            created_at INTEGER NOT NULL
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 categories 表索引
+fn create_categories_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_categories_sort_order ON categories(sort_order ASC)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 workflows 表（工作流）
+fn create_workflows_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS workflows (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            app_ids TEXT NOT NULL,
+            launch_delay INTEGER,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 workflows 表索引
+fn create_workflows_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_workflows_created_at ON workflows(created_at DESC)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 launch_history 表（启动历史）
+fn create_launch_history_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS launch_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            app_id TEXT NOT NULL,
+            launched_at INTEGER NOT NULL,
+            FOREIGN KEY (app_id) REFERENCES apps(id)
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 launch_history 表索引
+fn create_launch_history_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_launch_history_app_id ON launch_history(app_id)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_launch_history_launched_at ON launch_history(launched_at DESC)",
+        [],
+    )?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -275,6 +425,46 @@ mod tests {
         let table_exists: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='git_commits'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(table_exists, 1);
+
+        // 验证 apps 表已创建
+        let table_exists: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='apps'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(table_exists, 1);
+
+        // 验证 categories 表已创建
+        let table_exists: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='categories'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(table_exists, 1);
+
+        // 验证 workflows 表已创建
+        let table_exists: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='workflows'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(table_exists, 1);
+
+        // 验证 launch_history 表已创建
+        let table_exists: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='launch_history'",
                 [],
                 |row| row.get(0),
             )
@@ -349,4 +539,168 @@ mod tests {
             .unwrap();
         assert!(index_count >= 2); // 至少有2个索引
     }
+
+    #[test]
+    fn test_apps_table_structure() {
+        let conn = Connection::open_in_memory().unwrap();
+        create_apps_table(&conn).unwrap();
+        create_apps_indexes(&conn).unwrap();
+
+        // 测试插入数据
+        let result = conn.execute(
+            "INSERT INTO apps (id, name, path, category, launch_count, is_pinned, is_hidden, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                "vscode",
+                "Visual Studio Code",
+                "C:\\Program Files\\Microsoft VS Code\\Code.exe",
+                "dev",
+                "10",
+                "1",
+                "0",
+                "1732435200",
+                "1732435200",
+            ],
+        );
+        assert!(result.is_ok());
+
+        // 验证数据已插入
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM apps", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+
+        // 验证数据正确性
+        let name: String = conn
+            .query_row(
+                "SELECT name FROM apps WHERE id = ?",
+                ["vscode"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(name, "Visual Studio Code");
+    }
+
+    #[test]
+    fn test_categories_table_structure() {
+        let conn = Connection::open_in_memory().unwrap();
+        create_categories_table(&conn).unwrap();
+        create_categories_indexes(&conn).unwrap();
+
+        // 测试插入数据
+        let result = conn.execute(
+            "INSERT INTO categories (id, name, color, sort_order, created_at)
+             VALUES (?, ?, ?, ?, ?)",
+            ["dev", "开发工具", "#6366f1", "1", "1732435200"],
+        );
+        assert!(result.is_ok());
+
+        // 验证数据已插入
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM categories", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_workflows_table_structure() {
+        let conn = Connection::open_in_memory().unwrap();
+        create_workflows_table(&conn).unwrap();
+        create_workflows_indexes(&conn).unwrap();
+
+        // 测试插入数据
+        let result = conn.execute(
+            "INSERT INTO workflows (id, name, app_ids, launch_delay, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                "frontend-dev",
+                "前端开发环境",
+                "[\"vscode\",\"chrome\",\"terminal\"]",
+                "500",
+                "1732435200",
+                "1732435200",
+            ],
+        );
+        assert!(result.is_ok());
+
+        // 验证数据已插入
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM workflows", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_launch_history_table_structure() {
+        let conn = Connection::open_in_memory().unwrap();
+        create_apps_table(&conn).unwrap();
+        create_launch_history_table(&conn).unwrap();
+        create_launch_history_indexes(&conn).unwrap();
+
+        // 先插入一个应用
+        conn.execute(
+            "INSERT INTO apps (id, name, path, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?)",
+            ["vscode", "Visual Studio Code", "C:\\Code.exe", "1732435200", "1732435200"],
+        )
+        .unwrap();
+
+        // 测试插入启动历史
+        let result = conn.execute(
+            "INSERT INTO launch_history (app_id, launched_at)
+             VALUES (?, ?)",
+            ["vscode", "1732435200"],
+        );
+        assert!(result.is_ok());
+
+        // 验证数据已插入
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM launch_history",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_app_launcher_indexes() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+
+        // 验证 apps 表索引
+        let index_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND tbl_name='apps'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(index_count >= 5); // 至少有5个索引
+
+        // 验证 launch_history 表索引
+        let index_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND tbl_name='launch_history'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(index_count >= 2); // 至少有2个索引
+    }
+}
+
+/// 创建 app_settings 表（应用设置）
+fn create_app_settings_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at INTEGER NOT NULL
+        )",
+        [],
+    )?;
+
+    Ok(())
 }

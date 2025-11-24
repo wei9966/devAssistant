@@ -1,0 +1,274 @@
+<template>
+  <div class="category-filter">
+    <div class="category-tabs">
+      <!-- 分类标签 -->
+      <div
+        v-for="category in categories"
+        :key="category.id"
+        class="category-tab"
+        :class="{ active: selectedCategory === category.id }"
+        @click="handleSelectCategory(category.id)"
+      >
+        <span v-if="category.icon" class="category-icon">{{ category.icon }}</span>
+        <span class="category-name">{{ category.name }}</span>
+        <span v-if="getCategoryCount(category.id) > 0" class="category-count">
+          {{ getCategoryCount(category.id) }}
+        </span>
+      </div>
+
+      <!-- 管理分类按钮 -->
+      <div class="category-tab manage-btn" @click="handleManageCategories">
+        <n-icon size="16"><SettingsOutline /></n-icon>
+        <span class="category-name">管理</span>
+      </div>
+    </div>
+
+    <!-- 滚动指示器（当分类过多时） -->
+    <div v-if="showScrollIndicator" class="scroll-indicator">
+      <div class="scroll-left" @click="scrollLeft">
+        <n-icon><ChevronBack /></n-icon>
+      </div>
+      <div class="scroll-right" @click="scrollRight">
+        <n-icon><ChevronForward /></n-icon>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
+import { NIcon } from 'naive-ui';
+import { SettingsOutline, ChevronBack, ChevronForward } from '@vicons/ionicons5';
+import type { Category } from '@/types/appLauncher';
+
+const props = withDefaults(
+  defineProps<{
+    categories: Category[];
+    selectedCategory: string;
+    categoryCounts?: Record<string, number>;
+  }>(),
+  {
+    categoryCounts: () => ({}),
+  }
+);
+
+const emit = defineEmits<{
+  'update:selectedCategory': [categoryId: string];
+  select: [categoryId: string];
+  manage: [];
+}>();
+
+const categoryTabsRef = ref<HTMLDivElement>();
+const showScrollIndicator = ref(false);
+
+// 获取分类的应用数量
+const getCategoryCount = (categoryId: string): number => {
+  return props.categoryCounts[categoryId] || 0;
+};
+
+// 选择分类
+const handleSelectCategory = (categoryId: string) => {
+  emit('update:selectedCategory', categoryId);
+  emit('select', categoryId);
+};
+
+// 管理分类
+const handleManageCategories = () => {
+  emit('manage');
+};
+
+// 滚动控制
+const scrollLeft = () => {
+  if (categoryTabsRef.value) {
+    categoryTabsRef.value.scrollBy({ left: -200, behavior: 'smooth' });
+  }
+};
+
+const scrollRight = () => {
+  if (categoryTabsRef.value) {
+    categoryTabsRef.value.scrollBy({ left: 200, behavior: 'smooth' });
+  }
+};
+
+// 检查是否需要显示滚动指示器
+const checkScrollIndicator = () => {
+  if (categoryTabsRef.value) {
+    showScrollIndicator.value =
+      categoryTabsRef.value.scrollWidth > categoryTabsRef.value.clientWidth;
+  }
+};
+
+onMounted(() => {
+  checkScrollIndicator();
+  window.addEventListener('resize', checkScrollIndicator);
+});
+</script>
+
+<style scoped>
+.category-filter {
+  position: relative;
+  width: 100%;
+}
+
+.category-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.category-tabs::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.category-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.category-tab::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.1), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.6s;
+}
+
+.category-tab:hover::before {
+  transform: translateX(100%);
+}
+
+.category-tab:hover {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-2px);
+}
+
+.category-tab.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.1));
+  border-color: #6366f1;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2), 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+.category-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.category-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #cbd5e1;
+  transition: color 0.3s;
+}
+
+.category-tab:hover .category-name,
+.category-tab.active .category-name {
+  color: #e2e8f0;
+}
+
+.category-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #a5b4fc;
+}
+
+.category-tab.active .category-count {
+  background: rgba(99, 102, 241, 0.3);
+  color: #c7d2fe;
+}
+
+.manage-btn {
+  border-style: dashed;
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #94a3b8;
+}
+
+.manage-btn:hover {
+  border-color: #6366f1;
+  color: #c7d2fe;
+}
+
+/* 滚动指示器 */
+.scroll-indicator {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  pointer-events: none;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 8px;
+}
+
+.scroll-left,
+.scroll-right {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  border-radius: 50%;
+  color: #94a3b8;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.2s;
+  backdrop-filter: blur(8px);
+}
+
+.scroll-left:hover,
+.scroll-right:hover {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: #6366f1;
+  color: #c7d2fe;
+}
+
+.scroll-left {
+  box-shadow: 4px 0 8px rgba(0, 0, 0, 0.3);
+}
+
+.scroll-right {
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .category-tab {
+    padding: 8px 12px;
+  }
+
+  .category-name {
+    font-size: 12px;
+  }
+
+  .category-icon {
+    font-size: 14px;
+  }
+}
+</style>

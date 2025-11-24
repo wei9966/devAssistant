@@ -24,7 +24,30 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": [
+        {
+          "identifier": "main-capability",
+          "description": "Main application capabilities",
+          "windows": ["main"],
+          "permissions": [
+            "core:default",
+            "shell:allow-open",
+            "dialog:allow-open",
+            "dialog:allow-save",
+            "fs:allow-write-text-file",
+            "fs:allow-read-text-file",
+            "fs:allow-write-file",
+            "fs:allow-read-file",
+            "fs:allow-exists",
+            "global-shortcut:allow-is-registered",
+            "global-shortcut:allow-register",
+            "global-shortcut:allow-register-all",
+            "global-shortcut:allow-unregister",
+            "global-shortcut:allow-unregister-all"
+          ]
+        }
+      ]
     }
   },
   "bundle": {
