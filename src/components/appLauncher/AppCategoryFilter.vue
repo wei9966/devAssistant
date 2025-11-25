@@ -8,13 +8,12 @@
         class="category-tab"
         :class="{
           active: selectedCategory === category.id,
-          'drag-over': dragOverCategory === category.id
+          'drag-over': isDragging && hoveredCategoryId === category.id && category.id !== 'all',
+          'drag-disabled': isDragging && hoveredCategoryId === category.id && category.id === 'all',
+          'drop-target': isDragging && category.id !== 'all'
         }"
+        :data-category-id="category.id"
         @click="handleSelectCategory(category.id)"
-        @dragover.prevent="handleDragOver(category.id, $event)"
-        @dragenter.prevent="handleDragEnter(category.id, $event)"
-        @dragleave="handleDragLeave"
-        @drop.prevent="handleDrop(category.id, $event)"
       >
         <span v-if="category.icon" class="category-icon">{{ category.icon }}</span>
         <span class="category-name">{{ category.name }}</span>
@@ -53,9 +52,13 @@ const props = withDefaults(
     categories: Category[];
     selectedCategory: string;
     categoryCounts?: Record<string, number>;
+    hoveredCategoryId?: string | null;
+    isDragging?: boolean;
   }>(),
   {
     categoryCounts: () => ({}),
+    hoveredCategoryId: null,
+    isDragging: false,
   }
 );
 
@@ -63,10 +66,7 @@ const emit = defineEmits<{
   'update:selectedCategory': [categoryId: string];
   select: [categoryId: string];
   manage: [];
-  drop: [categoryId: string, appData: any];
 }>();
-
-const dragOverCategory = ref<string | null>(null);
 
 const categoryTabsRef = ref<HTMLDivElement>();
 const showScrollIndicator = ref(false);
@@ -85,68 +85,6 @@ const handleSelectCategory = (categoryId: string) => {
 // 管理分类
 const handleManageCategories = () => {
   emit('manage');
-};
-
-// 拖放处理
-const handleDragOver = (categoryId: string, e: DragEvent) => {
-  console.log('🎯 CategoryFilter DragOver - Category:', categoryId);
-
-  e.preventDefault(); // CRITICAL: Must prevent default to allow drop
-  e.stopPropagation(); // Stop event from bubbling
-
-  dragOverCategory.value = categoryId;
-
-  if (e.dataTransfer) {
-    e.dataTransfer.dropEffect = 'move';
-    console.log('   ✓ dropEffect set to:', e.dataTransfer.dropEffect);
-  }
-
-  return false;
-};
-
-const handleDragEnter = (categoryId: string, e: DragEvent) => {
-  console.log('🎯 DragEnter on category:', categoryId);
-  e.preventDefault();
-  e.stopPropagation();
-  dragOverCategory.value = categoryId;
-  if (e.dataTransfer) {
-    e.dataTransfer.dropEffect = 'move';
-  }
-};
-
-const handleDragLeave = (e: DragEvent) => {
-  console.log('🚪 CategoryFilter DragLeave');
-  // Only clear if we're actually leaving the tab, not entering a child
-  if (e.currentTarget === e.target || !(e.currentTarget as HTMLElement)?.contains(e.relatedTarget as Node)) {
-    dragOverCategory.value = null;
-  }
-};
-
-const handleDrop = (categoryId: string, e: DragEvent) => {
-  console.log('🎉 CategoryFilter Drop - Category:', categoryId);
-
-  e.preventDefault();
-  e.stopPropagation();
-
-  dragOverCategory.value = null;
-
-  if (!e.dataTransfer) {
-    console.error('❌ No dataTransfer in drop event!');
-    return;
-  }
-
-  try {
-    const dataString = e.dataTransfer.getData('application/json');
-    console.log('   📦 Data received:', dataString.substring(0, 50) + '...');
-
-    const appData = JSON.parse(dataString);
-    console.log('   ✓ Parsed app:', appData.name);
-
-    emit('drop', categoryId, appData);
-    console.log('   ✓ Drop event emitted to parent');
-  } catch (error) {
-    console.error('❌ Failed to parse drag data:', error);
-  }
 };
 
 // 滚动控制
@@ -254,6 +192,18 @@ onMounted(() => {
   50% {
     box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.4), 0 4px 20px rgba(34, 197, 94, 0.3);
   }
+}
+
+.category-tab.drag-disabled {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1));
+  border-color: #ef4444;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.category-tab.drop-target {
+  border-style: dashed;
+  border-color: rgba(99, 102, 241, 0.5);
 }
 
 .category-icon {

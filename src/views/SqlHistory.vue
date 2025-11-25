@@ -16,15 +16,43 @@
           v-model:value="selectedType"
           size="small"
           :options="typeOptions"
-          style="width: 150px"
-          placeholder="筛选类型"
+          style="width: 120px"
+          placeholder="SQL类型"
+        />
+        <n-select
+          v-model:value="selectedCategory"
+          size="small"
+          :options="categoryOptions"
+          style="width: 120px"
+          placeholder="分类"
         />
         <n-button
           size="small"
           :class="showFavorites ? 'primary-button' : ''"
           @click="showFavorites = !showFavorites"
         >
-          {{ showFavorites ? '仅显示收藏' : '显示全部' }}
+          {{ showFavorites ? '仅收藏' : '全部' }}
+        </n-button>
+        <n-button
+          size="small"
+          @click="showAiConfigModal = true"
+          :type="sqlStore.aiConfigured ? 'success' : 'default'"
+        >
+          AI配置
+        </n-button>
+        <n-button
+          size="small"
+          :loading="sqlStore.aiClassifying"
+          :disabled="!sqlStore.aiConfigured || sqlStore.uncategorizedCount === 0"
+          @click="handleAiClassify"
+        >
+          AI分类 ({{ sqlStore.uncategorizedCount }})
+        </n-button>
+        <n-button
+          size="small"
+          @click="showCategoryModal = true"
+        >
+          分类管理
         </n-button>
         <n-button
           size="small"
@@ -42,8 +70,9 @@
           <thead class="table-head">
             <tr>
               <th class="col-status">状态</th>
+              <th class="col-name">名称</th>
               <th class="col-sql">SQL 语句</th>
-              <th class="col-duration">耗时</th>
+              <th class="col-category">分类</th>
               <th class="col-time">时间</th>
               <th class="col-actions">操作</th>
             </tr>
@@ -60,6 +89,24 @@
                   :color="getStatusColor(sql.sqlType)"
                   size="18"
                 />
+              </td>
+              <td class="col-name">
+                <span
+                  v-if="sql.name"
+                  class="sql-name"
+                  @click="handleEditSql(sql)"
+                  title="点击编辑"
+                >
+                  {{ sql.name }}
+                </span>
+                <span
+                  v-else
+                  class="sql-name-empty"
+                  @click="handleEditSql(sql)"
+                  title="点击添加名称"
+                >
+                  未命名
+                </span>
               </td>
               <td class="col-sql">
                 <div class="sql-cell">
@@ -81,8 +128,30 @@
                   </n-button>
                 </div>
               </td>
-              <td class="col-duration">
-                <span class="duration-text">{{ formatDuration(sql) }}</span>
+              <td class="col-category">
+                <div class="category-tags" @click="handleEditSql(sql)">
+                  <template v-if="sql.categories && sql.categories.length > 0">
+                    <n-tag
+                      v-for="cat in sql.categories.slice(0, 3)"
+                      :key="cat.id"
+                      size="small"
+                      :style="{ backgroundColor: cat.color || '#6366f1', color: '#fff' }"
+                      class="category-tag"
+                    >
+                      {{ cat.name }}
+                    </n-tag>
+                    <span v-if="sql.categories.length > 3" class="more-tags">
+                      +{{ sql.categories.length - 3 }}
+                    </span>
+                  </template>
+                  <span
+                    v-else
+                    class="category-empty"
+                    title="点击分类"
+                  >
+                    未分类
+                  </span>
+                </div>
               </td>
               <td class="col-time">
                 <span class="time-text">{{ formatTime(sql.executedAt) }}</span>
@@ -98,6 +167,17 @@
                   >
                     <template #icon>
                       <n-icon :component="CopyIcon" />
+                    </template>
+                  </n-button>
+                  <n-button
+                    text
+                    size="small"
+                    @click="handleEditSql(sql)"
+                    class="action-btn"
+                    title="编辑"
+                  >
+                    <template #icon>
+                      <n-icon :component="EditIcon" />
                     </template>
                   </n-button>
                   <n-button
@@ -126,7 +206,7 @@
               </td>
             </tr>
             <tr v-if="filteredSqls.length === 0">
-              <td colspan="5" class="empty-row">
+              <td colspan="6" class="empty-row">
                 <n-empty description="暂无SQL记录" />
               </td>
             </tr>
@@ -191,14 +271,221 @@
         <code class="full-sql-code">{{ fullSqlText }}</code>
       </div>
     </n-modal>
+
+    <!-- AI配置对话框 -->
+    <n-modal
+      v-model:show="showAiConfigModal"
+      preset="dialog"
+      title="AI 服务配置"
+      positive-text="保存"
+      negative-text="取消"
+      style="width: 500px;"
+      @positive-click="handleSaveAiConfig"
+    >
+      <n-form
+        ref="aiConfigFormRef"
+        :model="aiConfigForm"
+        label-placement="top"
+      >
+        <n-form-item label="AI 提供商" path="provider">
+          <n-select
+            v-model:value="aiConfigForm.provider"
+            :options="aiProviderOptions"
+            placeholder="选择 AI 提供商"
+          />
+        </n-form-item>
+        <n-form-item label="API Key" path="apiKey">
+          <n-input
+            v-model:value="aiConfigForm.apiKey"
+            type="password"
+            show-password-on="click"
+            placeholder="请输入 API Key"
+          />
+        </n-form-item>
+        <n-form-item label="自定义 Base URL（可选）" path="baseUrl">
+          <n-input
+            v-model:value="aiConfigForm.baseUrl"
+            placeholder="留空使用默认 URL"
+          />
+        </n-form-item>
+        <n-form-item label="自定义模型（可选）" path="model">
+          <n-input
+            v-model:value="aiConfigForm.model"
+            placeholder="留空使用默认模型"
+          />
+        </n-form-item>
+      </n-form>
+      <div style="margin-top: 12px;">
+        <n-button
+          size="small"
+          :loading="testingConnection"
+          @click="handleTestConnection"
+        >
+          测试连接
+        </n-button>
+      </div>
+    </n-modal>
+
+    <!-- 编辑SQL对话框 -->
+    <n-modal
+      v-model:show="showEditModal"
+      preset="dialog"
+      title="编辑 SQL 信息"
+      positive-text="保存"
+      negative-text="取消"
+      style="width: 600px;"
+      @positive-click="handleSaveEdit"
+    >
+      <n-form
+        ref="editFormRef"
+        :model="editForm"
+        label-placement="top"
+      >
+        <n-form-item label="SQL 名称" path="name">
+          <n-input
+            v-model:value="editForm.name"
+            placeholder="为这条 SQL 取个名字"
+          />
+        </n-form-item>
+        <n-form-item label="分类标签（可多选）" path="categoryIds">
+          <n-select
+            v-model:value="editForm.categoryIds"
+            :options="editCategoryOptions"
+            placeholder="选择分类标签"
+            multiple
+            clearable
+          />
+        </n-form-item>
+        <n-form-item label="SQL 语句">
+          <div class="full-sql-container" style="max-height: 200px;">
+            <code class="full-sql-code">{{ editForm.sqlText }}</code>
+          </div>
+        </n-form-item>
+      </n-form>
+    </n-modal>
+
+    <!-- 分类管理对话框 -->
+    <n-modal
+      v-model:show="showCategoryModal"
+      preset="dialog"
+      title="分类管理"
+      style="width: 800px;"
+    >
+      <div class="category-manager">
+        <div class="category-add-form">
+          <n-input
+            v-model:value="newCategory.name"
+            placeholder="分类名称"
+            style="width: 100px;"
+          />
+          <n-input
+            v-model:value="newCategory.description"
+            placeholder="描述（可选）"
+            style="width: 120px;"
+          />
+          <n-color-picker
+            v-model:value="newCategory.color"
+            :swatches="colorSwatches"
+            style="width: 80px;"
+          />
+          <n-input
+            v-model:value="newCategory.aiPrompt"
+            placeholder="AI 识别规则提示词（可选）"
+            style="flex: 1;"
+          />
+          <n-button type="primary" @click="handleAddCategory">添加</n-button>
+        </div>
+        <div class="category-list">
+          <div
+            v-for="cat in sqlStore.categories"
+            :key="cat.id"
+            class="category-item"
+          >
+            <n-tag
+              :style="{ backgroundColor: cat.color || '#6366f1', color: '#fff' }"
+              size="small"
+            >
+              {{ cat.name }}
+            </n-tag>
+            <span class="category-desc">{{ cat.description || '-' }}</span>
+            <span class="category-prompt" :title="cat.aiPrompt">
+              {{ cat.aiPrompt ? cat.aiPrompt.substring(0, 30) + '...' : '无规则' }}
+            </span>
+            <n-tag v-if="cat.isSystem" size="tiny" type="info">系统</n-tag>
+            <div class="category-actions">
+              <n-button
+                text
+                size="tiny"
+                @click="handleEditCategory(cat)"
+              >
+                编辑
+              </n-button>
+              <n-button
+                text
+                size="tiny"
+                type="error"
+                @click="handleDeleteCategory(cat.id)"
+                :disabled="cat.isSystem"
+              >
+                删除
+              </n-button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </n-modal>
+
+    <!-- 编辑分类对话框 -->
+    <n-modal
+      v-model:show="showEditCategoryModal"
+      preset="dialog"
+      title="编辑分类"
+      positive-text="保存"
+      negative-text="取消"
+      style="width: 500px;"
+      @positive-click="handleSaveCategoryEdit"
+    >
+      <n-form
+        :model="editCategoryForm"
+        label-placement="top"
+      >
+        <n-form-item label="分类名称">
+          <n-input
+            v-model:value="editCategoryForm.name"
+            placeholder="请输入分类名称"
+          />
+        </n-form-item>
+        <n-form-item label="描述">
+          <n-input
+            v-model:value="editCategoryForm.description"
+            placeholder="分类描述（可选）"
+          />
+        </n-form-item>
+        <n-form-item label="颜色">
+          <n-color-picker
+            v-model:value="editCategoryForm.color"
+            :swatches="colorSwatches"
+          />
+        </n-form-item>
+        <n-form-item label="AI 识别规则提示词">
+          <n-input
+            v-model:value="editCategoryForm.aiPrompt"
+            type="textarea"
+            placeholder="例如：识别规则：表名和字段名使用小写字母和下划线命名（snake_case）"
+            :autosize="{ minRows: 3, maxRows: 6 }"
+          />
+        </n-form-item>
+      </n-form>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { NButton, NEmpty, NModal, NForm, NFormItem, NInput, NIcon, NSelect, useMessage } from 'naive-ui';
+import { NButton, NEmpty, NModal, NForm, NFormItem, NInput, NIcon, NSelect, NTag, NColorPicker, useMessage } from 'naive-ui';
 import type { FormInst, FormRules } from 'naive-ui';
 import { useSqlStore } from '@/stores/sqlStore';
+import type { SqlRecord, SqlCategory, AiProvider } from '@/types/sql';
 import {
   CheckmarkCircle,
   AlertCircle,
@@ -208,7 +495,8 @@ import {
   StarOutline,
   Trash,
   Search,
-  Expand
+  Expand,
+  Create
 } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -222,11 +510,44 @@ const message = useMessage();
 const showFavorites = ref(false);
 const showAddModal = ref(false);
 const showSqlModal = ref(false);
+const showAiConfigModal = ref(false);
+const showEditModal = ref(false);
+const showCategoryModal = ref(false);
+const showEditCategoryModal = ref(false);
 const fullSqlText = ref('');
 const searchKeyword = ref('');
 const selectedType = ref<string | null>(null);
+const selectedCategory = ref<number | null>(null);
 const formRef = ref<FormInst | null>(null);
+const testingConnection = ref(false);
 let autoRefreshTimer: number | null = null;
+
+// 颜色选择预设
+const colorSwatches = [
+  '#6366f1', '#8b5cf6', '#a855f7', '#d946ef',
+  '#ec4899', '#f43f5e', '#ef4444', '#f97316',
+  '#f59e0b', '#eab308', '#84cc16', '#22c55e',
+  '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9',
+  '#3b82f6', '#00758f', '#cc2927', '#64748b'
+];
+
+// 新分类表单
+const newCategory = ref({
+  name: '',
+  description: '',
+  color: '#6366f1',
+  aiPrompt: ''
+});
+
+// 编辑分类表单
+const editCategoryForm = ref({
+  id: 0,
+  name: '',
+  description: '',
+  color: '#6366f1',
+  icon: '',
+  aiPrompt: ''
+});
 
 // 图标组件
 const CheckCircleIcon = CheckmarkCircle;
@@ -238,6 +559,47 @@ const StarOutlineIcon = StarOutline;
 const TrashIcon = Trash;
 const SearchIcon = Search;
 const ExpandIcon = Expand;
+const EditIcon = Create;
+
+// AI 配置表单
+const aiConfigForm = ref({
+  provider: 'deepseek' as AiProvider,
+  apiKey: '',
+  baseUrl: '',
+  model: ''
+});
+
+// AI 提供商选项
+const aiProviderOptions = [
+  { label: 'DeepSeek', value: 'deepseek' },
+  { label: '通义千问 (Qwen)', value: 'qwen' }
+];
+
+// 编辑表单（支持多标签）
+const editForm = ref({
+  id: 0,
+  name: '',
+  categoryIds: [] as number[],
+  sqlText: ''
+});
+
+// 编辑分类选项
+const editCategoryOptions = computed(() => {
+  return sqlStore.categories.map(cat => ({
+    label: cat.name,
+    value: cat.id
+  }));
+});
+
+// 分类筛选选项
+const categoryOptions = computed(() => [
+  { label: '全部分类', value: null },
+  { label: '未分类', value: -1 },
+  ...sqlStore.categories.map(cat => ({
+    label: cat.name,
+    value: cat.id
+  }))
+]);
 
 // 表单数据
 const formData = ref({
@@ -282,7 +644,7 @@ const displaySqls = computed(() => {
   return showFavorites.value ? sqlStore.favoriteSqls : sqlStore.recentSqls;
 });
 
-// 过滤后的SQL列表
+// 过滤后的SQL列表（支持多标签筛选）
 const filteredSqls = computed(() => {
   let sqls = displaySqls.value;
 
@@ -291,9 +653,26 @@ const filteredSqls = computed(() => {
     sqls = sqls.filter(sql => sql.sqlType === selectedType.value);
   }
 
+  // 按分类筛选（多标签）
+  if (selectedCategory.value !== null) {
+    if (selectedCategory.value === -1) {
+      // 未分类
+      sqls = sqls.filter(sql => !sql.categories || sql.categories.length === 0);
+    } else {
+      sqls = sqls.filter(sql =>
+        sql.categories?.some(cat => cat.id === selectedCategory.value)
+      );
+    }
+  }
+
   // 按关键字搜索
   if (searchKeyword.value.trim()) {
-    sqls = sqlStore.searchSqls(searchKeyword.value);
+    const keyword = searchKeyword.value.toLowerCase();
+    sqls = sqls.filter(sql =>
+      sql.sqlText.toLowerCase().includes(keyword) ||
+      sql.name?.toLowerCase().includes(keyword) ||
+      sql.categories?.some(cat => cat.name.toLowerCase().includes(keyword))
+    );
   }
 
   return sqls;
@@ -302,6 +681,8 @@ const filteredSqls = computed(() => {
 onMounted(async () => {
   await sqlStore.loadRecentSqls();
   await sqlStore.loadFavoriteSqls();
+  await sqlStore.loadCategories();
+  await sqlStore.checkAiStatus();
 
   // 启动自动刷新，每5秒检查一次新的SQL
   autoRefreshTimer = window.setInterval(async () => {
@@ -465,6 +846,173 @@ function handleCopyFullSql() {
   navigator.clipboard.writeText(fullSqlText.value);
   message.success('已复制到剪贴板');
 }
+
+// 保存 AI 配置
+async function handleSaveAiConfig() {
+  if (!aiConfigForm.value.apiKey) {
+    message.error('请输入 API Key');
+    return false;
+  }
+
+  try {
+    await sqlStore.configureAi(
+      aiConfigForm.value.provider,
+      aiConfigForm.value.apiKey,
+      aiConfigForm.value.baseUrl || undefined,
+      aiConfigForm.value.model || undefined
+    );
+    message.success('AI 配置保存成功');
+    showAiConfigModal.value = false;
+  } catch (error) {
+    message.error('配置保存失败');
+    return false;
+  }
+}
+
+// 测试 AI 连接
+async function handleTestConnection() {
+  if (!aiConfigForm.value.apiKey) {
+    message.error('请先输入 API Key');
+    return;
+  }
+
+  testingConnection.value = true;
+  try {
+    // 先保存配置
+    await sqlStore.configureAi(
+      aiConfigForm.value.provider,
+      aiConfigForm.value.apiKey,
+      aiConfigForm.value.baseUrl || undefined,
+      aiConfigForm.value.model || undefined
+    );
+
+    // 测试连接
+    const success = await sqlStore.testAiConnection();
+    if (success) {
+      message.success('连接测试成功');
+    } else {
+      message.error('连接测试失败');
+    }
+  } catch (error) {
+    message.error('连接测试失败: ' + (error as Error).message);
+  } finally {
+    testingConnection.value = false;
+  }
+}
+
+// AI 自动分类
+async function handleAiClassify() {
+  try {
+    const results = await sqlStore.aiClassifySqls(undefined, 20);
+    message.success(`成功分类 ${results.length} 条 SQL`);
+  } catch (error) {
+    message.error('AI 分类失败: ' + (error as Error).message);
+  }
+}
+
+// 编辑 SQL（支持多标签）
+function handleEditSql(sql: SqlRecord) {
+  editForm.value = {
+    id: sql.id || 0,
+    name: sql.name || '',
+    categoryIds: sql.categories?.map(cat => cat.id) || [],
+    sqlText: sql.sqlText
+  };
+  showEditModal.value = true;
+}
+
+// 保存编辑（多标签）
+async function handleSaveEdit() {
+  try {
+    await sqlStore.updateSqlNameCategories(
+      editForm.value.id,
+      editForm.value.name || undefined,
+      editForm.value.categoryIds
+    );
+    message.success('保存成功');
+    showEditModal.value = false;
+  } catch (error) {
+    message.error('保存失败');
+    return false;
+  }
+}
+
+// 添加分类
+async function handleAddCategory() {
+  if (!newCategory.value.name.trim()) {
+    message.error('请输入分类名称');
+    return;
+  }
+
+  try {
+    await sqlStore.addCategory(
+      newCategory.value.name.trim(),
+      newCategory.value.description || undefined,
+      newCategory.value.color,
+      undefined,
+      newCategory.value.aiPrompt || undefined
+    );
+    message.success('分类添加成功');
+    // 重置表单
+    newCategory.value = {
+      name: '',
+      description: '',
+      color: '#6366f1',
+      aiPrompt: ''
+    };
+  } catch (error) {
+    message.error('添加分类失败');
+  }
+}
+
+// 编辑分类
+function handleEditCategory(cat: SqlCategory) {
+  editCategoryForm.value = {
+    id: cat.id || 0,
+    name: cat.name,
+    description: cat.description || '',
+    color: cat.color || '#6366f1',
+    icon: cat.icon || '',
+    aiPrompt: cat.aiPrompt || ''
+  };
+  showEditCategoryModal.value = true;
+}
+
+// 保存分类编辑
+async function handleSaveCategoryEdit() {
+  if (!editCategoryForm.value.name.trim()) {
+    message.error('分类名称不能为空');
+    return false;
+  }
+
+  try {
+    await sqlStore.updateCategory(
+      editCategoryForm.value.id,
+      editCategoryForm.value.name.trim(),
+      editCategoryForm.value.description || undefined,
+      editCategoryForm.value.color,
+      editCategoryForm.value.icon || undefined,
+      editCategoryForm.value.aiPrompt || undefined
+    );
+    message.success('分类更新成功');
+    showEditCategoryModal.value = false;
+  } catch (error) {
+    message.error('更新分类失败');
+    return false;
+  }
+}
+
+// 删除分类
+async function handleDeleteCategory(categoryId: number | undefined) {
+  if (!categoryId) return;
+
+  try {
+    await sqlStore.deleteCategory(categoryId);
+    message.success('分类删除成功');
+  } catch (error) {
+    message.error('删除分类失败');
+  }
+}
 </script>
 
 <style scoped>
@@ -622,24 +1170,151 @@ function handleCopyFullSql() {
 
 /* Column Widths */
 .col-status {
-  width: 80px;
+  width: 60px;
+}
+
+.col-name {
+  width: 150px;
 }
 
 .col-sql {
-  min-width: 400px;
+  min-width: 300px;
 }
 
-.col-duration {
-  width: 128px;
+.col-category {
+  width: 100px;
 }
 
 .col-time {
-  width: 128px;
+  width: 100px;
 }
 
 .col-actions {
-  width: 96px;
+  width: 120px;
   text-align: right;
+}
+
+/* SQL Name */
+.sql-name {
+  color: #cbd5e1;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.2s;
+  display: block;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sql-name:hover {
+  color: #a78bfa;
+}
+
+.sql-name-empty {
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+  font-style: italic;
+}
+
+.sql-name-empty:hover {
+  color: #94a3b8;
+}
+
+/* Category Tag */
+.category-tag {
+  cursor: pointer;
+  transition: opacity 0.2s;
+  font-size: 11px;
+}
+
+.category-tag:hover {
+  opacity: 0.8;
+}
+
+.category-empty {
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+  font-style: italic;
+}
+
+.category-empty:hover {
+  color: #94a3b8;
+}
+
+/* Category Tags Container */
+.category-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  cursor: pointer;
+  min-height: 24px;
+  align-items: center;
+}
+
+.more-tags {
+  font-size: 11px;
+  color: #64748b;
+  margin-left: 2px;
+}
+
+/* Category Manager */
+.category-manager {
+  padding: 16px 0;
+}
+
+.category-add-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #334155;
+}
+
+.category-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.category-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.category-item:hover {
+  background: rgba(30, 41, 59, 0.5);
+}
+
+.category-desc {
+  flex: 0 0 120px;
+  font-size: 12px;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-prompt {
+  flex: 1;
+  font-size: 11px;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 /* SQL Cell */

@@ -1,8 +1,7 @@
 <template>
   <div
     class="app-launcher"
-    @dragover.prevent="handleGlobalDragOver"
-    @dragenter.prevent="handleGlobalDragEnter"
+    :class="{ 'is-dragging': draggingApp !== null }"
   >
     <!-- Header -->
     <div class="launcher-header">
@@ -47,14 +46,15 @@
     </div>
 
     <!-- Category Filter -->
-    <div class="filter-section">
+    <div class="filter-section" :class="{ 'drop-zone-active': draggingApp !== null }">
       <AppCategoryFilter
         :categories="categories"
         :selected-category="selectedCategory"
         :category-counts="categoryCounts"
+        :hovered-category-id="hoveredCategoryId"
+        :is-dragging="draggingApp !== null"
         @select="handleSelectCategory"
         @manage="handleManageCategories"
-        @drop="handleCategoryDrop"
       />
     </div>
 
@@ -100,10 +100,12 @@
             v-for="app in pinnedApps"
             :key="app.id"
             :app="app"
+            :is-being-dragged="draggingApp?.id === app.id"
             @launch="handleLaunch"
             @pin="handlePin"
             @edit="handleEdit"
             @delete="handleDelete"
+            @mousedown-drag="handleMouseDragStart"
           />
         </div>
       </div>
@@ -119,10 +121,12 @@
             v-for="app in unpinnedApps"
             :key="app.id"
             :app="app"
+            :is-being-dragged="draggingApp?.id === app.id"
             @launch="handleLaunch"
             @pin="handlePin"
             @edit="handleEdit"
             @delete="handleDelete"
+            @mousedown-drag="handleMouseDragStart"
           />
         </div>
       </div>
@@ -176,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, onMounted } from 'vue';
+import { ref, computed, h, onMounted, onUnmounted } from 'vue';
 import {
   NSpace,
   NButton,
@@ -225,6 +229,11 @@ const showQuickLaunch = ref(false);
 const showCategoryManager = ref(false);
 const currentApp = ref<AppItem | null>(null);
 const currentWorkflow = ref<Workflow | null>(null);
+
+// 鼠标拖拽状态
+const draggingApp = ref<AppItem | null>(null);
+const ghostElement = ref<HTMLElement | null>(null);
+const hoveredCategoryId = ref<string | null>(null);
 
 // 应用数据（从数据库加载）
 const allApps = ref<AppItem[]>([]);
@@ -641,80 +650,150 @@ const handleManageCategories = () => {
   showCategoryManager.value = true;
 };
 
-// 全局拖拽处理器
-const handleGlobalDragOver = (e: DragEvent) => {
-  console.log('🔍 Global dragover:', {
-    target: (e.target as HTMLElement)?.className,
-    tagName: (e.target as HTMLElement)?.tagName,
+// ========== 鼠标拖拽实现 ==========
+
+// 鼠标按下开始拖拽
+const handleMouseDragStart = (app: AppItem, event: MouseEvent, cardElement: HTMLElement) => {
+  console.log('📦 Mouse drag started:', app.name);
+
+  // 防止点击事件
+  event.preventDefault();
+  event.stopPropagation();
+
+  draggingApp.value = app;
+
+  // 创建幽灵元素
+  createGhostElement(cardElement, event);
+
+  // 添加全局鼠标事件
+  document.addEventListener('mousemove', handleGlobalMouseMove);
+  document.addEventListener('mouseup', handleGlobalMouseUp);
+
+  // 添加拖拽样式
+  document.body.style.cursor = 'grabbing';
+  document.body.style.userSelect = 'none';
+};
+
+// 创建拖拽时的幽灵元素
+const createGhostElement = (element: HTMLElement, event: MouseEvent) => {
+  const ghost = element.cloneNode(true) as HTMLElement;
+  ghost.className = 'drag-ghost';
+  ghost.style.cssText = `
+    position: fixed;
+    pointer-events: none;
+    z-index: 10000;
+    opacity: 0.85;
+    transform: scale(0.95) rotate(-2deg);
+    box-shadow: 0 20px 60px rgba(99, 102, 241, 0.4);
+    border-radius: 16px;
+    width: ${element.offsetWidth}px;
+    height: ${element.offsetHeight}px;
+    left: ${event.clientX - element.offsetWidth / 2}px;
+    top: ${event.clientY - element.offsetHeight / 2}px;
+    transition: transform 0.1s ease;
+  `;
+
+  document.body.appendChild(ghost);
+  ghostElement.value = ghost;
+};
+
+// 全局鼠标移动
+const handleGlobalMouseMove = (event: MouseEvent) => {
+  if (!draggingApp.value || !ghostElement.value) return;
+
+  // 更新幽灵元素位置
+  ghostElement.value.style.left = `${event.clientX - ghostElement.value.offsetWidth / 2}px`;
+  ghostElement.value.style.top = `${event.clientY - ghostElement.value.offsetHeight / 2}px`;
+
+  // 检测鼠标是否在分类标签上
+  checkCategoryHover(event);
+};
+
+// 检测分类悬停
+const checkCategoryHover = (event: MouseEvent) => {
+  const categoryTabs = document.querySelectorAll('.category-tab');
+  let foundCategory: string | null = null;
+
+  categoryTabs.forEach((tab) => {
+    const rect = tab.getBoundingClientRect();
+    if (
+      event.clientX >= rect.left &&
+      event.clientX <= rect.right &&
+      event.clientY >= rect.top &&
+      event.clientY <= rect.bottom
+    ) {
+      foundCategory = tab.getAttribute('data-category-id');
+    }
   });
-  // e.preventDefault() 已经由 .prevent 修饰符调用
-  if (e.dataTransfer) {
-    e.dataTransfer.dropEffect = 'move';
+
+  hoveredCategoryId.value = foundCategory;
+};
+
+// 全局鼠标释放
+const handleGlobalMouseUp = async (event: MouseEvent) => {
+  console.log('📦 Mouse drag ended, hovered category:', hoveredCategoryId.value);
+
+  if (draggingApp.value && hoveredCategoryId.value) {
+    // 执行分类更新
+    await updateAppCategory(draggingApp.value, hoveredCategoryId.value);
   }
+
+  // 清理拖拽状态
+  cleanupDrag();
 };
 
-const handleGlobalDragEnter = (e: DragEvent) => {
-  console.log('🟢 Global dragenter:', (e.target as HTMLElement)?.className);
-  // e.preventDefault() 已经由 .prevent 修饰符调用
-};
+// 更新应用分类
+const updateAppCategory = async (app: AppItem, categoryId: string) => {
+  if (categoryId === 'all') {
+    message.info('无法拖拽到"全部"分类');
+    return;
+  }
 
-// 处理拖放到分类
-const handleCategoryDrop = async (categoryId: string, appData: any) => {
-  console.log('=== AppLauncher handleCategoryDrop ===');
-  console.log('Target Category ID:', categoryId);
-  console.log('Dropped App Data:', appData);
+  if (app.category === categoryId) {
+    message.info('应用已在该分类中');
+    return;
+  }
 
   try {
-    if (categoryId === 'all') {
-      message.info('无法拖拽到“全部”分类');
-      return;
-    }
-    // 找到被拖拽的应用
-    const app = allApps.value.find((a) => a.id === appData.id);
-    console.log('Found app in allApps:', !!app);
-
-    if (!app) {
-      console.error('App not found! appData.id:', appData.id);
-      message.error('未找到该应用');
-      return;
-    }
-
-    console.log('App current category:', app.category);
-    console.log('Target category:', categoryId);
-
-    // 如果分类没变，不做处理
-    if (app.category === categoryId) {
-      console.log('Category unchanged, skipping');
-      message.info('应用已在该分类中');
-      return;
-    }
-
-    // 更新应用分类
     const updatedApp = { ...app, category: categoryId };
-    console.log('Updated app:', updatedApp);
-
-    // 调用后端更新
     const { invoke } = await import('@tauri-apps/api/core');
-    console.log('Calling backend update_app...');
     await invoke('update_app', { app: updatedApp });
-    console.log('Backend update successful');
 
     // 更新本地状态
     const index = allApps.value.findIndex((a) => a.id === app.id);
     if (index !== -1) {
       allApps.value[index] = updatedApp;
-      console.log('Local state updated at index:', index);
     }
 
-    // 显示成功消息
     const categoryName = categories.value.find((c) => c.id === categoryId)?.name || categoryId;
     message.success(`已将「${app.name}」移动到「${categoryName}」分类`);
-    console.log('=== Drop handler complete ===');
   } catch (error) {
     message.error('更新分类失败: ' + error);
-    console.error('=== Drop handler error ===', error);
+    console.error('更新分类失败:', error);
   }
 };
+
+// 清理拖拽状态
+const cleanupDrag = () => {
+  draggingApp.value = null;
+  hoveredCategoryId.value = null;
+
+  if (ghostElement.value) {
+    ghostElement.value.remove();
+    ghostElement.value = null;
+  }
+
+  document.removeEventListener('mousemove', handleGlobalMouseMove);
+  document.removeEventListener('mouseup', handleGlobalMouseUp);
+
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+};
+
+// 组件卸载时清理
+onUnmounted(() => {
+  cleanupDrag();
+});
 
 const handleMoreAction = (key: string) => {
   switch (key) {
@@ -963,6 +1042,36 @@ const handleCancelCategoryManager = () => {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(99, 102, 241, 0.5);
+}
+
+/* 拖拽状态样式 */
+.app-launcher.is-dragging .filter-section {
+  position: relative;
+  z-index: 100;
+}
+
+.filter-section.drop-zone-active {
+  padding: 8px;
+  margin: -8px;
+  background: rgba(99, 102, 241, 0.05);
+  border-radius: 16px;
+  border: 2px dashed rgba(99, 102, 241, 0.3);
+  animation: dropZonePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dropZonePulse {
+  0%, 100% {
+    border-color: rgba(99, 102, 241, 0.3);
+    background: rgba(99, 102, 241, 0.05);
+  }
+  50% {
+    border-color: rgba(99, 102, 241, 0.6);
+    background: rgba(99, 102, 241, 0.1);
+  }
+}
+
+.app-launcher.is-dragging .apps-container {
+  opacity: 0.7;
 }
 
 /* 响应式设计 */

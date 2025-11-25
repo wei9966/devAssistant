@@ -83,3 +83,9 @@ dist/**
 dist/index.html
 dist-package/**
 dist-package
+
+pic/
+
+pic
+
+pic/*

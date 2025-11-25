@@ -10,6 +10,7 @@ mod utils;
 use db::connection::{DbConnection, init_database};
 use services::clipboard_service::ClipboardService;
 use commands::shortcut_commands::ShortcutState;
+use commands::sql_ai_commands::SqlAiState;
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
@@ -50,6 +51,9 @@ fn main() {
     let shortcut_state = ShortcutState::new();
     shortcut_state.set_config(loaded_config.clone());
 
+    // 初始化 AI 状态
+    let sql_ai_state = SqlAiState::new();
+
     // 获取数据库路径
     let db_path = dirs::data_local_dir()
         .expect("无法获取应用数据目录")
@@ -66,6 +70,7 @@ fn main() {
     tauri::Builder::default()
         .manage(db_state)
         .manage(shortcut_state)
+        .manage(sql_ai_state)
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -141,6 +146,27 @@ fn main() {
             commands::sql_commands::get_favorite_sqls,
             commands::sql_commands::toggle_favorite_sql,
             commands::sql_commands::delete_sql,
+            commands::sql_commands::update_sql_name_category,
+            commands::sql_commands::batch_update_sql_name_category,
+            commands::sql_commands::get_sql_categories,
+            commands::sql_commands::add_sql_category,
+            commands::sql_commands::update_sql_category,
+            commands::sql_commands::delete_sql_category,
+            commands::sql_commands::get_uncategorized_sqls,
+            commands::sql_commands::get_sqls_by_category,
+            // SQL 多标签相关命令
+            commands::sql_commands::set_sql_categories,
+            commands::sql_commands::add_sql_category_tag,
+            commands::sql_commands::remove_sql_category_tag,
+            commands::sql_commands::update_sql_name_and_categories,
+            commands::sql_commands::batch_update_sql_name_categories,
+            commands::sql_commands::get_category_sql_counts,
+            // SQL AI 相关命令
+            commands::sql_ai_commands::configure_sql_ai,
+            commands::sql_ai_commands::get_sql_ai_status,
+            commands::sql_ai_commands::test_sql_ai_connection,
+            commands::sql_ai_commands::ai_classify_sqls,
+            commands::sql_ai_commands::manual_classify_sql,
             // 窗口相关命令
             commands::window_commands::show_window,
             commands::window_commands::hide_window,

@@ -21,6 +21,13 @@ app.use(router)
 // 挂载应用
 app.mount('#app')
 
+// 禁用浏览器默认右键菜单（生产环境）
+if (!import.meta.env.DEV) {
+  document.addEventListener('contextmenu', (e) => {
+    e.preventDefault()
+  })
+}
+
 // 监听全局快捷键导航事件
 listen<string>('navigate-to', (event) => {
   const route = event.payload

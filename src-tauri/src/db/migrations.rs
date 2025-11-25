@@ -44,6 +44,19 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     // 迁移 tasks 表：添加 quadrant 字段
     migrate_tasks_add_quadrant(conn)?;
 
+    // 创建 SQL 分类表
+    create_sql_categories_table(conn)?;
+    create_sql_categories_indexes(conn)?;
+
+    // 创建 SQL 与分类的多对多关联表
+    create_sql_category_mappings_table(conn)?;
+
+    // 迁移 sql_history 表：添加 name 字段
+    migrate_sql_history_add_name_category(conn)?;
+
+    // 迁移 sql_categories 表：添加新字段
+    migrate_sql_categories_add_fields(conn)?;
+
     Ok(())
 }
 
@@ -902,6 +915,175 @@ fn create_task_tags_indexes(conn: &Connection) -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_task_tags_tag_id ON task_tags(tag_id)",
         [],
     )?;
+
+    Ok(())
+}
+
+/// 创建 SQL 分类表（支持多标签和规则提示词）
+fn create_sql_categories_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS sql_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            description TEXT,
+            color TEXT DEFAULT '#6366f1',
+            icon TEXT,
+            ai_prompt TEXT,
+            sort_order INTEGER DEFAULT 0,
+            is_system INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )?;
+
+    // 插入默认分类（带有 AI 提示词）
+    let default_categories = [
+        ("MySQL", "MySQL 数据库", "#00758f", "mysql",
+         "识别规则：表名和字段名使用小写字母和下划线命名（snake_case），如 user_info, order_detail。常见关键字：LIMIT, AUTO_INCREMENT, IFNULL, DATE_FORMAT 等", 1, 1),
+        ("SQLServer", "SQL Server 数据库", "#cc2927", "sqlserver",
+         "识别规则：表名和字段名使用大驼峰命名（PascalCase）且无下划线，如 UserInfo, OrderDetail。常见关键字：TOP, GETDATE(), ISNULL, CONVERT, DATEPART 等", 2, 1),
+        ("Oracle", "Oracle 数据库", "#f80000", "oracle",
+         "识别规则：表名通常全大写，使用 ROWNUM, NVL, TO_DATE, TO_CHAR, SYSDATE, DUAL 等 Oracle 特有语法", 3, 1),
+        ("PostgreSQL", "PostgreSQL 数据库", "#336791", "postgresql",
+         "识别规则：使用 :: 类型转换，COALESCE, NULLIF, NOW(), CURRENT_DATE 等，支持 JSON 操作符 ->, ->>", 4, 1),
+        ("查询", "数据查询类SQL", "#10b981", "search",
+         "SELECT 语句，用于数据检索和查询", 10, 1),
+        ("更新", "数据更新类SQL", "#f59e0b", "edit",
+         "UPDATE, INSERT, DELETE 等数据修改语句", 11, 1),
+        ("DDL", "表结构定义", "#8b5cf6", "build",
+         "CREATE, ALTER, DROP 等表结构操作", 12, 1),
+    ];
+
+    for (name, desc, color, icon, prompt, order, is_system) in default_categories {
+        conn.execute(
+            "INSERT OR IGNORE INTO sql_categories (name, description, color, icon, ai_prompt, sort_order, is_system)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            rusqlite::params![name, desc, color, icon, prompt, order, is_system],
+        )?;
+    }
+
+    Ok(())
+}
+
+/// 创建 SQL 分类表索引
+fn create_sql_categories_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sql_categories_name ON sql_categories(name)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sql_categories_sort_order ON sql_categories(sort_order ASC)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 SQL 与分类的多对多关联表
+fn create_sql_category_mappings_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS sql_category_mappings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sql_id INTEGER NOT NULL,
+            category_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (sql_id) REFERENCES sql_history(id) ON DELETE CASCADE,
+            FOREIGN KEY (category_id) REFERENCES sql_categories(id) ON DELETE CASCADE,
+            UNIQUE(sql_id, category_id)
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sql_category_mappings_sql_id ON sql_category_mappings(sql_id)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sql_category_mappings_category_id ON sql_category_mappings(category_id)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 迁移 sql_history 表：添加 name 字段
+fn migrate_sql_history_add_name_category(conn: &Connection) -> Result<()> {
+    // 检查 name 列是否存在
+    let has_name: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('sql_history') WHERE name='name'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_name == 0 {
+        conn.execute(
+            "ALTER TABLE sql_history ADD COLUMN name TEXT",
+            [],
+        )?;
+        println!("✓ 已添加 name 列到 sql_history 表");
+
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sql_name ON sql_history(name)",
+            [],
+        )?;
+    }
+
+    // 兼容旧的 category_id 字段（如果存在则保留，新数据使用多对多关系）
+    let has_category_id: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('sql_history') WHERE name='category_id'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_category_id == 0 {
+        conn.execute(
+            "ALTER TABLE sql_history ADD COLUMN category_id INTEGER",
+            [],
+        )?;
+    }
+
+    Ok(())
+}
+
+/// 迁移 sql_categories 表：添加新字段
+fn migrate_sql_categories_add_fields(conn: &Connection) -> Result<()> {
+    // 检查 ai_prompt 列是否存在
+    let has_ai_prompt: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('sql_categories') WHERE name='ai_prompt'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_ai_prompt == 0 {
+        conn.execute(
+            "ALTER TABLE sql_categories ADD COLUMN ai_prompt TEXT",
+            [],
+        )?;
+        conn.execute(
+            "ALTER TABLE sql_categories ADD COLUMN icon TEXT",
+            [],
+        )?;
+        conn.execute(
+            "ALTER TABLE sql_categories ADD COLUMN is_system INTEGER DEFAULT 0",
+            [],
+        )?;
+        println!("✓ 已添加 ai_prompt, icon, is_system 列到 sql_categories 表");
+
+        // 更新现有的默认分类，添加 AI 提示词
+        conn.execute(
+            "UPDATE sql_categories SET ai_prompt = '识别规则：表名和字段名使用小写字母和下划线命名（snake_case）', is_system = 1 WHERE name = 'MySQL'",
+            [],
+        )?;
+    }
 
     Ok(())
 }

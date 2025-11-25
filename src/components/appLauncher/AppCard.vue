@@ -1,10 +1,9 @@
 <template>
   <div
+    ref="cardRef"
     class="app-card"
-    :class="{ pinned: app.isPinned, hidden: app.isHidden, dragging: isDragging }"
-    draggable="true"
-    @dragstart="handleDragStart"
-    @dragend="handleDragEnd"
+    :class="{ pinned: app.isPinned, hidden: app.isHidden, dragging: isBeingDragged }"
+    @mousedown="handleMouseDown"
     @click="handleLaunch"
   >
     <!-- Hover Glow Effect -->
@@ -68,6 +67,7 @@ import type { AppItem } from '@/types/appLauncher';
 
 const props = defineProps<{
   app: AppItem;
+  isBeingDragged?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -75,17 +75,18 @@ const emit = defineEmits<{
   pin: [appId: string];
   edit: [app: AppItem];
   delete: [appId: string];
-  dragstart: [app: AppItem];
-  dragend: [];
+  'mousedown-drag': [app: AppItem, event: MouseEvent, element: HTMLElement];
 }>();
 
-const isDragging = ref(false);
+const cardRef = ref<HTMLElement | null>(null);
 const iconError = ref(false);
-const dragStartTime = ref(0);
+const mouseDownTime = ref(0);
+const isDragStarted = ref(false);
 
 const handleLaunch = () => {
   // 如果刚刚拖拽过，不触发点击
-  if (Date.now() - dragStartTime.value < 200) {
+  if (isDragStarted.value || Date.now() - mouseDownTime.value > 300) {
+    isDragStarted.value = false;
     return;
   }
   emit('launch', props.app.id);
@@ -108,46 +109,43 @@ const handleIconError = () => {
   iconError.value = true;
 };
 
-const handleDragStart = (e: DragEvent) => {
-  console.log('🚀 AppCard DragStart - App:', props.app.name);
+// 鼠标按下处理 - 用于拖拽
+const handleMouseDown = (e: MouseEvent) => {
+  // 忽略右键和中键
+  if (e.button !== 0) return;
 
-  if (!e.dataTransfer) {
-    console.error('❌ No dataTransfer!');
-    return;
-  }
+  // 检查是否点击了操作按钮区域
+  const target = e.target as HTMLElement;
+  if (target.closest('.card-actions')) return;
 
-  try {
-    isDragging.value = true;
-    dragStartTime.value = Date.now();
+  mouseDownTime.value = Date.now();
+  isDragStarted.value = false;
 
-    // Set transfer data
-    e.dataTransfer.effectAllowed = 'move';
-    const ghost = document.createElement('canvas');
-    ghost.width = 1;
-    ghost.height = 1;
-    e.dataTransfer.setDragImage(ghost, 0, 0);
-    const appJson = JSON.stringify(props.app);
-    e.dataTransfer.setData('application/json', appJson);
-    e.dataTransfer.setData('text/plain', props.app.name);
+  // 使用延迟来区分点击和拖拽
+  const startX = e.clientX;
+  const startY = e.clientY;
 
-    console.log('   ✓ effectAllowed:', e.dataTransfer.effectAllowed);
-    console.log('   ✓ Data length:', appJson.length);
+  const onMouseMove = (moveEvent: MouseEvent) => {
+    const dx = moveEvent.clientX - startX;
+    const dy = moveEvent.clientY - startY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
 
-    emit('dragstart', props.app);
-    console.log('   ✓ Drag started successfully');
-  } catch (error) {
-    console.error('❌ DragStart error:', error);
-    isDragging.value = false;
-  }
-};
+    // 移动超过 5px 才开始拖拽
+    if (distance > 5 && !isDragStarted.value && cardRef.value) {
+      isDragStarted.value = true;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      emit('mousedown-drag', props.app, e, cardRef.value);
+    }
+  };
 
-const handleDragEnd = (e: DragEvent) => {
-  console.log('🏁 AppCard DragEnd - App:', props.app.name);
-  console.log('   dropEffect:', e.dataTransfer?.dropEffect);
-  console.log('   Drag duration:', Date.now() - dragStartTime.value, 'ms');
+  const onMouseUp = () => {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
 
-  isDragging.value = false;
-  emit('dragend');
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
 };
 </script>
 

@@ -3,6 +3,7 @@
 
 pub mod task_commands;
 pub mod sql_commands;
+pub mod sql_ai_commands;
 pub mod window_commands;
 pub mod work_log_commands;
 pub mod db_repair_commands;
