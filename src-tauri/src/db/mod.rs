@@ -1,4 +1,4 @@
 pub mod connection;
 pub mod migrations;
 
-pub use connection::{DbConnection, init_database};
+pub use connection::{init_database, DbConnection};

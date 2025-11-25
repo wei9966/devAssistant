@@ -1,7 +1,7 @@
+use crate::models::{AppItem, AppLauncherSettings, ItemType};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::models::AppItem;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -75,7 +75,16 @@ impl AppScannerService {
     }
 
     /// 扫描指定目录下的所有可执行文件
+    /// settings参数可选,如果不传则使用默认设置(只扫描exe和lnk)
     fn scan_directory_for_executables(dir: &Path) -> Result<Vec<AppItem>, String> {
+        Self::scan_directory_with_settings(dir, &AppLauncherSettings::default())
+    }
+
+    /// 使用指定设置扫描目录
+    fn scan_directory_with_settings(
+        dir: &Path,
+        settings: &AppLauncherSettings,
+    ) -> Result<Vec<AppItem>, String> {
         let mut apps = Vec::new();
 
         if !dir.exists() {
@@ -89,50 +98,113 @@ impl AppScannerService {
 
                 if path.is_dir() {
                     // 递归扫描子目录
-                    match Self::scan_directory_for_executables(&path) {
+                    match Self::scan_directory_with_settings(&path, settings) {
                         Ok(sub_apps) => apps.extend(sub_apps),
                         Err(_) => continue, // 忽略无权限访问的目录
                     }
                 } else if path.is_file() {
                     let extension = path.extension().and_then(|s| s.to_str());
 
-                    // 检查是否是exe文件或快捷方式
-                    match extension {
-                        Some("exe") => {
-                            // 过滤掉明显的非应用程序
-                            if Self::is_likely_app_executable(&path) {
-                                // 从exe文件创建AppItem
-                                let app_name = path
-                                    .file_stem()
-                                    .and_then(|s| s.to_str())
-                                    .unwrap_or("Unknown")
-                                    .to_string();
-
-                                let target_path = path.to_string_lossy().to_string();
-                                let app_id = Self::generate_app_id(&app_name, &target_path);
-
-                                let mut app = AppItem::new(app_id, app_name, target_path.clone());
-                                app.category = Some(Self::auto_categorize(&app.name, &app.path));
-
-                                // 提取图标
-                                app.icon = Self::extract_icon_base64(&path);
-
-                                apps.push(app);
-                            }
+                    if let Some(ext) = extension {
+                        // 检查扩展名是否在允许列表中
+                        if !settings.is_extension_allowed(ext) {
+                            continue;
                         }
-                        Some("lnk") => {
-                            // 解析快捷方式
-                            if let Ok(app) = Self::parse_shortcut(&path) {
-                                apps.push(app);
-                            }
+
+                        // 根据文件类型创建对应的AppItem
+                        if let Ok(app) = Self::create_app_from_file(&path, ext) {
+                            apps.push(app);
                         }
-                        _ => {}
                     }
                 }
             }
         }
 
         Ok(apps)
+    }
+
+    /// 从文件创建AppItem,自动判断文件类型
+    fn create_app_from_file(path: &Path, extension: &str) -> Result<AppItem, String> {
+        let ext_lower = extension.to_lowercase();
+
+        match ext_lower.as_str() {
+            "exe" => {
+                // 过滤掉明显的非应用程序
+                if !Self::is_likely_app_executable(path) {
+                    return Err("Not a likely application executable".to_string());
+                }
+
+                let app_name = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("Unknown")
+                    .to_string();
+
+                let target_path = path.to_string_lossy().to_string();
+                let app_id = Self::generate_app_id(&app_name, &target_path);
+
+                let mut app =
+                    AppItem::new_with_type(app_id, app_name, target_path.clone(), ItemType::Application);
+                app.category = Some(Self::auto_categorize(&app.name, &app.path));
+                app.icon = Self::extract_icon_base64(path);
+
+                Ok(app)
+            }
+            "lnk" => {
+                // 解析快捷方式
+                Self::parse_shortcut(path)
+            }
+            "rdp" => {
+                // 远程桌面连接文件
+                let app_name = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("Remote Desktop")
+                    .to_string();
+
+                let target_path = path.to_string_lossy().to_string();
+                let app_id = Self::generate_app_id(&app_name, &target_path);
+
+                let mut app =
+                    AppItem::new_with_type(app_id, app_name, target_path, ItemType::RemoteDesktop);
+                app.category = Some("remote".to_string());
+
+                Ok(app)
+            }
+            "url" => {
+                // URL链接文件
+                let app_name = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("Web Link")
+                    .to_string();
+
+                let target_path = path.to_string_lossy().to_string();
+                let app_id = Self::generate_app_id(&app_name, &target_path);
+
+                let mut app =
+                    AppItem::new_with_type(app_id, app_name, target_path, ItemType::UrlLink);
+                app.category = Some("web".to_string());
+
+                Ok(app)
+            }
+            _ => {
+                // 其他文件类型,作为普通文件处理
+                let app_name = path
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("Unknown File")
+                    .to_string();
+
+                let target_path = path.to_string_lossy().to_string();
+                let app_id = Self::generate_app_id(&app_name, &target_path);
+
+                let mut app = AppItem::new_with_type(app_id, app_name, target_path, ItemType::File);
+                app.category = Some("file".to_string());
+
+                Ok(app)
+            }
+        }
     }
 
     /// 扫描开始菜单
@@ -260,7 +332,7 @@ impl AppScannerService {
         // 生成唯一ID（使用快捷方式路径）
         let app_id = Self::generate_app_id(&app_name, &lnk_path_str);
 
-        let mut app = AppItem::new(app_id, app_name, lnk_path_str);
+        let mut app = AppItem::new_with_type(app_id, app_name, lnk_path_str, ItemType::Shortcut);
 
         // 尝试自动分类（基于目标程序路径进行分类）
         app.category = Some(Self::auto_categorize(&app.name, &target_path));
@@ -337,12 +409,22 @@ impl AppScannerService {
 
         // 排除明显的非应用程序
         let excluded_keywords = [
-            "unins", "uninst", "uninstall",
-            "setup", "install", "update", "updater",
-            "crash", "report", "helper", "service",
+            "unins",
+            "uninst",
+            "uninstall",
+            "setup",
+            "install",
+            "update",
+            "updater",
+            "crash",
+            "report",
+            "helper",
+            "service",
         ];
 
-        !excluded_keywords.iter().any(|keyword| filename_lower.contains(keyword))
+        !excluded_keywords
+            .iter()
+            .any(|keyword| filename_lower.contains(keyword))
     }
 
     /// 从exe文件创建AppItem
@@ -372,9 +454,18 @@ impl AppScannerService {
 
         // 扫描注册表中的卸载信息
         let registry_paths = vec![
-            (HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall"),
-            (HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall"),
-            (HKEY_CURRENT_USER, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall"),
+            (
+                HKEY_LOCAL_MACHINE,
+                "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+            ),
+            (
+                HKEY_LOCAL_MACHINE,
+                "SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+            ),
+            (
+                HKEY_CURRENT_USER,
+                "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+            ),
         ];
 
         for (hkey, subkey) in registry_paths {
@@ -530,34 +621,62 @@ impl AppScannerService {
     }
 
     /// 手动添加应用（用户指定路径）
-    pub async fn add_manual_app(path: String, name: Option<String>) -> Result<AppItem, String> {
+    /// 支持添加文件、文件夹等各种类型
+    pub async fn add_manual_app(
+        path: String,
+        name: Option<String>,
+        settings: Option<AppLauncherSettings>,
+    ) -> Result<AppItem, String> {
         let app_path = Path::new(&path);
 
         // 验证路径是否存在
         if !app_path.exists() {
-            return Err("Application path does not exist".to_string());
+            return Err("Path does not exist".to_string());
         }
 
-        // 验证是否是可执行文件
+        let settings = settings.unwrap_or_default();
+
+        // 处理文件夹
+        if app_path.is_dir() {
+            let app_name = name.unwrap_or_else(|| {
+                app_path
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("Folder")
+                    .to_string()
+            });
+
+            let app_id = Self::generate_app_id(&app_name, &path);
+            let mut app = AppItem::new_with_type(app_id, app_name, path, ItemType::Folder);
+            app.category = Some("folder".to_string());
+
+            return Ok(app);
+        }
+
+        // 处理文件
         let extension = app_path.extension().and_then(|s| s.to_str());
-        if !matches!(extension, Some("exe") | Some("lnk") | Some("url")) {
-            return Err("Invalid application file type".to_string());
+
+        if let Some(ext) = extension {
+            // 检查扩展名是否被允许
+            if !settings.is_extension_allowed(ext) {
+                return Err(format!(
+                    "File type '.{}' is not in the allowed extensions list",
+                    ext
+                ));
+            }
+
+            // 使用create_app_from_file创建AppItem
+            let mut app = Self::create_app_from_file(app_path, ext)?;
+
+            // 如果用户指定了名称,则使用用户指定的名称
+            if let Some(custom_name) = name {
+                app.name = custom_name;
+            }
+
+            return Ok(app);
         }
 
-        // 确定应用名称
-        let app_name = name.unwrap_or_else(|| {
-            app_path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("Unknown")
-                .to_string()
-        });
-
-        let app_id = Self::generate_app_id(&app_name, &path);
-        let mut app = AppItem::new(app_id, app_name, path);
-        app.category = Some(Self::auto_categorize(&app.name, &app.path));
-
-        Ok(app)
+        Err("File has no extension".to_string())
     }
 
     /// 提取文件图标并转换为base64

@@ -1,6 +1,6 @@
+use crate::db::DbConnection;
 use rusqlite::{params, Connection};
 use tauri::State;
-use crate::db::DbConnection;
 
 /// 修复数据库中的超长字段
 #[tauri::command]
@@ -11,18 +11,13 @@ pub fn repair_database(db: State<DbConnection>) -> Result<String, String> {
     let mut errors = Vec::new();
 
     // 查询所有任务
-    let mut stmt = conn.prepare(
-        "SELECT id, description, notes, context_json FROM tasks"
-    ).map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id, description, notes, context_json FROM tasks")
+        .map_err(|e| e.to_string())?;
 
     let tasks: Vec<(i64, Option<String>, Option<String>, Option<String>)> = stmt
         .query_map([], |row| {
-            Ok((
-                row.get(0)?,
-                row.get(1)?,
-                row.get(2)?,
-                row.get(3)?,
-            ))
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
         })
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
@@ -40,7 +35,11 @@ pub fn repair_database(db: State<DbConnection>) -> Result<String, String> {
         if let Some(desc) = description {
             if desc.len() > 10000 {
                 updates.push("description = ?");
-                let truncated = format!("{}...[已自动截断，原长度:{}字符]", &desc[..10000], desc.len());
+                let truncated = format!(
+                    "{}...[已自动截断，原长度:{}字符]",
+                    &desc[..10000],
+                    desc.len()
+                );
                 params_vec.push(Box::new(truncated));
                 need_update = true;
                 eprintln!("任务 {} 的描述过长 ({}字符)，已截断", task_id, desc.len());
@@ -69,15 +68,10 @@ pub fn repair_database(db: State<DbConnection>) -> Result<String, String> {
 
         if need_update {
             params_vec.push(Box::new(task_id));
-            let sql = format!(
-                "UPDATE tasks SET {} WHERE id = ?",
-                updates.join(", ")
-            );
+            let sql = format!("UPDATE tasks SET {} WHERE id = ?", updates.join(", "));
 
-            let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec
-                .iter()
-                .map(|b| b.as_ref())
-                .collect();
+            let params_refs: Vec<&dyn rusqlite::ToSql> =
+                params_vec.iter().map(|b| b.as_ref()).collect();
 
             match conn.execute(&sql, params_refs.as_slice()) {
                 Ok(_) => repaired_count += 1,
@@ -88,7 +82,11 @@ pub fn repair_database(db: State<DbConnection>) -> Result<String, String> {
 
     let mut result = format!("数据库修复完成！修复了 {} 个任务", repaired_count);
     if !errors.is_empty() {
-        result.push_str(&format!("\n遇到 {} 个错误:\n{}", errors.len(), errors.join("\n")));
+        result.push_str(&format!(
+            "\n遇到 {} 个错误:\n{}",
+            errors.len(),
+            errors.join("\n")
+        ));
     }
 
     Ok(result)
@@ -99,8 +97,9 @@ pub fn repair_database(db: State<DbConnection>) -> Result<String, String> {
 pub fn get_database_stats(db: State<DbConnection>) -> Result<String, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
 
-    let mut stmt = conn.prepare(
-        "SELECT
+    let mut stmt = conn
+        .prepare(
+            "SELECT
             COUNT(*) as total_tasks,
             COUNT(CASE WHEN length(description) > 10000 THEN 1 END) as large_descriptions,
             COUNT(CASE WHEN length(notes) > 5000 THEN 1 END) as large_notes,
@@ -108,12 +107,14 @@ pub fn get_database_stats(db: State<DbConnection>) -> Result<String, String> {
             MAX(length(description)) as max_desc_len,
             MAX(length(notes)) as max_notes_len,
             MAX(length(context_json)) as max_context_len
-         FROM tasks"
-    ).map_err(|e| e.to_string())?;
+         FROM tasks",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let stats = stmt.query_row([], |row| {
-        Ok(format!(
-            "数据库统计信息:\n\
+    let stats = stmt
+        .query_row([], |row| {
+            Ok(format!(
+                "数据库统计信息:\n\
             总任务数: {}\n\
             超长描述(>10000): {}\n\
             超长备注(>5000): {}\n\
@@ -121,15 +122,16 @@ pub fn get_database_stats(db: State<DbConnection>) -> Result<String, String> {
             最大描述长度: {} 字符\n\
             最大备注长度: {} 字符\n\
             最大上下文长度: {} 字节",
-            row.get::<_, i64>(0)?,
-            row.get::<_, i64>(1)?,
-            row.get::<_, i64>(2)?,
-            row.get::<_, i64>(3)?,
-            row.get::<_, Option<i64>>(4)?.unwrap_or(0),
-            row.get::<_, Option<i64>>(5)?.unwrap_or(0),
-            row.get::<_, Option<i64>>(6)?.unwrap_or(0),
-        ))
-    }).map_err(|e| e.to_string())?;
+                row.get::<_, i64>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, Option<i64>>(4)?.unwrap_or(0),
+                row.get::<_, Option<i64>>(5)?.unwrap_or(0),
+                row.get::<_, Option<i64>>(6)?.unwrap_or(0),
+            ))
+        })
+        .map_err(|e| e.to_string())?;
 
     Ok(stats)
 }

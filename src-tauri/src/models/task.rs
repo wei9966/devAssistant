@@ -25,10 +25,10 @@ pub struct Task {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum TaskStatus {
-    Todo,      // 待办
-    Active,    // 进行中
-    Done,      // 已完成
-    Deferred,  // 延后
+    Todo,     // 待办
+    Active,   // 进行中
+    Done,     // 已完成
+    Deferred, // 延后
 }
 
 impl TaskStatus {
@@ -55,11 +55,11 @@ impl TaskStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum TaskCategory {
-    Backend,   // 后端开发
-    Database,  // 数据库
-    Feature,   // 功能开发
-    Docs,      // 文档
-    Other,     // 其他
+    Backend,  // 后端开发
+    Database, // 数据库
+    Feature,  // 功能开发
+    Docs,     // 文档
+    Other,    // 其他
 }
 
 impl TaskCategory {
@@ -178,10 +178,10 @@ pub struct ImportResult {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskQuadrant {
-    UrgentImportant,        // 紧急且重要
-    UrgentNotImportant,     // 紧急不重要
-    NotUrgentImportant,     // 不紧急但重要
-    NotUrgentNotImportant,  // 不紧急不重要
+    UrgentImportant,       // 紧急且重要
+    UrgentNotImportant,    // 紧急不重要
+    NotUrgentImportant,    // 不紧急但重要
+    NotUrgentNotImportant, // 不紧急不重要
 }
 
 impl TaskQuadrant {

@@ -1,6 +1,36 @@
 // AppLauncher 类型定义
 // 与 Rust 模型保持一致
 
+// 项目类型枚举
+export enum ItemType {
+  Application = 'Application',
+  Shortcut = 'Shortcut',
+  File = 'File',
+  Folder = 'Folder',
+  RemoteDesktop = 'RemoteDesktop',
+  UrlLink = 'UrlLink',
+}
+
+// 项目类型的中文名称映射
+export const ITEM_TYPE_NAMES: Record<ItemType, string> = {
+  [ItemType.Application]: '应用程序',
+  [ItemType.Shortcut]: '快捷方式',
+  [ItemType.File]: '文件',
+  [ItemType.Folder]: '文件夹',
+  [ItemType.RemoteDesktop]: '远程桌面',
+  [ItemType.UrlLink]: 'URL链接',
+};
+
+// 项目类型图标映射
+export const ITEM_TYPE_ICONS: Record<ItemType, string> = {
+  [ItemType.Application]: '🖥️',
+  [ItemType.Shortcut]: '🔗',
+  [ItemType.File]: '📄',
+  [ItemType.Folder]: '📁',
+  [ItemType.RemoteDesktop]: '🖥️',
+  [ItemType.UrlLink]: '🌐',
+};
+
 export interface AppItem {
   id: string;
   name: string;
@@ -15,6 +45,7 @@ export interface AppItem {
   launchArgs?: string;
   createdAt: number;
   updatedAt: number;
+  itemType: ItemType; // 项目类型
 }
 
 export interface Category {
@@ -104,4 +135,9 @@ export const DEFAULT_CATEGORIES: Omit<Category, 'createdAt'>[] = [
 export interface SearchResultItem extends AppItem {
   score: number; // 搜索匹配度分数（0-1）
   matchType: 'name' | 'pinyin' | 'tag'; // 匹配类型
+}
+
+// 应用启动器设置
+export interface AppLauncherSettings {
+  allowedExtensions: string[]; // 允许添加的文件后缀列表
 }

@@ -3,7 +3,7 @@
     <h2 class="page-title">设置</h2>
 
     <div class="settings-container">
-      <n-tabs type="line" animated>
+      <n-tabs v-model:value="activeTab" type="line" animated>
         <!-- 通用设置标签 -->
         <n-tab-pane name="general" tab="通用">
           <div class="tab-content">
@@ -207,35 +207,218 @@
               </div>
             </section>
 
-            <!-- AI集成 -->
+            <!-- AI 智能助手配置 -->
             <section class="settings-card">
               <div class="card-header">
-                <h3 class="card-title">AI 集成</h3>
+                <h3 class="card-title">AI 智能助手</h3>
+                <span class="status-badge" :class="{ 'status-active': aiConfig.enabled }">
+                  {{ aiConfig.enabled ? '已启用' : '未启用' }}
+                </span>
               </div>
               <div class="card-content">
                 <div class="setting-item">
                   <div class="setting-info">
-                    <div class="setting-label">启用 AI</div>
-                    <div class="setting-desc">使用 Claude AI 辅助功能</div>
+                    <div class="setting-label">启用 AI 功能</div>
+                    <div class="setting-desc">启用后可使用 AI 辅助分类、生成等功能</div>
                   </div>
                   <div class="setting-control">
-                    <n-switch v-model:value="settings.aiEnabled" />
+                    <n-switch v-model:value="aiConfig.enabled" />
                   </div>
                 </div>
 
-                <div v-if="settings.aiEnabled" class="setting-item">
+                <div class="setting-item">
                   <div class="setting-info">
-                    <div class="setting-label">Claude API Key</div>
-                    <div class="setting-desc">从 Anthropic 获取的 API 密钥</div>
+                    <div class="setting-label">AI 提供商</div>
+                    <div class="setting-desc">选择 AI 服务提供商</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-select
+                      v-model:value="aiConfig.provider"
+                      :options="aiProviderOptions"
+                      class="provider-select"
+                    />
+                  </div>
+                </div>
+
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">API Key *</div>
+                    <div class="setting-desc">
+                      {{ aiConfig.provider === 'deepseek'
+                        ? '从 platform.deepseek.com 获取'
+                        : '从 dashscope.console.aliyun.com 获取'
+                      }}
+                    </div>
                   </div>
                   <div class="setting-control-wide">
                     <n-input
-                      v-model:value="settings.claudeApiKey"
+                      v-model:value="aiConfig.apiKey"
                       type="password"
-                      placeholder="请输入 Claude API Key"
+                      placeholder="请输入 API Key"
                       show-password-on="click"
                     />
                   </div>
+                </div>
+
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">自定义 Base URL（可选）</div>
+                    <div class="setting-desc">留空使用默认地址</div>
+                  </div>
+                  <div class="setting-control-wide">
+                    <n-input
+                      v-model:value="aiConfig.baseUrl"
+                      :placeholder="getDefaultBaseUrl()"
+                    />
+                  </div>
+                </div>
+
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">自定义模型（可选）</div>
+                    <div class="setting-desc">留空使用默认模型</div>
+                  </div>
+                  <div class="setting-control-wide">
+                    <n-input
+                      v-model:value="aiConfig.model"
+                      :placeholder="getDefaultModel()"
+                    />
+                  </div>
+                </div>
+
+                <div class="ai-actions">
+                  <n-button
+                    @click="testAiConnection"
+                    :loading="testingAi"
+                    :disabled="!aiConfig.apiKey"
+                  >
+                    测试连接
+                  </n-button>
+                  <n-button
+                    type="primary"
+                    @click="saveAiConfig"
+                    :loading="savingAi"
+                    :disabled="!aiConfig.apiKey"
+                  >
+                    保存配置
+                  </n-button>
+                </div>
+
+                <n-alert v-if="aiTestResult !== null" :type="aiTestResult ? 'success' : 'error'" class="ai-test-result">
+                  {{ aiTestResult ? 'AI 连接测试成功！' : 'AI 连接测试失败，请检查配置' }}
+                </n-alert>
+              </div>
+            </section>
+          </div>
+        </n-tab-pane>
+
+        <!-- AI 日志标签 -->
+        <n-tab-pane name="ai-logs" tab="AI日志">
+          <div class="tab-content">
+            <!-- 统计卡片 -->
+            <section class="settings-card">
+              <div class="card-header">
+                <h3 class="card-title">调用统计</h3>
+                <n-button text @click="loadAiLogs" :loading="loadingAiLogs">
+                  <template #icon>
+                    <n-icon :component="ReloadOutline" />
+                  </template>
+                  刷新
+                </n-button>
+              </div>
+              <div class="card-content">
+                <div v-if="loadingAiStats" class="loading-state">
+                  <n-spin size="small" />
+                  <span>加载中...</span>
+                </div>
+                <n-grid v-else :cols="4" :x-gap="16" :y-gap="16">
+                  <n-gi>
+                    <div class="stat-card">
+                      <div class="stat-value">{{ aiLogStats?.totalCalls || 0 }}</div>
+                      <div class="stat-label">总调用次数</div>
+                    </div>
+                  </n-gi>
+                  <n-gi>
+                    <div class="stat-card stat-success">
+                      <div class="stat-value">{{ aiLogStats?.successCount || 0 }}</div>
+                      <div class="stat-label">成功次数</div>
+                    </div>
+                  </n-gi>
+                  <n-gi>
+                    <div class="stat-card stat-error">
+                      <div class="stat-value">{{ aiLogStats?.errorCount || 0 }}</div>
+                      <div class="stat-label">失败次数</div>
+                    </div>
+                  </n-gi>
+                  <n-gi>
+                    <div class="stat-card">
+                      <div class="stat-value">{{ formatDuration(aiLogStats?.avgDurationMs || 0) }}</div>
+                      <div class="stat-label">平均耗时</div>
+                    </div>
+                  </n-gi>
+                </n-grid>
+
+                <!-- 模块统计 -->
+                <div v-if="aiLogStats?.callsByModule?.length" class="module-stats">
+                  <div class="module-stats-title">按模块统计</div>
+                  <div class="module-tags">
+                    <n-tag v-for="[module, count] in aiLogStats.callsByModule" :key="module" size="small">
+                      {{ getModuleName(module) }}: {{ count }}
+                    </n-tag>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 日志列表 -->
+            <section class="settings-card">
+              <div class="card-header">
+                <h3 class="card-title">调用日志</h3>
+                <n-space>
+                  <n-select
+                    v-model:value="aiLogFilter.module"
+                    :options="moduleOptions"
+                    placeholder="筛选模块"
+                    clearable
+                    size="small"
+                    style="width: 120px;"
+                    @update:value="loadAiLogs"
+                  />
+                  <n-select
+                    v-model:value="aiLogFilter.status"
+                    :options="statusOptions"
+                    placeholder="筛选状态"
+                    clearable
+                    size="small"
+                    style="width: 100px;"
+                    @update:value="loadAiLogs"
+                  />
+                  <n-button text type="error" @click="handleClearAiLogs">
+                    <template #icon>
+                      <n-icon :component="TrashOutline" />
+                    </template>
+                    清空日志
+                  </n-button>
+                </n-space>
+              </div>
+              <div class="card-content">
+                <div v-if="loadingAiLogs" class="loading-state">
+                  <n-spin size="small" />
+                  <span>加载中...</span>
+                </div>
+                <n-empty v-else-if="!aiLogs.length" description="暂无日志记录" />
+                <n-data-table
+                  v-else
+                  :columns="aiLogColumns"
+                  :data="aiLogs"
+                  :max-height="400"
+                  :row-key="(row: AiLog) => row.id"
+                  size="small"
+                />
+                <div v-if="aiLogs.length >= 50" class="load-more">
+                  <n-button text @click="loadMoreAiLogs" :loading="loadingMoreLogs">
+                    加载更多
+                  </n-button>
                 </div>
               </div>
             </section>
@@ -338,13 +521,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { NTabs, NTabPane, NSpace, NSwitch, NSelect, NInput, NButton, NIcon, NSpin, NAlert, useMessage, useDialog } from 'naive-ui';
-import { TimeOutline, RefreshOutline, InformationCircleOutline } from '@vicons/ionicons5';
+import { ref, onMounted, computed, h } from 'vue';
+import { useRoute } from 'vue-router';
+import { NTabs, NTabPane, NSpace, NSwitch, NSelect, NInput, NButton, NIcon, NSpin, NAlert, NDataTable, NTag, NEmpty, NStatistic, NGrid, NGi, useMessage, useDialog } from 'naive-ui';
+import { TimeOutline, RefreshOutline, InformationCircleOutline, TrashOutline, ReloadOutline } from '@vicons/ionicons5';
 import { invoke } from '@tauri-apps/api/core';
+import { aiApi } from '@/api/aiApi';
+import { AI_PROVIDERS } from '@/types/ai';
+import type { AiProvider, AiLog, AiLogStats } from '@/types/ai';
 
+const route = useRoute();
 const message = useMessage();
 const dialog = useDialog();
+
+const activeTab = ref('general');
 
 const saving = ref(false);
 const loadingShortcuts = ref(false);
@@ -371,13 +561,231 @@ const shortcuts = ref({
   appLauncher: 'Ctrl+Shift+Space',
 });
 
-onMounted(() => {
-  loadSettings();
-  loadShortcuts();
+// AI 配置
+const aiConfig = ref({
+  provider: 'deepseek' as AiProvider,
+  apiKey: '',
+  baseUrl: '',
+  model: '',
+  enabled: false,
 });
 
-function loadSettings() {
-  // TODO: 从API加载设置
+const testingAi = ref(false);
+const savingAi = ref(false);
+const aiTestResult = ref<boolean | null>(null);
+
+const aiProviderOptions = AI_PROVIDERS.map(p => ({
+  label: p.name,
+  value: p.id,
+}));
+
+// AI 日志相关
+const aiLogs = ref<AiLog[]>([]);
+const aiLogStats = ref<AiLogStats | null>(null);
+const loadingAiLogs = ref(false);
+const loadingAiStats = ref(false);
+const loadingMoreLogs = ref(false);
+const aiLogFilter = ref({
+  module: null as string | null,
+  status: null as string | null,
+});
+
+const moduleOptions = [
+  { label: '工作日志', value: 'work_log' },
+  { label: '任务', value: 'task' },
+  { label: '应用启动器', value: 'app_launcher' },
+];
+
+const statusOptions = [
+  { label: '成功', value: 'success' },
+  { label: '失败', value: 'error' },
+];
+
+const aiLogColumns = [
+  {
+    title: '时间',
+    key: 'createdAt',
+    width: 160,
+    render: (row: AiLog) => formatTime(row.createdAt),
+  },
+  {
+    title: '模块',
+    key: 'module',
+    width: 100,
+    render: (row: AiLog) => getModuleName(row.module),
+  },
+  {
+    title: '操作',
+    key: 'action',
+    width: 120,
+    render: (row: AiLog) => getActionName(row.action),
+  },
+  {
+    title: '状态',
+    key: 'status',
+    width: 80,
+    render: (row: AiLog) => {
+      return h(NTag, {
+        type: row.status === 'success' ? 'success' : 'error',
+        size: 'small',
+      }, () => row.status === 'success' ? '成功' : '失败');
+    },
+  },
+  {
+    title: '耗时',
+    key: 'durationMs',
+    width: 80,
+    render: (row: AiLog) => row.durationMs ? `${row.durationMs}ms` : '-',
+  },
+  {
+    title: '提示词',
+    key: 'prompt',
+    ellipsis: {
+      tooltip: true,
+    },
+  },
+];
+
+function getModuleName(module: string): string {
+  const names: Record<string, string> = {
+    'work_log': '工作日志',
+    'task': '任务',
+    'app_launcher': '应用启动器',
+  };
+  return names[module] || module;
+}
+
+function getActionName(action: string): string {
+  const names: Record<string, string> = {
+    'generate': '生成',
+    'polish': '润色',
+    'weekly_report': '周报',
+    'classify': '分类',
+    'enhance_description': '增强描述',
+    'generate_subtasks': '生成子任务',
+    'summarize': '总结',
+    'classify_apps': '应用分类',
+    'recommend_workflows': '推荐工作流',
+    'generate_description': '生成描述',
+  };
+  return names[action] || action;
+}
+
+function formatTime(timestamp: number): string {
+  const date = new Date(timestamp * 1000);
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+async function loadAiLogs() {
+  loadingAiLogs.value = true;
+  loadingAiStats.value = true;
+  try {
+    const [logs, stats] = await Promise.all([
+      aiApi.getLogs({
+        module: aiLogFilter.value.module || undefined,
+        status: aiLogFilter.value.status || undefined,
+        limit: 50,
+      }),
+      aiApi.getLogStats(),
+    ]);
+    aiLogs.value = logs;
+    aiLogStats.value = stats;
+  } catch (error) {
+    console.error('加载 AI 日志失败:', error);
+    message.error('加载 AI 日志失败');
+  } finally {
+    loadingAiLogs.value = false;
+    loadingAiStats.value = false;
+  }
+}
+
+async function loadMoreAiLogs() {
+  loadingMoreLogs.value = true;
+  try {
+    const logs = await aiApi.getLogs({
+      module: aiLogFilter.value.module || undefined,
+      status: aiLogFilter.value.status || undefined,
+      limit: 50,
+      offset: aiLogs.value.length,
+    });
+    aiLogs.value = [...aiLogs.value, ...logs];
+  } catch (error) {
+    console.error('加载更多日志失败:', error);
+    message.error('加载更多日志失败');
+  } finally {
+    loadingMoreLogs.value = false;
+  }
+}
+
+function handleClearAiLogs() {
+  dialog.warning({
+    title: '清空 AI 日志',
+    content: '确定要清空所有 AI 调用日志吗？此操作不可撤销！',
+    positiveText: '清空',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const count = await aiApi.clearLogs();
+        message.success(`已清空 ${count} 条日志`);
+        await loadAiLogs();
+      } catch (error) {
+        message.error('清空日志失败');
+        console.error('清空日志失败:', error);
+      }
+    },
+  });
+}
+
+onMounted(async () => {
+  // 检查 URL 参数，如果有 tab 参数则切换到对应标签
+  const tabParam = route.query.tab as string;
+  if (tabParam) {
+    activeTab.value = tabParam;
+  }
+
+  await loadSettings();
+  await loadShortcuts();
+  await loadAiConfig();
+  await loadAiLogs();
+  await loadDatabasePath();
+  await loadAutostartStatus();
+  await loadAlwaysOnTopStatus();
+});
+
+async function loadSettings() {
+  try {
+    const appSettings = await invoke<any>('get_app_settings');
+
+    // 映射后端设置到前端设置
+    settings.value = {
+      theme: appSettings.theme || 'auto',
+      alwaysOnTop: appSettings.always_on_top || false,
+      autoStart: appSettings.auto_start || false,
+      clipboardMonitor: appSettings.enable_clipboard_monitoring || true,
+      clipboardInterval: appSettings.clipboard_interval || 2,
+      gitEnabled: appSettings.git_enabled || false,
+      gitPath: appSettings.git_path || '',
+      aiEnabled: appSettings.enable_ai || false,
+      claudeApiKey: '',
+      taskNotification: appSettings.task_notification || true,
+      staleTaskDays: appSettings.stale_task_days || 3,
+      worklogReminder: appSettings.worklog_reminder || true,
+    };
+  } catch (error) {
+    console.error('加载设置失败:', error);
+    // 使用默认值
+  }
 }
 
 async function loadShortcuts() {
@@ -463,13 +871,77 @@ function handleShortcutKeyDown(event: KeyboardEvent, field: 'taskBoard' | 'sqlHi
   shortcuts.value[field] = shortcut;
 }
 
+// 加载数据库路径
+async function loadDatabasePath() {
+  try {
+    const path = await invoke<string>('get_database_path');
+    dataPath.value = path;
+  } catch (error) {
+    console.error('获取数据库路径失败:', error);
+  }
+}
+
+// 加载自启动状态
+async function loadAutostartStatus() {
+  try {
+    const status = await invoke<{ enabled: boolean }>('get_autostart_status');
+    settings.value.autoStart = status.enabled;
+  } catch (error) {
+    console.error('获取自启动状态失败:', error);
+  }
+}
+
+// 加载窗口置顶状态
+async function loadAlwaysOnTopStatus() {
+  try {
+    const isOnTop = await invoke<boolean>('get_always_on_top');
+    settings.value.alwaysOnTop = isOnTop;
+  } catch (error) {
+    console.error('获取窗口置顶状态失败:', error);
+  }
+}
+
 async function handleSave() {
   saving.value = true;
   try {
     // 保存快捷键
     await saveShortcuts();
 
-    // TODO: 保存其他设置
+    // 保存所有应用设置到数据库
+    await invoke('save_app_settings', {
+      settings: {
+        theme: settings.value.theme,
+        language: 'zh-CN',
+        always_on_top: settings.value.alwaysOnTop,
+        start_minimized: false,
+        minimize_to_tray: true,
+        auto_save_context: true,
+        stale_task_days: settings.value.staleTaskDays,
+        completed_tasks_retention_days: 7,
+        enable_clipboard_monitoring: settings.value.clipboardMonitor,
+        clipboard_interval: settings.value.clipboardInterval,
+        sql_history_limit: 100,
+        auto_detect_sql_type: true,
+        enable_notifications: true,
+        notify_on_task_complete: true,
+        notify_on_sql_detected: false,
+        task_notification: settings.value.taskNotification,
+        worklog_reminder: settings.value.worklogReminder,
+        enable_ai: settings.value.aiEnabled,
+        ai_model: 'claude-3-sonnet-20240229',
+        enable_git_integration: settings.value.gitEnabled,
+        auto_detect_branch: true,
+        git_enabled: settings.value.gitEnabled,
+        git_path: settings.value.gitPath,
+        auto_start: settings.value.autoStart,
+      },
+    });
+
+    // 应用窗口置顶设置
+    await invoke('set_always_on_top', { alwaysOnTop: settings.value.alwaysOnTop });
+
+    // 应用开机自启动设置
+    await invoke('set_autostart', { enable: settings.value.autoStart });
 
     message.success('设置已保存');
   } catch (error) {
@@ -480,25 +952,52 @@ async function handleSave() {
   }
 }
 
-function openDataFolder() {
-  // TODO: 调用Tauri API打开文件夹
-  message.info('打开数据文件夹');
+async function openDataFolder() {
+  try {
+    await invoke('open_data_folder');
+    message.success('已打开数据文件夹');
+  } catch (error: any) {
+    message.error(error || '打开文件夹失败');
+    console.error('打开数据文件夹失败:', error);
+  }
 }
 
-function handleExport() {
-  // TODO: 导出数据
-  message.info('导出数据功能开发中');
+async function handleExport() {
+  try {
+    // 使用Tauri的保存文件对话框
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const filePath = await save({
+      defaultPath: 'dev_assistant_backup.db',
+      filters: [{
+        name: 'Database',
+        extensions: ['db']
+      }]
+    });
+
+    if (filePath) {
+      await invoke('export_database', { exportPath: filePath });
+      message.success('数据导出成功');
+    }
+  } catch (error: any) {
+    message.error(error || '导出数据失败');
+    console.error('导出数据失败:', error);
+  }
 }
 
 function handleClearData() {
   dialog.warning({
     title: '清空数据',
-    content: '确定要清空所有数据吗？此操作不可撤销！',
+    content: '确定要清空所有数据吗？此操作不可撤销！注意：应用设置将会保留。',
     positiveText: '清空',
     negativeText: '取消',
-    onPositiveClick: () => {
-      // TODO: 调用API清空数据
-      message.success('数据已清空');
+    onPositiveClick: async () => {
+      try {
+        await invoke('clear_all_data');
+        message.success('数据已清空');
+      } catch (error: any) {
+        message.error(error || '清空数据失败');
+        console.error('清空数据失败:', error);
+      }
     },
   });
 }
@@ -525,6 +1024,77 @@ function decreaseStaleDays() {
 function increaseStaleDays() {
   if (settings.value.staleTaskDays < 30) {
     settings.value.staleTaskDays++;
+  }
+}
+
+// AI 配置相关方法
+function getDefaultBaseUrl() {
+  const provider = AI_PROVIDERS.find(p => p.id === aiConfig.value.provider);
+  return provider?.defaultUrl || '';
+}
+
+function getDefaultModel() {
+  const provider = AI_PROVIDERS.find(p => p.id === aiConfig.value.provider);
+  return provider?.defaultModel || '';
+}
+
+async function loadAiConfig() {
+  try {
+    const config = await aiApi.getConfig();
+    if (config) {
+      aiConfig.value.provider = config.provider;
+      aiConfig.value.baseUrl = config.baseUrl || '';
+      aiConfig.value.model = config.model || '';
+      aiConfig.value.enabled = config.enabled;
+      // apiKey 需要用户重新输入，不从服务端加载
+    }
+  } catch (error) {
+    console.error('加载 AI 配置失败:', error);
+  }
+}
+
+async function testAiConnection() {
+  testingAi.value = true;
+  aiTestResult.value = null;
+  try {
+    // 先保存配置再测试
+    await aiApi.saveConfig({
+      provider: aiConfig.value.provider,
+      apiKey: aiConfig.value.apiKey,
+      baseUrl: aiConfig.value.baseUrl || undefined,
+      model: aiConfig.value.model || undefined,
+      enabled: aiConfig.value.enabled,
+    });
+    const result = await aiApi.testConnection();
+    aiTestResult.value = result;
+    if (result) {
+      message.success('AI 连接测试成功');
+    } else {
+      message.error('AI 连接测试失败');
+    }
+  } catch (error: any) {
+    aiTestResult.value = false;
+    message.error(error || '连接测试失败');
+  } finally {
+    testingAi.value = false;
+  }
+}
+
+async function saveAiConfig() {
+  savingAi.value = true;
+  try {
+    await aiApi.saveConfig({
+      provider: aiConfig.value.provider,
+      apiKey: aiConfig.value.apiKey,
+      baseUrl: aiConfig.value.baseUrl || undefined,
+      model: aiConfig.value.model || undefined,
+      enabled: aiConfig.value.enabled,
+    });
+    message.success('AI 配置已保存');
+  } catch (error: any) {
+    message.error(error || '保存失败');
+  } finally {
+    savingAi.value = false;
   }
 }
 </script>
@@ -589,9 +1159,15 @@ function increaseStaleDays() {
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 4px;
+  background: rgba(148, 163, 184, 0.1);
+  color: rgb(148, 163, 184);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.status-active {
   background: rgba(16, 185, 129, 0.1);
   color: rgb(52, 211, 153);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.2);
 }
 
 .card-content {
@@ -689,6 +1265,73 @@ function increaseStaleDays() {
 /* 主题选择器 */
 .theme-select {
   min-width: 140px;
+}
+
+/* AI 配置 */
+.provider-select {
+  min-width: 200px;
+}
+
+.ai-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ai-test-result {
+  margin-top: 16px;
+}
+
+/* AI 日志样式 */
+.stat-card {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-card .stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: rgb(226, 232, 240);
+  margin-bottom: 4px;
+}
+
+.stat-card .stat-label {
+  font-size: 12px;
+  color: rgb(148, 163, 184);
+}
+
+.stat-card.stat-success .stat-value {
+  color: rgb(52, 211, 153);
+}
+
+.stat-card.stat-error .stat-value {
+  color: rgb(248, 113, 113);
+}
+
+.module-stats {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.module-stats-title {
+  font-size: 13px;
+  color: rgb(148, 163, 184);
+  margin-bottom: 12px;
+}
+
+.module-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.load-more {
+  text-align: center;
+  margin-top: 16px;
 }
 
 /* 数字调节器 */

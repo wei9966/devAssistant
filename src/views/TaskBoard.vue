@@ -204,14 +204,27 @@
             />
           </n-form-item>
           <n-form-item label="任务描述" path="description">
-            <n-input
-              v-model:value="formData.description"
-              type="textarea"
-              placeholder="请输入任务描述（最多10000字符）"
-              :rows="3"
-              :maxlength="10000"
-              show-count
-            />
+            <n-space vertical style="width: 100%;">
+              <n-input
+                v-model:value="formData.description"
+                type="textarea"
+                placeholder="请输入任务描述（最多10000字符）"
+                :rows="3"
+                :maxlength="10000"
+                show-count
+              />
+              <n-space>
+                <n-button size="small" @click="handleAiClassify" :loading="aiClassifying">
+                  AI 智能分类
+                </n-button>
+                <n-button size="small" @click="handleAiEnhance" :loading="aiEnhancing">
+                  AI 增强描述
+                </n-button>
+                <n-button size="small" @click="handleAiGenerateSubtasks" :loading="aiGeneratingSubtasks">
+                  AI 生成子任务
+                </n-button>
+              </n-space>
+            </n-space>
           </n-form-item>
           <!-- 分类选择器 -->
           <n-form-item label="分类" path="category">
@@ -277,6 +290,7 @@ import { NCard, NSpace, NButton, NIcon, NEmpty, NCollapse, NCollapseItem, NModal
 import { AddOutline, RefreshOutline, CloudUploadOutline, GridOutline, PricetagsOutline, CloseCircleOutline } from '@vicons/ionicons5';
 import { useTaskStore } from '@/stores/taskStore';
 import { tagApi } from '@/api/tagApi';
+import { aiApi } from '@/api/aiApi';
 import TaskCard from '@/components/TaskCard.vue';
 import TaskImport from '@/components/TaskImport.vue';
 import TaskDetailModal from '@/components/TaskDetailModal.vue';
@@ -298,6 +312,11 @@ const selectedTask = ref<Task | null>(null);
 const formRef = ref();
 const isEditing = ref(false);
 const editingTaskId = ref<number | null>(null);
+
+// AI 功能加载状态
+const aiClassifying = ref(false);
+const aiEnhancing = ref(false);
+const aiGeneratingSubtasks = ref(false);
 
 // 标签数据
 const availableTags = ref<Tag[]>([]);
@@ -642,6 +661,102 @@ async function handleDeleteTag(id: number) {
   } catch (error: any) {
     console.error('删除标签失败:', error);
     message.error(error?.message || '删除标签失败');
+  }
+}
+
+// AI 智能分类
+async function handleAiClassify() {
+  if (!formData.title) {
+    message.warning('请先输入任务标题');
+    return;
+  }
+
+  aiClassifying.value = true;
+  try {
+    const result = await aiApi.classifyTask(formData.title, formData.description || undefined);
+
+    // 应用分类结果
+    if (result.category) {
+      formData.category = result.category as Task['category'];
+    }
+    if (result.priority) {
+      formData.priority = result.priority as Task['priority'];
+    }
+    if (result.quadrant) {
+      formData.quadrant = result.quadrant as TaskQuadrant;
+    }
+
+    // 显示置信度
+    const confidencePercent = (result.confidence * 100).toFixed(0);
+    message.success(`AI 分类成功（置信度: ${confidencePercent}%）`);
+
+    // 建议的标签
+    if (result.suggestedTags && result.suggestedTags.length > 0) {
+      message.info(`建议标签: ${result.suggestedTags.join(', ')}`);
+    }
+  } catch (error: any) {
+    console.error('AI 分类失败:', error);
+    message.error(error?.message || 'AI 分类失败，请检查 AI 配置');
+  } finally {
+    aiClassifying.value = false;
+  }
+}
+
+// AI 增强描述
+async function handleAiEnhance() {
+  if (!formData.title) {
+    message.warning('请先输入任务标题');
+    return;
+  }
+
+  aiEnhancing.value = true;
+  try {
+    const enhancedDesc = await aiApi.enhanceTaskDescription(
+      formData.title,
+      formData.description || undefined
+    );
+    formData.description = enhancedDesc;
+    message.success('任务描述已优化');
+  } catch (error: any) {
+    console.error('AI 增强描述失败:', error);
+    message.error(error?.message || 'AI 增强描述失败，请检查 AI 配置');
+  } finally {
+    aiEnhancing.value = false;
+  }
+}
+
+// AI 生成子任务
+async function handleAiGenerateSubtasks() {
+  if (!formData.title) {
+    message.warning('请先输入任务标题');
+    return;
+  }
+
+  aiGeneratingSubtasks.value = true;
+  try {
+    const subtasks = await aiApi.generateSubtasks(
+      formData.title,
+      formData.description || undefined
+    );
+
+    if (subtasks.length > 0) {
+      // 显示子任务列表
+      const subtasksText = subtasks.map((task, index) => `${index + 1}. ${task}`).join('\n');
+      message.info(`AI 建议的子任务:\n${subtasksText}`, { duration: 10000 });
+
+      // 可选：将子任务添加到描述中
+      if (confirm('是否将子任务添加到任务描述中？')) {
+        const subtasksSection = '\n\n## 子任务\n' + subtasks.map((task, index) => `${index + 1}. ${task}`).join('\n');
+        formData.description = (formData.description || '') + subtasksSection;
+      }
+    } else {
+      message.warning('AI 未生成子任务');
+    }
+  } catch (error: any) {
+    console.error('AI 生成子任务失败:', error);
+    message.error(error?.message || 'AI 生成子任务失败，请检查 AI 配置');
+  } finally {
+    aiGeneratingSubtasks.value = false;
   }
 }
 </script>

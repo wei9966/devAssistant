@@ -57,6 +57,18 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     // 迁移 sql_categories 表：添加新字段
     migrate_sql_categories_add_fields(conn)?;
 
+    // 创建 AI 全局配置表
+    create_ai_config_table(conn)?;
+
+    // 创建 AI 调用日志表
+    create_ai_logs_table(conn)?;
+
+    // 迁移 apps 表:添加 item_type 字段
+    migrate_apps_add_item_type(conn)?;
+
+    // 创建应用启动器设置表
+    create_app_launcher_settings_table(conn)?;
+
     Ok(())
 }
 
@@ -595,11 +607,9 @@ mod tests {
 
         // 验证数据正确性
         let name: String = conn
-            .query_row(
-                "SELECT name FROM apps WHERE id = ?",
-                ["vscode"],
-                |row| row.get(0),
-            )
+            .query_row("SELECT name FROM apps WHERE id = ?", ["vscode"], |row| {
+                row.get(0)
+            })
             .unwrap();
         assert_eq!(name, "Visual Studio Code");
     }
@@ -664,7 +674,13 @@ mod tests {
         conn.execute(
             "INSERT INTO apps (id, name, path, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?)",
-            ["vscode", "Visual Studio Code", "C:\\Code.exe", "1732435200", "1732435200"],
+            [
+                "vscode",
+                "Visual Studio Code",
+                "C:\\Code.exe",
+                "1732435200",
+                "1732435200",
+            ],
         )
         .unwrap();
 
@@ -678,11 +694,7 @@ mod tests {
 
         // 验证数据已插入
         let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM launch_history",
-                [],
-                |row| row.get(0),
-            )
+            .query_row("SELECT COUNT(*) FROM launch_history", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 1);
     }
@@ -803,7 +815,14 @@ mod tests {
         let result = conn.execute(
             "INSERT INTO tasks (title, description, category, priority, status, quadrant)
              VALUES (?, ?, ?, ?, ?, ?)",
-            ["测试任务", "测试描述", "dev", "1", "todo", "urgent_important"],
+            [
+                "测试任务",
+                "测试描述",
+                "dev",
+                "1",
+                "todo",
+                "urgent_important",
+            ],
         );
         assert!(result.is_ok());
 
@@ -874,10 +893,7 @@ fn create_tags_table(conn: &Connection) -> Result<()> {
 
 /// 创建 tags 表索引
 fn create_tags_indexes(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name)",
-        [],
-    )?;
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name)", [])?;
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_tags_created_at ON tags(created_at DESC)",
@@ -1021,10 +1037,7 @@ fn migrate_sql_history_add_name_category(conn: &Connection) -> Result<()> {
         .unwrap_or(0);
 
     if has_name == 0 {
-        conn.execute(
-            "ALTER TABLE sql_history ADD COLUMN name TEXT",
-            [],
-        )?;
+        conn.execute("ALTER TABLE sql_history ADD COLUMN name TEXT", [])?;
         println!("✓ 已添加 name 列到 sql_history 表");
 
         conn.execute(
@@ -1043,10 +1056,7 @@ fn migrate_sql_history_add_name_category(conn: &Connection) -> Result<()> {
         .unwrap_or(0);
 
     if has_category_id == 0 {
-        conn.execute(
-            "ALTER TABLE sql_history ADD COLUMN category_id INTEGER",
-            [],
-        )?;
+        conn.execute("ALTER TABLE sql_history ADD COLUMN category_id INTEGER", [])?;
     }
 
     Ok(())
@@ -1064,14 +1074,8 @@ fn migrate_sql_categories_add_fields(conn: &Connection) -> Result<()> {
         .unwrap_or(0);
 
     if has_ai_prompt == 0 {
-        conn.execute(
-            "ALTER TABLE sql_categories ADD COLUMN ai_prompt TEXT",
-            [],
-        )?;
-        conn.execute(
-            "ALTER TABLE sql_categories ADD COLUMN icon TEXT",
-            [],
-        )?;
+        conn.execute("ALTER TABLE sql_categories ADD COLUMN ai_prompt TEXT", [])?;
+        conn.execute("ALTER TABLE sql_categories ADD COLUMN icon TEXT", [])?;
         conn.execute(
             "ALTER TABLE sql_categories ADD COLUMN is_system INTEGER DEFAULT 0",
             [],
@@ -1120,6 +1124,111 @@ fn migrate_tasks_add_quadrant(conn: &Connection) -> Result<()> {
             [],
         )?;
     }
+
+    Ok(())
+}
+
+/// 创建 AI 全局配置表
+fn create_ai_config_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS ai_config (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider TEXT NOT NULL,
+            api_key TEXT NOT NULL,
+            base_url TEXT,
+            model TEXT,
+            enabled INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )?;
+
+    // 确保只有一条配置记录的唯一索引
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_config_single ON ai_config(id) WHERE id = 1",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 AI 调用日志表
+fn create_ai_logs_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS ai_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module TEXT NOT NULL,
+            action TEXT NOT NULL,
+            provider TEXT NOT NULL,
+            model TEXT,
+            prompt TEXT NOT NULL,
+            response TEXT,
+            tokens_used INTEGER,
+            duration_ms INTEGER,
+            status TEXT NOT NULL DEFAULT 'success',
+            error_message TEXT,
+            created_at INTEGER NOT NULL
+        )",
+        [],
+    )?;
+
+    // 创建索引
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ai_logs_module ON ai_logs(module)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ai_logs_created_at ON ai_logs(created_at)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ai_logs_status ON ai_logs(status)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 迁移 apps 表:添加 item_type 字段
+fn migrate_apps_add_item_type(conn: &Connection) -> Result<()> {
+    // 检查字段是否已存在
+    let mut stmt = conn.prepare("PRAGMA table_info(apps)")?;
+    let columns: Vec<String> = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    if !columns.contains(&"item_type".to_string()) {
+        // 添加 item_type 字段,默认为 'Application'
+        conn.execute(
+            "ALTER TABLE apps ADD COLUMN item_type TEXT DEFAULT 'Application'",
+            [],
+        )?;
+        println!("Added item_type column to apps table");
+    }
+
+    Ok(())
+}
+
+/// 创建应用启动器设置表
+fn create_app_launcher_settings_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS app_launcher_settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            allowed_extensions TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )",
+        [],
+    )?;
+
+    // 插入默认设置(如果不存在)
+    conn.execute(
+        "INSERT OR IGNORE INTO app_launcher_settings (id, allowed_extensions, created_at, updated_at)
+         VALUES (1, '[\"exe\",\"lnk\"]', strftime('%s', 'now'), strftime('%s', 'now'))",
+        [],
+    )?;
 
     Ok(())
 }

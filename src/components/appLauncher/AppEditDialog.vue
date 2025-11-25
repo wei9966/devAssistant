@@ -17,12 +17,20 @@
         />
       </n-form-item>
 
+      <!-- 选择类型 -->
+      <n-form-item label="添加类型">
+        <n-radio-group v-model:value="selectMode" name="selectMode">
+          <n-radio value="file">文件</n-radio>
+          <n-radio value="folder">文件夹</n-radio>
+        </n-radio-group>
+      </n-form-item>
+
       <!-- 应用路径 -->
-      <n-form-item label="应用路径" path="path">
+      <n-form-item label="路径" path="path">
         <n-input-group>
           <n-input
             v-model:value="formData.path"
-            placeholder="例如：C:\Program Files\VSCode\Code.exe"
+            :placeholder="selectMode === 'folder' ? '例如：C:\\Users\\MyFolder' : '例如：C:\\Program Files\\VSCode\\Code.exe'"
             style="flex: 1"
             @keydown.enter.prevent
           />
@@ -30,7 +38,7 @@
             <template #icon>
               <n-icon><FolderOpenOutline /></n-icon>
             </template>
-            浏览
+            {{ selectMode === 'folder' ? '选择文件夹' : '选择文件' }}
           </n-button>
         </n-input-group>
       </n-form-item>
@@ -103,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import {
   NModal,
   NForm,
@@ -115,12 +123,15 @@ import {
   NSwitch,
   NButton,
   NIcon,
+  NRadioGroup,
+  NRadio,
   useMessage,
   type FormInst,
   type FormRules,
 } from 'naive-ui';
 import { FolderOpenOutline, TrashOutline, ImageOutline, CloudUploadOutline } from '@vicons/ionicons5';
-import type { AppItem, Category } from '@/types/appLauncher';
+import type { AppItem, Category, ItemType, AppLauncherSettings } from '@/types/appLauncher';
+import { invoke } from '@tauri-apps/api/core';
 
 interface AppFormData {
   name: string;
@@ -130,6 +141,7 @@ interface AppFormData {
   launchArgs: string;
   isPinned: boolean;
   icon?: string;
+  itemType: ItemType;
 }
 
 const props = withDefaults(
@@ -152,6 +164,8 @@ const emit = defineEmits<{
 const message = useMessage();
 const formRef = ref<FormInst>();
 const saving = ref(false);
+const launcherSettings = ref<AppLauncherSettings>({ allowedExtensions: ['exe', 'lnk'] });
+const selectMode = ref<'file' | 'folder'>('file');
 
 const dialogVisible = computed({
   get: () => props.show,
@@ -169,9 +183,24 @@ const defaultFormData: AppFormData = {
   launchArgs: '',
   isPinned: false,
   icon: undefined,
+  itemType: 'Application' as ItemType,
 };
 
 const formData = ref<AppFormData>({ ...defaultFormData });
+
+// 加载启动器设置
+const loadLauncherSettings = async () => {
+  try {
+    const settings = await invoke<AppLauncherSettings>('get_launcher_settings');
+    launcherSettings.value = settings;
+  } catch (error) {
+    console.error('加载启动器设置失败:', error);
+  }
+};
+
+onMounted(() => {
+  loadLauncherSettings();
+});
 
 // 分类选项
 const categoryOptions = computed(() => {
@@ -221,45 +250,88 @@ watch(
         launchArgs: newApp.launchArgs || '',
         isPinned: newApp.isPinned,
         icon: newApp.icon,
+        itemType: newApp.itemType || ('Application' as ItemType),
       };
+      // 根据item type设置选择模式
+      selectMode.value = newApp.itemType === 'Folder' ? 'folder' : 'file';
     } else {
       formData.value = { ...defaultFormData };
+      selectMode.value = 'file';
     }
   },
   { immediate: true }
 );
 
-// 选择文件
+// 确定item type
+const determineItemType = (path: string, isFolder: boolean): ItemType => {
+  if (isFolder) {
+    return 'Folder' as ItemType;
+  }
+
+  const ext = path.split('.').pop()?.toLowerCase() || '';
+
+  if (ext === 'exe') return 'Application' as ItemType;
+  if (ext === 'lnk') return 'Shortcut' as ItemType;
+  if (ext === 'rdp') return 'RemoteDesktop' as ItemType;
+  if (ext === 'url') return 'UrlLink' as ItemType;
+
+  return 'File' as ItemType;
+};
+
+// 选择文件或文件夹
 const handleSelectFile = async () => {
   try {
-    // 调用Tauri API选择文件
     const { open } = await import('@tauri-apps/plugin-dialog');
-    const selected = await open({
-      multiple: false,
-      filters: [
-        {
-          name: '应用程序',
-          extensions: ['exe', 'lnk'],
-        },
-      ],
-    });
 
-    if (selected && typeof selected === 'string') {
-      formData.value.path = selected;
+    if (selectMode.value === 'folder') {
+      // 选择文件夹
+      const selected = await open({
+        multiple: false,
+        directory: true,
+        title: '选择文件夹',
+      });
 
-      // 如果名称为空，从路径提取文件名
-      if (!formData.value.name) {
-        const fileName = selected.split(/[\\\/]/).pop()?.replace(/\.(exe|lnk)$/i, '') || '';
-        formData.value.name = fileName;
+      if (selected && typeof selected === 'string') {
+        formData.value.path = selected;
+        formData.value.itemType = 'Folder' as ItemType;
+
+        // 如果名称为空，从路径提取文件夹名
+        if (!formData.value.name) {
+          const folderName = selected.split(/[\\\/]/).pop() || '';
+          formData.value.name = folderName;
+        }
       }
+    } else {
+      // 选择文件
+      const extensions = launcherSettings.value.allowedExtensions;
+      const selected = await open({
+        multiple: false,
+        filters: [
+          {
+            name: '允许的文件',
+            extensions: extensions,
+          },
+        ],
+      });
 
-      // TODO: 调用后端API提取图标
-      // const icon = await extractIcon(selected);
-      // formData.value.icon = icon;
+      if (selected && typeof selected === 'string') {
+        formData.value.path = selected;
+        formData.value.itemType = determineItemType(selected, false);
+
+        // 如果名称为空，从路径提取文件名
+        if (!formData.value.name) {
+          const fileName = selected.split(/[\\\/]/).pop()?.replace(/\.\w+$/i, '') || '';
+          formData.value.name = fileName;
+        }
+
+        // TODO: 调用后端API提取图标
+        // const icon = await extractIcon(selected);
+        // formData.value.icon = icon;
+      }
     }
   } catch (error) {
-    message.error('选择文件失败');
-    console.error('选择文件失败:', error);
+    message.error(`选择${selectMode.value === 'folder' ? '文件夹' : '文件'}失败`);
+    console.error('选择失败:', error);
   }
 };
 

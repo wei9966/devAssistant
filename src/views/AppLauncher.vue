@@ -19,6 +19,17 @@
           </template>
           刷新图标
         </n-button>
+        <n-button
+          size="small"
+          :loading="aiClassifying"
+          :disabled="!aiStore.isEnabled"
+          @click="handleAiClassifyApps"
+        >
+          <template #icon>
+            <n-icon><SparklesOutline /></n-icon>
+          </template>
+          {{ aiClassifyProgress || 'AI分类' }}
+        </n-button>
         <n-button class="primary-button" @click="handleAddApp">
           <template #icon>
             <n-icon><AddOutline /></n-icon>
@@ -176,11 +187,19 @@
       @save="handleSaveCategories"
       @cancel="handleCancelCategoryManager"
     />
+
+    <!-- 启动器设置对话框 -->
+    <LauncherSettingsDialog
+      v-model:show="showLauncherSettings"
+      @saved="handleSettingsSaved"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, h, onMounted, onUnmounted } from 'vue';
+import { useAiStore } from '@/stores/aiStore';
+import { aiApi } from '@/api/aiApi';
 import {
   NSpace,
   NButton,
@@ -203,6 +222,7 @@ import {
   RocketOutline,
   SettingsOutline,
   TrashOutline,
+  SparklesOutline,
 } from '@vicons/ionicons5';
 import AppCard from '@/components/appLauncher/AppCard.vue';
 import AppSearchBar from '@/components/appLauncher/AppSearchBar.vue';
@@ -211,15 +231,18 @@ import AppEditDialog from '@/components/appLauncher/AppEditDialog.vue';
 import WorkflowEditDialog from '@/components/appLauncher/WorkflowEditDialog.vue';
 import AppQuickLaunchModal from '@/components/appLauncher/AppQuickLaunchModal.vue';
 import CategoryManager from '@/components/appLauncher/CategoryManager.vue';
+import LauncherSettingsDialog from '@/components/appLauncher/LauncherSettingsDialog.vue';
 import type { AppItem, Category, Workflow } from '@/types/appLauncher';
 import { DEFAULT_CATEGORIES } from '@/types/appLauncher';
 
 const message = useMessage();
 const dialog = useDialog();
+const aiStore = useAiStore();
 
 // 状态
 const scanning = ref(false);
 const refreshingIcons = ref(false);
+const aiClassifying = ref(false);
 const searchKeyword = ref('');
 const selectedCategory = ref(localStorage.getItem('appLauncher_selectedCategory') || 'all');
 const viewMode = ref<'grid' | 'list'>('grid');
@@ -227,6 +250,7 @@ const showEditDialog = ref(false);
 const showWorkflowDialog = ref(false);
 const showQuickLaunch = ref(false);
 const showCategoryManager = ref(false);
+const showLauncherSettings = ref(false);
 const currentApp = ref<AppItem | null>(null);
 const currentWorkflow = ref<Workflow | null>(null);
 
@@ -294,6 +318,7 @@ onMounted(async () => {
   await Promise.all([
     loadAppsFromDatabase(),
     loadCategoriesFromDatabase(),
+    aiStore.loadConfig(),
   ]);
 
   // 验证保存的分类是否仍然存在，如果不存在则回退到"全部"
@@ -361,6 +386,11 @@ const moreOptions = computed(() => [
   {
     label: '分类管理',
     key: 'categories',
+    icon: () => h(NIcon, null, { default: () => h(SettingsOutline) }),
+  },
+  {
+    label: '启动器设置',
+    key: 'launcher-settings',
     icon: () => h(NIcon, null, { default: () => h(SettingsOutline) }),
   },
   {
@@ -599,6 +629,7 @@ const handleSaveApp = async (data: any) => {
         launchArgs: data.launchArgs || '',
         isPinned: data.isPinned,
         icon: data.icon,
+        itemType: data.itemType || currentApp.value.itemType,
         updatedAt: Date.now(),
       };
 
@@ -625,6 +656,7 @@ const handleSaveApp = async (data: any) => {
         isPinned: data.isPinned || false,
         isHidden: false,
         launchCount: 0,
+        itemType: data.itemType || 'Application',
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -799,6 +831,93 @@ onUnmounted(() => {
   cleanupDrag();
 });
 
+// AI 分类应用
+const aiClassifyProgress = ref('');
+const AI_CLASSIFY_BATCH_SIZE = 10; // 每批处理的应用数量，可以根据需要调整
+
+const handleAiClassifyApps = async () => {
+  if (!aiStore.isEnabled) {
+    message.warning('AI 功能未启用，请先在设置中配置 AI');
+    return;
+  }
+
+  if (allApps.value.length === 0) {
+    message.warning('暂无应用可分类');
+    return;
+  }
+
+  // 只处理未分类的应用（category 为空、undefined 或 'other'）
+  const unclassifiedApps = allApps.value.filter(
+    (app) => !app.category || app.category === '' || app.category === 'other'
+  );
+
+  if (unclassifiedApps.length === 0) {
+    message.info('所有应用都已分类，无需重新分类');
+    return;
+  }
+
+  aiClassifying.value = true;
+  const totalApps = unclassifiedApps.length;
+  let processedCount = 0;
+  let updatedCount = 0;
+
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+
+    // 获取分类列表（排除"全部"和"其他"）
+    const categoryNames = categories.value
+      .filter((cat) => cat.id !== 'all' && cat.id !== 'other')
+      .map((cat) => cat.name);
+
+    // 分批处理
+    for (let i = 0; i < unclassifiedApps.length; i += AI_CLASSIFY_BATCH_SIZE) {
+      const batch = unclassifiedApps.slice(i, i + AI_CLASSIFY_BATCH_SIZE);
+      const batchNum = Math.floor(i / AI_CLASSIFY_BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(unclassifiedApps.length / AI_CLASSIFY_BATCH_SIZE);
+
+      aiClassifyProgress.value = `正在处理第 ${batchNum}/${totalBatches} 批 (剩余 ${totalApps - processedCount} 个)...`;
+
+      // 准备当前批次的应用数据
+      const batchApps = batch.map((app) => ({
+        id: app.id,
+        name: app.name,
+        path: app.path,
+      }));
+
+      // 调用 AI 分类当前批次
+      const results = await aiApi.classifyApps(batchApps, categoryNames);
+
+      // 更新当前批次的应用分类
+      for (const result of results) {
+        const app = allApps.value.find((a) => a.id === result.appId);
+        if (app) {
+          const category = categories.value.find((cat) => cat.name === result.category);
+          if (category && category.id !== 'other') {
+            app.category = category.id;
+            if (result.tags && result.tags.length > 0) {
+              app.tags = result.tags;
+            }
+            // 保存到数据库
+            await invoke('update_app', { app });
+            updatedCount++;
+          }
+        }
+        processedCount++;
+      }
+
+      aiClassifyProgress.value = `已完成 ${processedCount}/${totalApps} 个应用`;
+    }
+
+    message.success(`AI 分类完成，已更新 ${updatedCount} 个应用`);
+  } catch (error) {
+    console.error('AI 分类失败:', error);
+    message.error(`AI 分类失败 (已处理 ${processedCount}/${totalApps}): ` + (error as Error).message);
+  } finally {
+    aiClassifying.value = false;
+    aiClassifyProgress.value = '';
+  }
+};
+
 const handleMoreAction = (key: string) => {
   switch (key) {
     case 'workflows':
@@ -807,10 +926,17 @@ const handleMoreAction = (key: string) => {
     case 'categories':
       handleManageCategories();
       break;
+    case 'launcher-settings':
+      showLauncherSettings.value = true;
+      break;
     case 'clear-all':
       handleClearAllApps();
       break;
   }
+};
+
+const handleSettingsSaved = () => {
+  message.success('设置已保存,下次扫描时将生效');
 };
 
 const handleClearAllApps = () => {

@@ -1,8 +1,8 @@
+use crate::services::sql_service::SqlService;
 use clipboard::{ClipboardContext, ClipboardProvider};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use crate::services::sql_service::SqlService;
 
 pub struct ClipboardService {
     last_content: Arc<Mutex<String>>,

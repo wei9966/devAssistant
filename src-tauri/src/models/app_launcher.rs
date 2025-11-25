@@ -1,5 +1,29 @@
 use serde::{Deserialize, Serialize};
 
+/// 应用项类型
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum ItemType {
+    /// 可执行应用程序(.exe)
+    Application,
+    /// 快捷方式(.lnk)
+    Shortcut,
+    /// 普通文件
+    File,
+    /// 文件夹
+    Folder,
+    /// 远程桌面连接(.rdp)
+    RemoteDesktop,
+    /// URL链接(.url)
+    UrlLink,
+}
+
+impl Default for ItemType {
+    fn default() -> Self {
+        ItemType::Application
+    }
+}
+
 /// 应用项
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,6 +41,9 @@ pub struct AppItem {
     pub launch_args: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
+    /// 项目类型(Application/Shortcut/File/Folder/RemoteDesktop/UrlLink)
+    #[serde(default)]
+    pub item_type: ItemType,
 }
 
 impl AppItem {
@@ -37,14 +64,36 @@ impl AppItem {
             launch_args: None,
             created_at: now,
             updated_at: now,
+            item_type: ItemType::Application,
+        }
+    }
+
+    /// 创建带类型的应用项
+    pub fn new_with_type(id: String, name: String, path: String, item_type: ItemType) -> Self {
+        let now = chrono::Utc::now().timestamp();
+        Self {
+            id,
+            name,
+            path,
+            icon: None,
+            category: None,
+            tags: None,
+            launch_count: 0,
+            last_launched_at: None,
+            is_pinned: false,
+            is_hidden: false,
+            launch_args: None,
+            created_at: now,
+            updated_at: now,
+            item_type,
         }
     }
 
     /// 转换tags为JSON字符串用于存储
     pub fn tags_to_json(&self) -> Option<String> {
-        self.tags.as_ref().and_then(|tags| {
-            serde_json::to_string(tags).ok()
-        })
+        self.tags
+            .as_ref()
+            .and_then(|tags| serde_json::to_string(tags).ok())
     }
 
     /// 从JSON字符串解析tags
@@ -273,7 +322,11 @@ mod tests {
 
     #[test]
     fn test_app_item_tags_serialization() {
-        let mut app = AppItem::new("test".to_string(), "Test".to_string(), "test.exe".to_string());
+        let mut app = AppItem::new(
+            "test".to_string(),
+            "Test".to_string(),
+            "test.exe".to_string(),
+        );
         app.tags = Some(vec!["dev".to_string(), "editor".to_string()]);
 
         let json = app.tags_to_json();
@@ -362,13 +415,16 @@ mod tests {
 
     #[test]
     fn test_workflow_launch_result() {
-        let mut result = WorkflowLaunchResult::new(
-            "wf1".to_string(),
-            "Test Workflow".to_string(),
-        );
+        let mut result = WorkflowLaunchResult::new("wf1".to_string(), "Test Workflow".to_string());
 
-        result.add_result(LaunchResult::success("app1".to_string(), "App1".to_string()));
-        result.add_result(LaunchResult::success("app2".to_string(), "App2".to_string()));
+        result.add_result(LaunchResult::success(
+            "app1".to_string(),
+            "App1".to_string(),
+        ));
+        result.add_result(LaunchResult::success(
+            "app2".to_string(),
+            "App2".to_string(),
+        ));
         result.add_result(LaunchResult::failure(
             "app3".to_string(),
             "App3".to_string(),

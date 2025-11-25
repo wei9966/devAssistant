@@ -2,19 +2,20 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod db;
 mod models;
 mod services;
-mod db;
 mod utils;
 
-use db::connection::{DbConnection, init_database};
-use services::clipboard_service::ClipboardService;
+use commands::ai_commands::AiState;
 use commands::shortcut_commands::ShortcutState;
 use commands::sql_ai_commands::SqlAiState;
+use db::connection::{init_database, DbConnection};
+use services::clipboard_service::ClipboardService;
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
-use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri::Manager;
+use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 fn main() {
     // 初始化环境日志
@@ -42,7 +43,8 @@ fn main() {
         }
     };
 
-    let loaded_config = saved_config.unwrap_or_else(|| commands::shortcut_commands::ShortcutConfig::default());
+    let loaded_config =
+        saved_config.unwrap_or_else(|| commands::shortcut_commands::ShortcutConfig::default());
 
     // 将 conn 移动到 Arc 中
     let db_state = DbConnection(Arc::new(Mutex::new(conn)));
@@ -51,8 +53,11 @@ fn main() {
     let shortcut_state = ShortcutState::new();
     shortcut_state.set_config(loaded_config.clone());
 
-    // 初始化 AI 状态
+    // 初始化 SQL AI 状态
     let sql_ai_state = SqlAiState::new();
+
+    // 初始化全局 AI 状态
+    let ai_state = AiState::new();
 
     // 获取数据库路径
     let db_path = dirs::data_local_dir()
@@ -62,15 +67,14 @@ fn main() {
 
     // 启动剪贴板监控服务
     let clipboard_service = ClipboardService::new();
-    clipboard_service.start_monitoring(
-        db_path.to_str().expect("无法转换数据库路径").to_string()
-    );
+    clipboard_service.start_monitoring(db_path.to_str().expect("无法转换数据库路径").to_string());
     println!("剪贴板监控服务已启动");
 
     tauri::Builder::default()
         .manage(db_state)
         .manage(shortcut_state)
         .manage(sql_ai_state)
+        .manage(ai_state)
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -78,46 +82,55 @@ fn main() {
         .setup(move |app| {
             // 注册全局快捷键: 任务看板
             let task_board_shortcut = loaded_config.task_board.clone();
-            if let Err(e) = app.global_shortcut().on_shortcut(task_board_shortcut.as_str(), move |app, _shortcut, event| {
-                if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.unminimize();
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                        let _ = window.emit("navigate-to", "/task-board");
+            if let Err(e) = app.global_shortcut().on_shortcut(
+                task_board_shortcut.as_str(),
+                move |app, _shortcut, event| {
+                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                            let _ = window.emit("navigate-to", "/task-board");
+                        }
                     }
-                }
-            }) {
+                },
+            ) {
                 eprintln!("警告: 无法注册快捷键 {}: {}", task_board_shortcut, e);
             }
 
             // 注册全局快捷键: SQL历史
             let sql_history_shortcut = loaded_config.sql_history.clone();
-            if let Err(e) = app.global_shortcut().on_shortcut(sql_history_shortcut.as_str(), move |app, _shortcut, event| {
-                if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.unminimize();
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                        let _ = window.emit("navigate-to", "/sql-history");
+            if let Err(e) = app.global_shortcut().on_shortcut(
+                sql_history_shortcut.as_str(),
+                move |app, _shortcut, event| {
+                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                            let _ = window.emit("navigate-to", "/sql-history");
+                        }
                     }
-                }
-            }) {
+                },
+            ) {
                 eprintln!("警告: 无法注册快捷键 {}: {}", sql_history_shortcut, e);
             }
 
             // 注册全局快捷键: 应用启动器
             let app_launcher_shortcut = loaded_config.app_launcher.clone();
-            if let Err(e) = app.global_shortcut().on_shortcut(app_launcher_shortcut.as_str(), move |app, _shortcut, event| {
-                if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.unminimize();
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                        let _ = window.emit("navigate-to", "/app-launcher");
+            if let Err(e) = app.global_shortcut().on_shortcut(
+                app_launcher_shortcut.as_str(),
+                move |app, _shortcut, event| {
+                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                            let _ = window.emit("navigate-to", "/app-launcher");
+                        }
                     }
-                }
-            }) {
+                },
+            ) {
                 eprintln!("警告: 无法注册快捷键 {}: {}", app_launcher_shortcut, e);
             }
 
@@ -167,11 +180,34 @@ fn main() {
             commands::sql_ai_commands::test_sql_ai_connection,
             commands::sql_ai_commands::ai_classify_sqls,
             commands::sql_ai_commands::manual_classify_sql,
+            // AI 相关命令
+            commands::ai_commands::save_ai_config,
+            commands::ai_commands::get_ai_config,
+            commands::ai_commands::test_ai_connection,
+            commands::ai_commands::is_ai_enabled,
+            commands::ai_commands::ai_generate_work_log,
+            commands::ai_commands::ai_polish_work_log,
+            commands::ai_commands::ai_generate_weekly_report,
+            commands::ai_commands::ai_classify_task,
+            commands::ai_commands::ai_enhance_task_description,
+            commands::ai_commands::ai_generate_subtasks,
+            commands::ai_commands::ai_summarize_tasks,
+            commands::ai_commands::ai_classify_apps,
+            commands::ai_commands::ai_recommend_workflows,
+            commands::ai_commands::ai_generate_app_description,
+            // AI 日志相关命令
+            commands::ai_commands::get_ai_logs,
+            commands::ai_commands::get_ai_log_stats,
+            commands::ai_commands::clear_ai_logs,
+            commands::ai_commands::save_ai_log,
             // 窗口相关命令
             commands::window_commands::show_window,
             commands::window_commands::hide_window,
             commands::window_commands::toggle_window,
             commands::window_commands::show_window_with_route,
+            commands::window_commands::set_always_on_top,
+            commands::window_commands::get_always_on_top,
+            commands::window_commands::toggle_always_on_top,
             // 工作日志相关命令
             commands::work_log_commands::save_work_log,
             commands::work_log_commands::get_work_log,
@@ -212,6 +248,8 @@ fn main() {
             commands::app_launcher_commands::import_config,
             commands::app_launcher_commands::refresh_all_icons,
             commands::app_launcher_commands::update_app_icon,
+            commands::app_launcher_commands::get_launcher_settings,
+            commands::app_launcher_commands::update_launcher_settings,
             // 快捷键相关命令
             commands::shortcut_commands::get_shortcut_config,
             commands::shortcut_commands::update_shortcut_config,
@@ -220,6 +258,21 @@ fn main() {
             commands::shortcut_commands::get_available_shortcuts,
             // 系统监控相关命令
             commands::system_commands::get_system_info,
+            commands::system_commands::get_database_path,
+            commands::system_commands::open_data_folder,
+            commands::system_commands::export_database,
+            commands::system_commands::clear_all_data,
+            // 开机自启动相关命令
+            commands::autostart_commands::get_autostart_status,
+            commands::autostart_commands::set_autostart,
+            commands::autostart_commands::toggle_autostart,
+            // 设置相关命令
+            commands::settings_commands::get_app_settings,
+            commands::settings_commands::save_app_settings,
+            commands::settings_commands::update_app_setting,
+            commands::settings_commands::reset_app_settings,
+            commands::settings_commands::export_app_settings,
+            commands::settings_commands::import_app_settings,
             // 标签相关命令
             commands::tag_commands::create_tag,
             commands::tag_commands::get_all_tags,

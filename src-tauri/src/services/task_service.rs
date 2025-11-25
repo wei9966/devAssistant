@@ -1,7 +1,10 @@
-use rusqlite::{params, Connection};
-use anyhow::Result;
-use crate::models::task::{Task, TaskStatus, TaskCategory, TaskPriority, TaskQuadrant, WorkContext, ImportTask, ImportResult};
+use crate::models::task::{
+    ImportResult, ImportTask, Task, TaskCategory, TaskPriority, TaskQuadrant, TaskStatus,
+    WorkContext,
+};
 use crate::services::tag_service::TagService;
+use anyhow::Result;
+use rusqlite::{params, Connection};
 
 pub struct TaskService;
 
@@ -14,13 +17,12 @@ impl TaskService {
                     estimated_hours, actual_hours, context_json, notes, quadrant
              FROM tasks
              WHERE status != 'done'
-             ORDER BY priority ASC, last_active_at DESC"
+             ORDER BY priority ASC, last_active_at DESC",
         )?;
 
-        let mut tasks = stmt.query_map([], |row| {
-            Self::map_row_to_task(row)
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let mut tasks = stmt
+            .query_map([], |row| Self::map_row_to_task(row))?
+            .collect::<Result<Vec<_>, _>>()?;
 
         // 为每个任务加载标签
         for task in tasks.iter_mut() {
@@ -41,13 +43,14 @@ impl TaskService {
              FROM tasks
              WHERE status = 'done'
                AND completed_at >= datetime('now', ? || ' days')
-             ORDER BY completed_at DESC"
+             ORDER BY completed_at DESC",
         )?;
 
-        let mut tasks = stmt.query_map(params![format!("-{}", days)], |row| {
-            Self::map_row_to_task(row)
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let mut tasks = stmt
+            .query_map(params![format!("-{}", days)], |row| {
+                Self::map_row_to_task(row)
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         // 为每个任务加载标签
         for task in tasks.iter_mut() {
@@ -88,7 +91,12 @@ impl TaskService {
         conn.execute(
             "INSERT INTO tasks (title, description, category, priority, status, created_at)
              VALUES (?, ?, ?, ?, 'todo', datetime('now'))",
-            params![trimmed_title, trimmed_description, category.as_str(), priority.as_i32()],
+            params![
+                trimmed_title,
+                trimmed_description,
+                category.as_str(),
+                priority.as_i32()
+            ],
         )?;
 
         Ok(conn.last_insert_rowid())
@@ -198,7 +206,11 @@ impl TaskService {
         if let Some(d) = description {
             updates.push("description = ?");
             let trimmed = d.trim();
-            params_vec.push(Box::new(if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }));
+            params_vec.push(Box::new(if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }));
         }
         if let Some(c) = category {
             updates.push("category = ?");
@@ -215,7 +227,11 @@ impl TaskService {
         if let Some(n) = notes {
             updates.push("notes = ?");
             let trimmed = n.trim();
-            params_vec.push(Box::new(if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }));
+            params_vec.push(Box::new(if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }));
         }
         if let Some(q) = quadrant {
             updates.push("quadrant = ?");
@@ -228,19 +244,14 @@ impl TaskService {
 
         params_vec.push(Box::new(task_id));
 
-        let sql = format!(
-            "UPDATE tasks SET {} WHERE id = ?",
-            updates.join(", ")
-        );
+        let sql = format!("UPDATE tasks SET {} WHERE id = ?", updates.join(", "));
 
         eprintln!("=== Executing SQL ===");
         eprintln!("SQL: {}", sql);
         eprintln!("Updates count: {}", updates.len());
 
-        let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec
-            .iter()
-            .map(|b| b.as_ref())
-            .collect();
+        let params_refs: Vec<&dyn rusqlite::ToSql> =
+            params_vec.iter().map(|b| b.as_ref()).collect();
 
         let affected_rows = conn.execute(&sql, params_refs.as_slice())?;
         eprintln!("Affected rows: {}", affected_rows);
@@ -264,14 +275,15 @@ impl TaskService {
              WHERE status = 'todo'
                AND created_at < datetime('now', ? || ' days')
                AND (last_active_at IS NULL OR last_active_at < datetime('now', ? || ' days'))
-             ORDER BY priority ASC, created_at ASC"
+             ORDER BY priority ASC, created_at ASC",
         )?;
 
         let days_str = format!("-{}", days);
-        let tasks = stmt.query_map(params![&days_str, &days_str], |row| {
-            Self::map_row_to_task(row)
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let tasks = stmt
+            .query_map(params![&days_str, &days_str], |row| {
+                Self::map_row_to_task(row)
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(tasks)
     }
@@ -310,17 +322,22 @@ impl TaskService {
         }
 
         // 解析分类
-        let category = task.category.as_deref()
+        let category = task
+            .category
+            .as_deref()
             .map(|c| TaskCategory::from_str(c))
             .unwrap_or(TaskCategory::Other);
 
         // 解析优先级
-        let priority = task.priority
+        let priority = task
+            .priority
             .map(|p| TaskPriority::from_i32(p))
             .unwrap_or(TaskPriority::Medium);
 
         // 解析状态
-        let status = task.status.as_deref()
+        let status = task
+            .status
+            .as_deref()
             .map(|s| TaskStatus::from_str(s))
             .unwrap_or(TaskStatus::Todo);
 
@@ -370,10 +387,8 @@ impl TaskService {
             .map(|s| s.to_string());
         params_vec.push(Box::new(last_active));
 
-        let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec
-            .iter()
-            .map(|b| b.as_ref())
-            .collect();
+        let params_refs: Vec<&dyn rusqlite::ToSql> =
+            params_vec.iter().map(|b| b.as_ref()).collect();
 
         conn.execute(sql, params_refs.as_slice())?;
 
@@ -424,13 +439,12 @@ impl TaskService {
                     estimated_hours, actual_hours, context_json, notes, quadrant
              FROM tasks
              WHERE status != 'done' AND quadrant = ?
-             ORDER BY priority ASC, last_active_at DESC"
+             ORDER BY priority ASC, last_active_at DESC",
         )?;
 
-        let tasks = stmt.query_map(params![quadrant.as_str()], |row| {
-            Self::map_row_to_task(row)
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let tasks = stmt
+            .query_map(params![quadrant.as_str()], |row| Self::map_row_to_task(row))?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(tasks)
     }
@@ -441,16 +455,14 @@ impl TaskService {
             "SELECT quadrant, COUNT(*) as count
              FROM tasks
              WHERE status != 'done'
-             GROUP BY quadrant"
+             GROUP BY quadrant",
         )?;
 
-        let stats = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, i64>(1)?
-            ))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let stats = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(stats)
     }
@@ -468,22 +480,21 @@ impl TaskService {
         });
 
         // 读取context_json，如果解析失败则记录错误并设为None
-        let context = row.get::<_, Option<String>>(13)?
-            .and_then(|json| {
-                if json.len() > 100000 {
-                    // context_json过大，直接忽略
-                    eprintln!("警告: context_json过大 ({}字节)，已忽略", json.len());
-                    None
-                } else {
-                    match serde_json::from_str(&json) {
-                        Ok(ctx) => Some(ctx),
-                        Err(e) => {
-                            eprintln!("警告: 解析context_json失败: {}", e);
-                            None
-                        }
+        let context = row.get::<_, Option<String>>(13)?.and_then(|json| {
+            if json.len() > 100000 {
+                // context_json过大，直接忽略
+                eprintln!("警告: context_json过大 ({}字节)，已忽略", json.len());
+                None
+            } else {
+                match serde_json::from_str(&json) {
+                    Ok(ctx) => Some(ctx),
+                    Err(e) => {
+                        eprintln!("警告: 解析context_json失败: {}", e);
+                        None
                     }
                 }
-            });
+            }
+        });
 
         // 读取备注字段，如果超过限制则截断
         let notes: Option<String> = row.get(14)?;

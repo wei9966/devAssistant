@@ -9,11 +9,44 @@
           <h2 class="page-title">工作日志</h2>
           <div class="action-buttons">
             <n-button
+              type="info"
+              secondary
+              @click="handleAiGenerate"
+              :loading="aiGenerating"
+              class="ai-button-primary"
+            >
+              <template #icon>
+                <n-icon>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                  </svg>
+                </n-icon>
+              </template>
+              AI 生成日志
+            </n-button>
+            <n-button
+              type="warning"
+              secondary
+              @click="handleAiPolish"
+              :loading="aiPolishing"
+              :disabled="!currentLog.trim()"
+              class="ai-button-polish"
+            >
+              <template #icon>
+                <n-icon>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                </n-icon>
+              </template>
+              AI 润色
+            </n-button>
+            <n-button
               type="success"
               secondary
               @click="handleGenerateWeekly"
-              :loading="generating"
-              class="ai-button"
+              :loading="generatingWeekly"
+              class="ai-button-weekly"
             >
               <template #icon>
                 <n-icon>
@@ -179,6 +212,7 @@ import {
 } from 'naive-ui';
 import dayjs from 'dayjs';
 import { useWorkLogStore } from '@/stores/workLogStore';
+import { aiApi } from '@/api/aiApi';
 import type { WorkLog } from '@/types/workLog';
 
 const message = useMessage();
@@ -189,7 +223,9 @@ const selectedDate = ref<number>(Date.now());
 const currentLog = ref('');
 const currentTags = ref<string[]>(['#Rust', '#Frontend', '#Bugfix']);
 const saving = ref(false);
-const generating = ref(false);
+const aiGenerating = ref(false);
+const aiPolishing = ref(false);
+const generatingWeekly = ref(false);
 const showAddTag = ref(false);
 const newTag = ref('');
 
@@ -312,16 +348,120 @@ async function handleSave() {
   }
 }
 
-async function handleGenerateWeekly() {
-  generating.value = true;
+// AI 生成工作日志
+async function handleAiGenerate() {
+  aiGenerating.value = true;
   try {
-    // TODO: 调用AI生成周报
-    message.info('周报生成功能开发中');
-  } catch (error) {
-    message.error('生成失败');
+    // 检查 AI 是否启用
+    const isEnabled = await aiApi.isEnabled();
+    if (!isEnabled) {
+      message.warning('请先在设置中配置并启用 AI 功能');
+      return;
+    }
+
+    const dateStr = dayjs(selectedDate.value).format('YYYY-MM-DD');
+
+    // TODO: 获取当天完成的任务、执行的SQL、Git提交
+    // 这里使用示例数据，实际应从数据库获取
+    const completedTasks: string[] = [];
+    const executedSqls: string[] = [];
+    const gitCommits: string[] = [];
+
+    message.loading('AI 正在生成日志...', { duration: 0 });
+
+    const result = await aiApi.generateWorkLog(
+      dateStr,
+      completedTasks,
+      executedSqls,
+      gitCommits
+    );
+
+    message.destroyAll();
+    currentLog.value = result;
+    message.success('日志已生成');
+  } catch (error: any) {
+    message.destroyAll();
+    message.error(error?.message || 'AI 生成失败');
     console.error(error);
   } finally {
-    generating.value = false;
+    aiGenerating.value = false;
+  }
+}
+
+// AI 润色工作日志
+async function handleAiPolish() {
+  if (!currentLog.value.trim()) {
+    message.warning('请先输入日志内容');
+    return;
+  }
+
+  aiPolishing.value = true;
+  try {
+    // 检查 AI 是否启用
+    const isEnabled = await aiApi.isEnabled();
+    if (!isEnabled) {
+      message.warning('请先在设置中配置并启用 AI 功能');
+      return;
+    }
+
+    message.loading('AI 正在润色日志...', { duration: 0 });
+
+    const result = await aiApi.polishWorkLog(currentLog.value);
+
+    message.destroyAll();
+    currentLog.value = result;
+    message.success('日志已润色');
+  } catch (error: any) {
+    message.destroyAll();
+    message.error(error?.message || 'AI 润色失败');
+    console.error(error);
+  } finally {
+    aiPolishing.value = false;
+  }
+}
+
+// AI 生成周报
+async function handleGenerateWeekly() {
+  generatingWeekly.value = true;
+  try {
+    // 检查 AI 是否启用
+    const isEnabled = await aiApi.isEnabled();
+    if (!isEnabled) {
+      message.warning('请先在设置中配置并启用 AI 功能');
+      return;
+    }
+
+    // 获取最近7天的日志
+    const logs = workLogStore.recentLogs
+      .filter(log => log.content && log.content.trim())
+      .map(log => `## ${log.date}\n${log.content}`);
+
+    if (logs.length === 0) {
+      message.warning('没有足够的日志数据生成周报');
+      return;
+    }
+
+    message.loading('AI 正在生成周报...', { duration: 0 });
+
+    const result = await aiApi.generateWeeklyReport(logs);
+
+    message.destroyAll();
+
+    // 将周报保存到新的日期
+    const weeklyDate = dayjs().format('YYYY-MM-DD');
+    await workLogStore.saveWorkLog(weeklyDate, 'weekly', result, false);
+
+    // 切换到周报日期
+    selectedDate.value = Date.now();
+    currentLog.value = result;
+
+    message.success('周报已生成并保存');
+  } catch (error: any) {
+    message.destroyAll();
+    message.error(error?.message || '周报生成失败');
+    console.error(error);
+  } finally {
+    generatingWeekly.value = false;
   }
 }
 
@@ -431,7 +571,21 @@ function truncate(text: string, length: number) {
   gap: 12px;
 }
 
-.ai-button {
+.ai-button-primary {
+  --n-color: rgba(99, 102, 241, 0.1) !important;
+  --n-color-hover: rgba(99, 102, 241, 0.2) !important;
+  --n-text-color: #6366f1 !important;
+  --n-border: 1px solid rgba(99, 102, 241, 0.2) !important;
+}
+
+.ai-button-polish {
+  --n-color: rgba(251, 191, 36, 0.1) !important;
+  --n-color-hover: rgba(251, 191, 36, 0.2) !important;
+  --n-text-color: #fbbf24 !important;
+  --n-border: 1px solid rgba(251, 191, 36, 0.2) !important;
+}
+
+.ai-button-weekly {
   --n-color: rgba(16, 185, 129, 0.1) !important;
   --n-color-hover: rgba(16, 185, 129, 0.2) !important;
   --n-text-color: #10b981 !important;

@@ -1,6 +1,6 @@
-use anyhow::{Result, anyhow};
-use serde::{Deserialize, Serialize};
+use anyhow::{anyhow, Result};
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 
 /// AI 提供商类型
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -69,7 +69,7 @@ impl SqlAiConfig {
 pub struct SqlClassifyResult {
     pub sql_id: i64,
     pub name: String,
-    pub categories: Vec<String>,  // 多个分类标签
+    pub categories: Vec<String>, // 多个分类标签
     pub confidence: f32,
 }
 
@@ -358,12 +358,27 @@ mod tests {
     fn test_build_prompt() {
         let sqls = vec![
             (1, "SELECT * FROM users WHERE id = 1".to_string()),
-            (2, "UPDATE orders SET status = 'done' WHERE id = 2".to_string()),
+            (
+                2,
+                "UPDATE orders SET status = 'done' WHERE id = 2".to_string(),
+            ),
         ];
         let categories = vec![
-            CategoryWithPrompt { id: 1, name: "MySQL".to_string(), ai_prompt: Some("snake_case 命名".to_string()) },
-            CategoryWithPrompt { id: 2, name: "查询".to_string(), ai_prompt: None },
-            CategoryWithPrompt { id: 3, name: "更新".to_string(), ai_prompt: None },
+            CategoryWithPrompt {
+                id: 1,
+                name: "MySQL".to_string(),
+                ai_prompt: Some("snake_case 命名".to_string()),
+            },
+            CategoryWithPrompt {
+                id: 2,
+                name: "查询".to_string(),
+                ai_prompt: None,
+            },
+            CategoryWithPrompt {
+                id: 3,
+                name: "更新".to_string(),
+                ai_prompt: None,
+            },
         ];
 
         let prompt = SqlAiService::build_classify_prompt(&sqls, &categories);
@@ -382,8 +397,15 @@ mod tests {
             {"id": 2, "name": "更新订单状态", "categories": ["SQLServer", "更新"]}
         ]"#;
 
-        let categories = vec!["MySQL".to_string(), "SQLServer".to_string(), "查询".to_string(), "更新".to_string()];
-        let results = service.parse_classify_response(content, &categories).unwrap();
+        let categories = vec![
+            "MySQL".to_string(),
+            "SQLServer".to_string(),
+            "查询".to_string(),
+            "更新".to_string(),
+        ];
+        let results = service
+            .parse_classify_response(content, &categories)
+            .unwrap();
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].name, "查询用户信息");
@@ -402,7 +424,9 @@ mod tests {
         ]"#;
 
         let categories = vec!["查询".to_string(), "更新".to_string()];
-        let results = service.parse_classify_response(content, &categories).unwrap();
+        let results = service
+            .parse_classify_response(content, &categories)
+            .unwrap();
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].categories, vec!["查询"]);

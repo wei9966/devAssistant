@@ -39,3 +39,118 @@ pub fn get_system_info() -> Result<SystemInfo, String> {
         memory_used,
     })
 }
+
+/// 获取数据库文件路径
+#[tauri::command]
+pub fn get_database_path() -> Result<String, String> {
+    let db_path = dirs::data_local_dir()
+        .ok_or("无法获取应用数据目录".to_string())?
+        .join("dev-assistant")
+        .join("dev_assistant.db");
+
+    Ok(db_path.to_string_lossy().to_string())
+}
+
+/// 打开数据文件夹
+#[tauri::command]
+pub fn open_data_folder() -> Result<(), String> {
+    let data_dir = dirs::data_local_dir()
+        .ok_or("无法获取应用数据目录".to_string())?
+        .join("dev-assistant");
+
+    // 确保目录存在
+    if !data_dir.exists() {
+        std::fs::create_dir_all(&data_dir)
+            .map_err(|e| format!("创建数据目录失败: {}", e))?;
+    }
+
+    // 根据操作系统打开文件夹
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(data_dir)
+            .spawn()
+            .map_err(|e| format!("打开文件夹失败: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(data_dir)
+            .spawn()
+            .map_err(|e| format!("打开文件夹失败: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(data_dir)
+            .spawn()
+            .map_err(|e| format!("打开文件夹失败: {}", e))?;
+    }
+
+    Ok(())
+}
+
+/// 导出数据库
+#[tauri::command]
+pub fn export_database(export_path: String) -> Result<(), String> {
+    let db_path = dirs::data_local_dir()
+        .ok_or("无法获取应用数据目录".to_string())?
+        .join("dev-assistant")
+        .join("dev_assistant.db");
+
+    if !db_path.exists() {
+        return Err("数据库文件不存在".to_string());
+    }
+
+    // 复制数据库文件
+    std::fs::copy(&db_path, &export_path)
+        .map_err(|e| format!("导出数据库失败: {}", e))?;
+
+    Ok(())
+}
+
+/// 清空所有数据
+#[tauri::command]
+pub fn clear_all_data() -> Result<(), String> {
+    let db_path = dirs::data_local_dir()
+        .ok_or("无法获取应用数据目录".to_string())?
+        .join("dev-assistant")
+        .join("dev_assistant.db");
+
+    if !db_path.exists() {
+        return Ok(()); // 数据库不存在,认为已清空
+    }
+
+    // 打开数据库连接
+    let conn = rusqlite::Connection::open(&db_path)
+        .map_err(|e| format!("打开数据库失败: {}", e))?;
+
+    // 清空所有表的数据(保留表结构)
+    let tables = vec![
+        "tasks",
+        "work_contexts",
+        "sql_records",
+        "sql_categories",
+        "sql_record_categories",
+        "work_logs",
+        "tags",
+        "task_tags",
+        "ai_logs",
+        "app_launcher_apps",
+        "app_launcher_categories",
+        "app_launcher_workflows",
+        "app_launcher_workflow_apps",
+        "app_launcher_launch_history",
+    ];
+
+    for table in tables {
+        conn.execute(&format!("DELETE FROM {}", table), [])
+            .map_err(|e| format!("清空表 {} 失败: {}", table, e))?;
+    }
+
+    // 不清空 app_settings 表,保留用户设置
+
+    Ok(())
+}

@@ -1,8 +1,8 @@
-use tauri::State;
 use crate::db::connection::DbConnection;
 use crate::models::task::Tag;
 use crate::services::tag_service::TagService;
 use serde::{Deserialize, Serialize};
+use tauri::State;
 
 /// 标签使用统计结构
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,11 +58,7 @@ pub fn delete_tag(db: State<DbConnection>, id: i64) -> Result<(), String> {
 
 /// 为任务添加标签
 #[tauri::command]
-pub fn add_tag_to_task(
-    db: State<DbConnection>,
-    task_id: i64,
-    tag_id: i64,
-) -> Result<(), String> {
+pub fn add_tag_to_task(db: State<DbConnection>, task_id: i64, tag_id: i64) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     TagService::add_tag_to_task(&conn, task_id, tag_id).map_err(|e| e.to_string())
 }

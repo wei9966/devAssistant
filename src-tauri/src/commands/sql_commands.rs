@@ -1,6 +1,6 @@
-use tauri::State;
 use crate::db::connection::DbConnection;
-use crate::services::sql_service::{SqlService, SqlRecord, SqlCategory, SqlCategoryInfo};
+use crate::services::sql_service::{SqlCategory, SqlCategoryInfo, SqlRecord, SqlService};
+use tauri::State;
 
 #[tauri::command]
 pub fn save_sql(db: State<DbConnection>, sql_text: String, source: String) -> Result<i64, String> {
@@ -69,8 +69,15 @@ pub fn add_sql_category(
     ai_prompt: Option<String>,
 ) -> Result<i64, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    SqlService::add_category(&conn, &name, description.as_deref(), color.as_deref(), icon.as_deref(), ai_prompt.as_deref())
-        .map_err(|e| e.to_string())
+    SqlService::add_category(
+        &conn,
+        &name,
+        description.as_deref(),
+        color.as_deref(),
+        icon.as_deref(),
+        ai_prompt.as_deref(),
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -84,8 +91,16 @@ pub fn update_sql_category(
     ai_prompt: Option<String>,
 ) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    SqlService::update_category(&conn, category_id, &name, description.as_deref(), color.as_deref(), icon.as_deref(), ai_prompt.as_deref())
-        .map_err(|e| e.to_string())
+    SqlService::update_category(
+        &conn,
+        category_id,
+        &name,
+        description.as_deref(),
+        color.as_deref(),
+        icon.as_deref(),
+        ai_prompt.as_deref(),
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -95,7 +110,10 @@ pub fn delete_sql_category(db: State<DbConnection>, category_id: i64) -> Result<
 }
 
 #[tauri::command]
-pub fn get_uncategorized_sqls(db: State<DbConnection>, limit: usize) -> Result<Vec<SqlRecord>, String> {
+pub fn get_uncategorized_sqls(
+    db: State<DbConnection>,
+    limit: usize,
+) -> Result<Vec<SqlRecord>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     SqlService::get_uncategorized_sqls(&conn, limit).map_err(|e| e.to_string())
 }

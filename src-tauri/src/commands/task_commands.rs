@@ -1,7 +1,10 @@
-use tauri::State;
 use crate::db::connection::DbConnection;
-use crate::models::task::{Task, TaskCategory, TaskPriority, TaskQuadrant, WorkContext, ImportTask, ImportResult, QuadrantStatistics};
+use crate::models::task::{
+    ImportResult, ImportTask, QuadrantStatistics, Task, TaskCategory, TaskPriority, TaskQuadrant,
+    WorkContext,
+};
 use crate::services::task_service::TaskService;
+use tauri::State;
 
 #[tauri::command]
 pub fn get_all_tasks(db: State<DbConnection>) -> Result<Vec<Task>, String> {
@@ -26,13 +29,8 @@ pub fn create_task(
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let cat = TaskCategory::from_str(&category);
     let pri = TaskPriority::from_i32(priority);
-    TaskService::create_task(
-        &conn,
-        &title,
-        description.as_deref(),
-        cat,
-        pri,
-    ).map_err(|e| e.to_string())
+    TaskService::create_task(&conn, &title, description.as_deref(), cat, pri)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -45,7 +43,7 @@ pub fn start_task(db: State<DbConnection>, task_id: i64) -> Result<(), String> {
 pub fn pause_task(
     db: State<DbConnection>,
     task_id: i64,
-    context: Option<WorkContext>
+    context: Option<WorkContext>,
 ) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     TaskService::pause_task(&conn, task_id, context).map_err(|e| e.to_string())
@@ -106,7 +104,8 @@ pub fn update_task(
         git_branch.as_deref(),
         notes.as_deref(),
         quad,
-    ).map_err(|e| e.to_string())
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -143,7 +142,10 @@ pub fn get_current_branch() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn import_tasks(db: State<DbConnection>, tasks: Vec<ImportTask>) -> Result<ImportResult, String> {
+pub fn import_tasks(
+    db: State<DbConnection>,
+    tasks: Vec<ImportTask>,
+) -> Result<ImportResult, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     TaskService::import_tasks(&conn, tasks).map_err(|e| e.to_string())
 }
@@ -169,7 +171,8 @@ pub fn get_quadrant_statistics(db: State<DbConnection>) -> Result<Vec<QuadrantSt
     let stats = TaskService::get_quadrant_statistics(&conn).map_err(|e| e.to_string())?;
 
     // 将 (String, i64) 转换为 QuadrantStatistics
-    let result = stats.into_iter()
+    let result = stats
+        .into_iter()
         .map(|(quadrant, count)| QuadrantStatistics { quadrant, count })
         .collect();
 

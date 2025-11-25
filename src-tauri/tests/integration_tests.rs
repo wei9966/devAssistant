@@ -20,7 +20,10 @@ mod db_tests {
         for table_name in tables {
             let count: i64 = conn
                 .query_row(
-                    &format!("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{}'", table_name),
+                    &format!(
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{}'",
+                        table_name
+                    ),
                     [],
                     |row| row.get(0),
                 )
@@ -42,7 +45,10 @@ mod db_tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert!(index_count >= 4, "Tasks table should have at least 4 indexes");
+        assert!(
+            index_count >= 4,
+            "Tasks table should have at least 4 indexes"
+        );
 
         // 验证 sql_history 表索引
         let index_count: i64 = conn
@@ -52,14 +58,17 @@ mod db_tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert!(index_count >= 2, "SQL history table should have at least 2 indexes");
+        assert!(
+            index_count >= 2,
+            "SQL history table should have at least 2 indexes"
+        );
     }
 }
 
 mod task_crud_tests {
     use super::*;
-    use dev_assistant_lib::services::task_service::TaskService;
     use dev_assistant_lib::models::task::{TaskCategory, TaskPriority, TaskStatus};
+    use dev_assistant_lib::services::task_service::TaskService;
 
     #[test]
     fn test_create_task() {
@@ -73,7 +82,8 @@ mod task_crud_tests {
             Some("这是一个测试任务的描述"),
             TaskCategory::Dev,
             TaskPriority::High,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!(task_id > 0);
 
@@ -81,7 +91,10 @@ mod task_crud_tests {
         let tasks = TaskService::get_all_tasks(&conn).unwrap();
         assert_eq!(tasks.len(), 1);
         assert_eq!(tasks[0].title, "测试任务");
-        assert_eq!(tasks[0].description, Some("这是一个测试任务的描述".to_string()));
+        assert_eq!(
+            tasks[0].description,
+            Some("这是一个测试任务的描述".to_string())
+        );
     }
 
     #[test]
@@ -96,7 +109,8 @@ mod task_crud_tests {
             None,
             TaskCategory::Dev,
             TaskPriority::Medium,
-        ).unwrap();
+        )
+        .unwrap();
 
         // 启动任务
         TaskService::start_task(&conn, task_id).unwrap();
@@ -126,7 +140,8 @@ mod task_crud_tests {
             None,
             TaskCategory::Dev,
             TaskPriority::Low,
-        ).unwrap();
+        )
+        .unwrap();
 
         TaskService::complete_task(&conn, task_id).unwrap();
 
@@ -149,7 +164,8 @@ mod task_crud_tests {
             None,
             TaskCategory::Dev,
             TaskPriority::Low,
-        ).unwrap();
+        )
+        .unwrap();
 
         // 更新任务
         TaskService::update_task(
@@ -162,7 +178,8 @@ mod task_crud_tests {
             Some("feature/test-branch"),
             Some("测试备注"),
             None, // quadrant
-        ).unwrap();
+        )
+        .unwrap();
 
         // 验证更新
         let tasks = TaskService::get_all_tasks(&conn).unwrap();
@@ -186,7 +203,8 @@ mod task_crud_tests {
             None,
             TaskCategory::Dev,
             TaskPriority::Medium,
-        ).unwrap();
+        )
+        .unwrap();
 
         // 验证任务已创建
         let tasks_before = TaskService::get_all_tasks(&conn).unwrap();
@@ -212,7 +230,8 @@ mod task_crud_tests {
             None,
             TaskCategory::Dev,
             TaskPriority::Medium,
-        ).unwrap();
+        )
+        .unwrap();
 
         // 获取超过7天未处理的任务（应该为空，因为刚创建）
         let stale_tasks = TaskService::get_stale_tasks(&conn, 7).unwrap();
@@ -223,7 +242,8 @@ mod task_crud_tests {
             "INSERT INTO tasks (title, status, created_at)
              VALUES ('旧任务', 'todo', datetime('now', '-10 days'))",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         // 现在应该能获取到旧任务
         let stale_tasks = TaskService::get_stale_tasks(&conn, 7).unwrap();
@@ -237,13 +257,9 @@ mod task_crud_tests {
         dev_assistant_lib::db::migrations::run_migrations(&conn).unwrap();
 
         // 创建两个任务
-        let task_id_1 = TaskService::create_task(
-            &conn,
-            "任务1",
-            None,
-            TaskCategory::Dev,
-            TaskPriority::High,
-        ).unwrap();
+        let task_id_1 =
+            TaskService::create_task(&conn, "任务1", None, TaskCategory::Dev, TaskPriority::High)
+                .unwrap();
 
         let task_id_2 = TaskService::create_task(
             &conn,
@@ -251,7 +267,8 @@ mod task_crud_tests {
             None,
             TaskCategory::Dev,
             TaskPriority::Medium,
-        ).unwrap();
+        )
+        .unwrap();
 
         // 启动任务1
         TaskService::start_task(&conn, task_id_1).unwrap();
@@ -278,14 +295,38 @@ mod sql_service_tests {
 
     #[test]
     fn test_detect_sql_type() {
-        assert_eq!(SqlService::detect_sql_type("SELECT * FROM users"), Some("SELECT".to_string()));
-        assert_eq!(SqlService::detect_sql_type("  select * from users"), Some("SELECT".to_string()));
-        assert_eq!(SqlService::detect_sql_type("INSERT INTO users VALUES (1, 'test')"), Some("INSERT".to_string()));
-        assert_eq!(SqlService::detect_sql_type("UPDATE users SET name='test'"), Some("UPDATE".to_string()));
-        assert_eq!(SqlService::detect_sql_type("DELETE FROM users"), Some("DELETE".to_string()));
-        assert_eq!(SqlService::detect_sql_type("CREATE TABLE users (id INT)"), Some("CREATE".to_string()));
-        assert_eq!(SqlService::detect_sql_type("ALTER TABLE users ADD COLUMN email"), Some("ALTER".to_string()));
-        assert_eq!(SqlService::detect_sql_type("DROP TABLE users"), Some("DROP".to_string()));
+        assert_eq!(
+            SqlService::detect_sql_type("SELECT * FROM users"),
+            Some("SELECT".to_string())
+        );
+        assert_eq!(
+            SqlService::detect_sql_type("  select * from users"),
+            Some("SELECT".to_string())
+        );
+        assert_eq!(
+            SqlService::detect_sql_type("INSERT INTO users VALUES (1, 'test')"),
+            Some("INSERT".to_string())
+        );
+        assert_eq!(
+            SqlService::detect_sql_type("UPDATE users SET name='test'"),
+            Some("UPDATE".to_string())
+        );
+        assert_eq!(
+            SqlService::detect_sql_type("DELETE FROM users"),
+            Some("DELETE".to_string())
+        );
+        assert_eq!(
+            SqlService::detect_sql_type("CREATE TABLE users (id INT)"),
+            Some("CREATE".to_string())
+        );
+        assert_eq!(
+            SqlService::detect_sql_type("ALTER TABLE users ADD COLUMN email"),
+            Some("ALTER".to_string())
+        );
+        assert_eq!(
+            SqlService::detect_sql_type("DROP TABLE users"),
+            Some("DROP".to_string())
+        );
         assert_eq!(SqlService::detect_sql_type("INVALID SQL"), None);
     }
 
@@ -306,11 +347,8 @@ mod sql_service_tests {
         dev_assistant_lib::db::migrations::run_migrations(&conn).unwrap();
 
         // 保存SQL记录
-        let sql_id = SqlService::save_sql(
-            &conn,
-            "SELECT * FROM users WHERE id = 1",
-            "clipboard",
-        ).unwrap();
+        let sql_id =
+            SqlService::save_sql(&conn, "SELECT * FROM users WHERE id = 1", "clipboard").unwrap();
 
         assert!(sql_id > 0);
 
@@ -341,9 +379,7 @@ mod sql_service_tests {
         assert_eq!(records.len(), 2);
 
         // 验证所有SQL都保存了
-        let sql_texts: Vec<String> = all_records.iter()
-            .map(|r| r.sql_text.clone())
-            .collect();
+        let sql_texts: Vec<String> = all_records.iter().map(|r| r.sql_text.clone()).collect();
         assert!(sql_texts.contains(&"SELECT * FROM table1".to_string()));
         assert!(sql_texts.contains(&"INSERT INTO table2 VALUES (1)".to_string()));
         assert!(sql_texts.contains(&"UPDATE table3 SET x=1".to_string()));
@@ -415,9 +451,7 @@ mod sql_service_tests {
         assert_eq!(favorites.len(), 2);
 
         // 验证是收藏的记录
-        let favorite_texts: Vec<String> = favorites.iter()
-            .map(|r| r.sql_text.clone())
-            .collect();
+        let favorite_texts: Vec<String> = favorites.iter().map(|r| r.sql_text.clone()).collect();
         assert!(favorite_texts.contains(&"SELECT 1".to_string()));
         assert!(favorite_texts.contains(&"SELECT 3".to_string()));
         assert!(!favorite_texts.contains(&"SELECT 2".to_string()));

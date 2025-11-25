@@ -1,9 +1,9 @@
-use tauri::{AppHandle, State, Manager, Emitter};
-use tauri_plugin_global_shortcut::GlobalShortcutExt;
-use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
 use crate::db::connection::DbConnection;
 use rusqlite::Connection;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 /// 快捷键配置
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -86,45 +86,63 @@ pub fn update_shortcut_config(
 
     // 注册新的快捷键
     let task_board_shortcut = config.task_board.clone();
-    if let Err(e) = app.global_shortcut().on_shortcut(task_board_shortcut.as_str(), move |app, _shortcut, event| {
-        if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
-                let _ = window.emit("navigate-to", "/task-board");
+    if let Err(e) = app.global_shortcut().on_shortcut(
+        task_board_shortcut.as_str(),
+        move |app, _shortcut, event| {
+            if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                    let _ = window.emit("navigate-to", "/task-board");
+                }
             }
-        }
-    }) {
-        return Err(format!("无法注册任务看板快捷键 {}: {}", task_board_shortcut, e));
+        },
+    ) {
+        return Err(format!(
+            "无法注册任务看板快捷键 {}: {}",
+            task_board_shortcut, e
+        ));
     }
 
     let sql_history_shortcut = config.sql_history.clone();
-    if let Err(e) = app.global_shortcut().on_shortcut(sql_history_shortcut.as_str(), move |app, _shortcut, event| {
-        if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
-                let _ = window.emit("navigate-to", "/sql-history");
+    if let Err(e) = app.global_shortcut().on_shortcut(
+        sql_history_shortcut.as_str(),
+        move |app, _shortcut, event| {
+            if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                    let _ = window.emit("navigate-to", "/sql-history");
+                }
             }
-        }
-    }) {
-        return Err(format!("无法注册SQL历史快捷键 {}: {}", sql_history_shortcut, e));
+        },
+    ) {
+        return Err(format!(
+            "无法注册SQL历史快捷键 {}: {}",
+            sql_history_shortcut, e
+        ));
     }
 
     let app_launcher_shortcut = config.app_launcher.clone();
-    if let Err(e) = app.global_shortcut().on_shortcut(app_launcher_shortcut.as_str(), move |app, _shortcut, event| {
-        if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
-                let _ = window.emit("navigate-to", "/app-launcher");
+    if let Err(e) = app.global_shortcut().on_shortcut(
+        app_launcher_shortcut.as_str(),
+        move |app, _shortcut, event| {
+            if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                    let _ = window.emit("navigate-to", "/app-launcher");
+                }
             }
-        }
-    }) {
-        return Err(format!("无法注册应用启动器快捷键 {}: {}", app_launcher_shortcut, e));
+        },
+    ) {
+        return Err(format!(
+            "无法注册应用启动器快捷键 {}: {}",
+            app_launcher_shortcut, e
+        ));
     }
 
     // 保存配置到内存
@@ -170,25 +188,55 @@ pub fn validate_shortcut(shortcut: String) -> Result<bool, String> {
 pub fn get_available_shortcuts() -> Result<HashMap<String, Vec<String>>, String> {
     let mut shortcuts = HashMap::new();
 
-    shortcuts.insert("modifiers".to_string(), vec![
-        "Ctrl".to_string(),
-        "Shift".to_string(),
-        "Alt".to_string(),
-    ]);
+    shortcuts.insert(
+        "modifiers".to_string(),
+        vec!["Ctrl".to_string(), "Shift".to_string(), "Alt".to_string()],
+    );
 
-    shortcuts.insert("keys".to_string(), vec![
-        "A".to_string(), "B".to_string(), "C".to_string(), "D".to_string(),
-        "E".to_string(), "F".to_string(), "G".to_string(), "H".to_string(),
-        "I".to_string(), "J".to_string(), "K".to_string(), "L".to_string(),
-        "M".to_string(), "N".to_string(), "O".to_string(), "P".to_string(),
-        "Q".to_string(), "R".to_string(), "S".to_string(), "T".to_string(),
-        "U".to_string(), "V".to_string(), "W".to_string(), "X".to_string(),
-        "Y".to_string(), "Z".to_string(),
-        "Space".to_string(),
-        "F1".to_string(), "F2".to_string(), "F3".to_string(), "F4".to_string(),
-        "F5".to_string(), "F6".to_string(), "F7".to_string(), "F8".to_string(),
-        "F9".to_string(), "F10".to_string(), "F11".to_string(), "F12".to_string(),
-    ]);
+    shortcuts.insert(
+        "keys".to_string(),
+        vec![
+            "A".to_string(),
+            "B".to_string(),
+            "C".to_string(),
+            "D".to_string(),
+            "E".to_string(),
+            "F".to_string(),
+            "G".to_string(),
+            "H".to_string(),
+            "I".to_string(),
+            "J".to_string(),
+            "K".to_string(),
+            "L".to_string(),
+            "M".to_string(),
+            "N".to_string(),
+            "O".to_string(),
+            "P".to_string(),
+            "Q".to_string(),
+            "R".to_string(),
+            "S".to_string(),
+            "T".to_string(),
+            "U".to_string(),
+            "V".to_string(),
+            "W".to_string(),
+            "X".to_string(),
+            "Y".to_string(),
+            "Z".to_string(),
+            "Space".to_string(),
+            "F1".to_string(),
+            "F2".to_string(),
+            "F3".to_string(),
+            "F4".to_string(),
+            "F5".to_string(),
+            "F6".to_string(),
+            "F7".to_string(),
+            "F8".to_string(),
+            "F9".to_string(),
+            "F10".to_string(),
+            "F11".to_string(),
+            "F12".to_string(),
+        ],
+    );
 
     Ok(shortcuts)
 }
@@ -204,7 +252,9 @@ fn load_config_from_db(conn: &Connection) -> Result<Option<ShortcutConfig>, Stri
         .ok();
 
     if let Some(json) = config_json {
-        serde_json::from_str(&json).map(Some).map_err(|e| e.to_string())
+        serde_json::from_str(&json)
+            .map(Some)
+            .map_err(|e| e.to_string())
     } else {
         Ok(None)
     }

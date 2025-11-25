@@ -1,6 +1,6 @@
-use rusqlite::{params, Connection};
-use anyhow::Result;
 use crate::models::work_log::WorkLog;
+use anyhow::Result;
+use rusqlite::{params, Connection};
 
 pub struct WorkLogService;
 
@@ -46,7 +46,7 @@ impl WorkLogService {
         let mut stmt = conn.prepare(
             "SELECT id, date, log_type, content, ai_generated, created_at, updated_at
              FROM work_logs
-             WHERE date = ?"
+             WHERE date = ?",
         )?;
 
         let mut rows = stmt.query(params![date])?;
@@ -72,31 +72,29 @@ impl WorkLogService {
             "SELECT id, date, log_type, content, ai_generated, created_at, updated_at
              FROM work_logs
              WHERE date >= date('now', '-' || ? || ' days')
-             ORDER BY date DESC"
+             ORDER BY date DESC",
         )?;
 
-        let logs = stmt.query_map(params![days], |row| {
-            Ok(WorkLog {
-                id: Some(row.get(0)?),
-                date: row.get(1)?,
-                log_type: row.get(2)?,
-                content: row.get(3)?,
-                ai_generated: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let logs = stmt
+            .query_map(params![days], |row| {
+                Ok(WorkLog {
+                    id: Some(row.get(0)?),
+                    date: row.get(1)?,
+                    log_type: row.get(2)?,
+                    content: row.get(3)?,
+                    ai_generated: row.get(4)?,
+                    created_at: row.get(5)?,
+                    updated_at: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(logs)
     }
 
     /// 删除指定日期的工作日志
     pub fn delete_work_log(conn: &Connection, date: &str) -> Result<()> {
-        let affected = conn.execute(
-            "DELETE FROM work_logs WHERE date = ?",
-            params![date],
-        )?;
+        let affected = conn.execute("DELETE FROM work_logs WHERE date = ?", params![date])?;
 
         if affected == 0 {
             Err(anyhow::anyhow!("未找到指定日期的工作日志"))
@@ -110,21 +108,22 @@ impl WorkLogService {
         let mut stmt = conn.prepare(
             "SELECT id, date, log_type, content, ai_generated, created_at, updated_at
              FROM work_logs
-             ORDER BY date DESC"
+             ORDER BY date DESC",
         )?;
 
-        let logs = stmt.query_map([], |row| {
-            Ok(WorkLog {
-                id: Some(row.get(0)?),
-                date: row.get(1)?,
-                log_type: row.get(2)?,
-                content: row.get(3)?,
-                ai_generated: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let logs = stmt
+            .query_map([], |row| {
+                Ok(WorkLog {
+                    id: Some(row.get(0)?),
+                    date: row.get(1)?,
+                    log_type: row.get(2)?,
+                    content: row.get(3)?,
+                    ai_generated: row.get(4)?,
+                    created_at: row.get(5)?,
+                    updated_at: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(logs)
     }
@@ -155,8 +154,8 @@ impl WorkLogService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rusqlite::Connection;
     use crate::db::migrations::run_migrations;
+    use rusqlite::Connection;
 
     #[test]
     fn test_save_and_get_log() {
@@ -181,15 +180,11 @@ mod tests {
         run_migrations(&conn).unwrap();
 
         // 测试完整方法
-        WorkLogService::save_work_log(
-            &conn,
-            "2024-01-16",
-            "weekly",
-            "本周工作总结",
-            true,
-        ).unwrap();
+        WorkLogService::save_work_log(&conn, "2024-01-16", "weekly", "本周工作总结", true).unwrap();
 
-        let log = WorkLogService::get_work_log(&conn, "2024-01-16").unwrap().unwrap();
+        let log = WorkLogService::get_work_log(&conn, "2024-01-16")
+            .unwrap()
+            .unwrap();
         assert_eq!(log.log_type, "weekly");
         assert_eq!(log.content, "本周工作总结");
         assert!(log.ai_generated);
@@ -207,7 +202,9 @@ mod tests {
         WorkLogService::save_log(&conn, "2024-01-15", "更新后的内容").unwrap();
 
         // 验证更新
-        let log = WorkLogService::get_log(&conn, "2024-01-15").unwrap().unwrap();
+        let log = WorkLogService::get_log(&conn, "2024-01-15")
+            .unwrap()
+            .unwrap();
         assert_eq!(log.content, "更新后的内容");
     }
 
@@ -221,19 +218,22 @@ mod tests {
             "INSERT INTO work_logs (date, log_type, content, ai_generated, created_at)
              VALUES (date('now'), 'daily', '今天的日志', 0, datetime('now'))",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         conn.execute(
             "INSERT INTO work_logs (date, log_type, content, ai_generated, created_at)
              VALUES (date('now', '-1 days'), 'daily', '昨天的日志', 0, datetime('now'))",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         conn.execute(
             "INSERT INTO work_logs (date, log_type, content, ai_generated, created_at)
              VALUES (date('now', '-5 days'), 'daily', '5天前的日志', 0, datetime('now'))",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         // 获取最近3天的日志
         let logs = WorkLogService::get_recent_logs(&conn, 3).unwrap();
@@ -249,13 +249,17 @@ mod tests {
         WorkLogService::save_log(&conn, "2024-01-15", "要删除的日志").unwrap();
 
         // 确认日志存在
-        assert!(WorkLogService::get_log(&conn, "2024-01-15").unwrap().is_some());
+        assert!(WorkLogService::get_log(&conn, "2024-01-15")
+            .unwrap()
+            .is_some());
 
         // 删除日志
         WorkLogService::delete_log(&conn, "2024-01-15").unwrap();
 
         // 确认日志已删除
-        assert!(WorkLogService::get_log(&conn, "2024-01-15").unwrap().is_none());
+        assert!(WorkLogService::get_log(&conn, "2024-01-15")
+            .unwrap()
+            .is_none());
     }
 
     #[test]

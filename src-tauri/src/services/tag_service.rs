@@ -1,5 +1,5 @@
-use rusqlite::{params, Connection, Result};
 use crate::models::task::Tag;
+use rusqlite::{params, Connection, Result};
 
 /// 标签服务
 pub struct TagService;
@@ -17,19 +17,20 @@ impl TagService {
     /// 获取所有标签
     pub fn get_all_tags(conn: &Connection) -> Result<Vec<Tag>> {
         let mut stmt = conn.prepare(
-            "SELECT id, name, color, created_at, updated_at FROM tags ORDER BY created_at DESC"
+            "SELECT id, name, color, created_at, updated_at FROM tags ORDER BY created_at DESC",
         )?;
 
-        let tags = stmt.query_map([], |row| {
-            Ok(Tag {
-                id: Some(row.get(0)?),
-                name: row.get(1)?,
-                color: row.get(2)?,
-                created_at: row.get(3)?,
-                updated_at: row.get(4)?,
-            })
-        })?
-        .collect::<Result<Vec<_>>>()?;
+        let tags = stmt
+            .query_map([], |row| {
+                Ok(Tag {
+                    id: Some(row.get(0)?),
+                    name: row.get(1)?,
+                    color: row.get(2)?,
+                    created_at: row.get(3)?,
+                    updated_at: row.get(4)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(tags)
     }
@@ -47,7 +48,7 @@ impl TagService {
                     created_at: row.get(3)?,
                     updated_at: row.get(4)?,
                 })
-            }
+            },
         )?;
 
         Ok(tag)
@@ -78,7 +79,7 @@ impl TagService {
             |row| {
                 let count: i64 = row.get(0)?;
                 Ok(count > 0)
-            }
+            },
         )?;
 
         if !task_exists {
@@ -92,7 +93,7 @@ impl TagService {
             |row| {
                 let count: i64 = row.get(0)?;
                 Ok(count > 0)
-            }
+            },
         )?;
 
         if !tag_exists {
@@ -124,33 +125,32 @@ impl TagService {
              FROM tags t
              INNER JOIN task_tags tt ON t.id = tt.tag_id
              WHERE tt.task_id = ?1
-             ORDER BY t.name ASC"
+             ORDER BY t.name ASC",
         )?;
 
-        let tags = stmt.query_map(params![task_id], |row| {
-            Ok(Tag {
-                id: Some(row.get(0)?),
-                name: row.get(1)?,
-                color: row.get(2)?,
-                created_at: row.get(3)?,
-                updated_at: row.get(4)?,
-            })
-        })?
-        .collect::<Result<Vec<_>>>()?;
+        let tags = stmt
+            .query_map(params![task_id], |row| {
+                Ok(Tag {
+                    id: Some(row.get(0)?),
+                    name: row.get(1)?,
+                    color: row.get(2)?,
+                    created_at: row.get(3)?,
+                    updated_at: row.get(4)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(tags)
     }
 
     /// 获取使用某标签的所有任务ID
     pub fn get_tasks_by_tag(conn: &Connection, tag_id: i64) -> Result<Vec<i64>> {
-        let mut stmt = conn.prepare(
-            "SELECT task_id FROM task_tags WHERE tag_id = ?1 ORDER BY created_at DESC"
-        )?;
+        let mut stmt = conn
+            .prepare("SELECT task_id FROM task_tags WHERE tag_id = ?1 ORDER BY created_at DESC")?;
 
-        let task_ids = stmt.query_map(params![tag_id], |row| {
-            row.get(0)
-        })?
-        .collect::<Result<Vec<_>>>()?;
+        let task_ids = stmt
+            .query_map(params![tag_id], |row| row.get(0))?
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(task_ids)
     }
@@ -165,10 +165,7 @@ impl TagService {
 
     /// 移除任务的所有标签
     pub fn remove_all_tags_from_task(conn: &Connection, task_id: i64) -> Result<()> {
-        conn.execute(
-            "DELETE FROM task_tags WHERE task_id = ?1",
-            params![task_id],
-        )?;
+        conn.execute("DELETE FROM task_tags WHERE task_id = ?1", params![task_id])?;
         Ok(())
     }
 
@@ -177,7 +174,7 @@ impl TagService {
         let count: i64 = conn.query_row(
             "SELECT COUNT(*) FROM task_tags WHERE tag_id = ?1",
             params![tag_id],
-            |row| row.get(0)
+            |row| row.get(0),
         )?;
         Ok(count)
     }
@@ -190,21 +187,22 @@ impl TagService {
              FROM tags t
              LEFT JOIN task_tags tt ON t.id = tt.tag_id
              GROUP BY t.id, t.name, t.color, t.created_at, t.updated_at
-             ORDER BY usage_count DESC, t.created_at DESC"
+             ORDER BY usage_count DESC, t.created_at DESC",
         )?;
 
-        let results = stmt.query_map([], |row| {
-            let tag = Tag {
-                id: Some(row.get(0)?),
-                name: row.get(1)?,
-                color: row.get(2)?,
-                created_at: row.get(3)?,
-                updated_at: row.get(4)?,
-            };
-            let usage_count: i64 = row.get(5)?;
-            Ok((tag, usage_count))
-        })?
-        .collect::<Result<Vec<_>>>()?;
+        let results = stmt
+            .query_map([], |row| {
+                let tag = Tag {
+                    id: Some(row.get(0)?),
+                    name: row.get(1)?,
+                    color: row.get(2)?,
+                    created_at: row.get(3)?,
+                    updated_at: row.get(4)?,
+                };
+                let usage_count: i64 = row.get(5)?;
+                Ok((tag, usage_count))
+            })?
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(results)
     }
@@ -215,20 +213,21 @@ impl TagService {
             "SELECT id, name, color, created_at, updated_at
              FROM tags
              WHERE name LIKE ?1
-             ORDER BY created_at DESC"
+             ORDER BY created_at DESC",
         )?;
 
         let search_pattern = format!("%{}%", keyword);
-        let tags = stmt.query_map(params![search_pattern], |row| {
-            Ok(Tag {
-                id: Some(row.get(0)?),
-                name: row.get(1)?,
-                color: row.get(2)?,
-                created_at: row.get(3)?,
-                updated_at: row.get(4)?,
-            })
-        })?
-        .collect::<Result<Vec<_>>>()?;
+        let tags = stmt
+            .query_map(params![search_pattern], |row| {
+                Ok(Tag {
+                    id: Some(row.get(0)?),
+                    name: row.get(1)?,
+                    color: row.get(2)?,
+                    created_at: row.get(3)?,
+                    updated_at: row.get(4)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(tags)
     }
@@ -237,8 +236,8 @@ impl TagService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rusqlite::Connection;
     use crate::db::migrations::run_migrations;
+    use rusqlite::Connection;
 
     fn setup_test_db() -> Connection {
         let conn = Connection::open_in_memory().unwrap();

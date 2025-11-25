@@ -1,9 +1,8 @@
+use crate::models::{
+    AppItem, AppSearchParams, Category, ItemType, LaunchHistory, LaunchResult, Workflow, WorkflowLaunchResult,
+};
 use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
-use crate::models::{
-    AppItem, Category, Workflow, LaunchHistory,
-    AppSearchParams, LaunchResult, WorkflowLaunchResult
-};
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -44,6 +43,7 @@ impl AppLauncherService {
                     launch_args: row.get(10)?,
                     created_at: row.get(11)?,
                     updated_at: row.get(12)?,
+                    item_type: ItemType::default(),
                 })
             })
             .map_err(|e| e.to_string())?
@@ -76,6 +76,7 @@ impl AppLauncherService {
                     launch_args: row.get(10)?,
                     created_at: row.get(11)?,
                     updated_at: row.get(12)?,
+                    item_type: ItemType::default(),
                 })
             })
             .map_err(|e| format!("App not found: {}", e))?;
@@ -128,7 +129,10 @@ impl AppLauncherService {
 
         let mut stmt = db.prepare(&sql).map_err(|e| e.to_string())?;
 
-        let params_slice: Vec<&dyn rusqlite::ToSql> = conditions.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+        let params_slice: Vec<&dyn rusqlite::ToSql> = conditions
+            .iter()
+            .map(|s| s as &dyn rusqlite::ToSql)
+            .collect();
 
         let apps = stmt
             .query_map(params_slice.as_slice(), |row| {
@@ -146,6 +150,7 @@ impl AppLauncherService {
                     launch_args: row.get(10)?,
                     created_at: row.get(11)?,
                     updated_at: row.get(12)?,
+                    item_type: ItemType::default(),
                 })
             })
             .map_err(|e| e.to_string())?
@@ -253,21 +258,52 @@ impl AppLauncherService {
 
         #[cfg(target_os = "windows")]
         {
-            let mut cmd = Command::new("cmd");
-            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-            cmd.arg("/C");
-            cmd.arg("start");
-            cmd.arg("");
-            cmd.arg(&app.path);
+            // 根据不同的item_type使用不同的启动方式
+            match app.item_type {
+                ItemType::Application | ItemType::Shortcut | ItemType::UrlLink | ItemType::RemoteDesktop => {
+                    // 应用程序、快捷方式、URL链接、远程桌面,使用标准启动方式
+                    let mut cmd = Command::new("cmd");
+                    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+                    cmd.arg("/C");
+                    cmd.arg("start");
+                    cmd.arg("");
+                    cmd.arg(&app.path);
 
-            // 添加启动参数
-            if let Some(args) = &app.launch_args {
-                cmd.arg(args);
-            }
+                    // 添加启动参数
+                    if let Some(args) = &app.launch_args {
+                        cmd.arg(args);
+                    }
 
-            match cmd.spawn() {
-                Ok(_) => LaunchResult::success(app.id.clone(), app.name.clone()),
-                Err(e) => LaunchResult::failure(app.id.clone(), app.name.clone(), e.to_string()),
+                    match cmd.spawn() {
+                        Ok(_) => LaunchResult::success(app.id.clone(), app.name.clone()),
+                        Err(e) => LaunchResult::failure(app.id.clone(), app.name.clone(), e.to_string()),
+                    }
+                }
+                ItemType::Folder => {
+                    // 文件夹,使用explorer打开
+                    let mut cmd = Command::new("explorer");
+                    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+                    cmd.arg(&app.path);
+
+                    match cmd.spawn() {
+                        Ok(_) => LaunchResult::success(app.id.clone(), app.name.clone()),
+                        Err(e) => LaunchResult::failure(app.id.clone(), app.name.clone(), e.to_string()),
+                    }
+                }
+                ItemType::File => {
+                    // 普通文件,使用默认程序打开
+                    let mut cmd = Command::new("cmd");
+                    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+                    cmd.arg("/C");
+                    cmd.arg("start");
+                    cmd.arg("");
+                    cmd.arg(&app.path);
+
+                    match cmd.spawn() {
+                        Ok(_) => LaunchResult::success(app.id.clone(), app.name.clone()),
+                        Err(e) => LaunchResult::failure(app.id.clone(), app.name.clone(), e.to_string()),
+                    }
+                }
             }
         }
 
@@ -421,9 +457,10 @@ impl AppLauncherService {
 
         for app_id in &workflow.app_ids {
             // 启动应用
-            let launch_result = self.launch_app(app_id).await.unwrap_or_else(|e| {
-                LaunchResult::failure(app_id.clone(), app_id.clone(), e)
-            });
+            let launch_result = self
+                .launch_app(app_id)
+                .await
+                .unwrap_or_else(|e| LaunchResult::failure(app_id.clone(), app_id.clone(), e));
 
             result.add_result(launch_result);
 
@@ -573,7 +610,7 @@ impl AppLauncherService {
 
     // ==================== 图标管理 ====================
 
-    /// 刷新所有应用的图标
+    /// 刷新所有应用的图标（只处理没有图标的应用）
     pub async fn refresh_all_icons(&self) -> Result<u32, String> {
         use crate::services::AppScannerService;
         use std::path::Path;
@@ -583,19 +620,14 @@ impl AppLauncherService {
         let mut updated_count = 0u32;
 
         for app in apps {
-            // 跳过已有自定义图标的应用
-            if app.icon.is_some() && app.icon.as_ref().unwrap().starts_with("data:image/") {
-                // 检查是否是提取的图标（包含 base64）还是自定义图标
-                // 我们只刷新提取的图标，不覆盖用户上传的自定义图标
-                // 简单判断：如果图标很大（>100KB），可能是用户上传的，跳过
-                if let Some(icon) = &app.icon {
-                    if icon.len() > 102400 { // 100KB
-                        continue;
-                    }
+            // 跳过已有图标的应用（只要有图标就跳过，不管是提取的还是自定义的）
+            if let Some(icon) = &app.icon {
+                if !icon.is_empty() {
+                    continue;
                 }
             }
 
-            // 提取新图标
+            // 只为没有图标的应用提取图标
             if let Some(new_icon) = AppScannerService::extract_icon_base64(Path::new(&app.path)) {
                 // 更新数据库
                 let db = self.db.lock().map_err(|e| e.to_string())?;
@@ -613,7 +645,11 @@ impl AppLauncherService {
     }
 
     /// 更新应用的自定义图标
-    pub async fn update_app_icon(&self, app_id: &str, icon_data: Option<String>) -> Result<(), String> {
+    pub async fn update_app_icon(
+        &self,
+        app_id: &str,
+        icon_data: Option<String>,
+    ) -> Result<(), String> {
         let db = self.db.lock().map_err(|e| e.to_string())?;
 
         db.execute(
@@ -661,8 +697,16 @@ mod tests {
         let db = setup_test_db().await;
         let service = AppLauncherService::new(db);
 
-        let app1 = AppItem::new("app1".to_string(), "VSCode".to_string(), "C:\\vscode.exe".to_string());
-        let app2 = AppItem::new("app2".to_string(), "Chrome".to_string(), "C:\\chrome.exe".to_string());
+        let app1 = AppItem::new(
+            "app1".to_string(),
+            "VSCode".to_string(),
+            "C:\\vscode.exe".to_string(),
+        );
+        let app2 = AppItem::new(
+            "app2".to_string(),
+            "Chrome".to_string(),
+            "C:\\chrome.exe".to_string(),
+        );
 
         service.add_app(app1).await.unwrap();
         service.add_app(app2).await.unwrap();

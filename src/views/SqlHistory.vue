@@ -35,15 +35,15 @@
         </n-button>
         <n-button
           size="small"
-          @click="showAiConfigModal = true"
-          :type="sqlStore.aiConfigured ? 'success' : 'default'"
+          @click="goToAiSettings"
+          :type="aiStore.isEnabled ? 'success' : 'default'"
         >
-          AI配置
+          {{ aiStore.isEnabled ? 'AI已配置' : 'AI配置' }}
         </n-button>
         <n-button
           size="small"
           :loading="sqlStore.aiClassifying"
-          :disabled="!sqlStore.aiConfigured || sqlStore.uncategorizedCount === 0"
+          :disabled="!aiStore.isEnabled || sqlStore.uncategorizedCount === 0"
           @click="handleAiClassify"
         >
           AI分类 ({{ sqlStore.uncategorizedCount }})
@@ -272,60 +272,6 @@
       </div>
     </n-modal>
 
-    <!-- AI配置对话框 -->
-    <n-modal
-      v-model:show="showAiConfigModal"
-      preset="dialog"
-      title="AI 服务配置"
-      positive-text="保存"
-      negative-text="取消"
-      style="width: 500px;"
-      @positive-click="handleSaveAiConfig"
-    >
-      <n-form
-        ref="aiConfigFormRef"
-        :model="aiConfigForm"
-        label-placement="top"
-      >
-        <n-form-item label="AI 提供商" path="provider">
-          <n-select
-            v-model:value="aiConfigForm.provider"
-            :options="aiProviderOptions"
-            placeholder="选择 AI 提供商"
-          />
-        </n-form-item>
-        <n-form-item label="API Key" path="apiKey">
-          <n-input
-            v-model:value="aiConfigForm.apiKey"
-            type="password"
-            show-password-on="click"
-            placeholder="请输入 API Key"
-          />
-        </n-form-item>
-        <n-form-item label="自定义 Base URL（可选）" path="baseUrl">
-          <n-input
-            v-model:value="aiConfigForm.baseUrl"
-            placeholder="留空使用默认 URL"
-          />
-        </n-form-item>
-        <n-form-item label="自定义模型（可选）" path="model">
-          <n-input
-            v-model:value="aiConfigForm.model"
-            placeholder="留空使用默认模型"
-          />
-        </n-form-item>
-      </n-form>
-      <div style="margin-top: 12px;">
-        <n-button
-          size="small"
-          :loading="testingConnection"
-          @click="handleTestConnection"
-        >
-          测试连接
-        </n-button>
-      </div>
-    </n-modal>
-
     <!-- 编辑SQL对话框 -->
     <n-modal
       v-model:show="showEditModal"
@@ -482,9 +428,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { NButton, NEmpty, NModal, NForm, NFormItem, NInput, NIcon, NSelect, NTag, NColorPicker, useMessage } from 'naive-ui';
 import type { FormInst, FormRules } from 'naive-ui';
 import { useSqlStore } from '@/stores/sqlStore';
+import { useAiStore } from '@/stores/aiStore';
 import type { SqlRecord, SqlCategory, AiProvider } from '@/types/sql';
 import {
   CheckmarkCircle,
@@ -506,11 +454,12 @@ dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
 
 const sqlStore = useSqlStore();
+const aiStore = useAiStore();
+const router = useRouter();
 const message = useMessage();
 const showFavorites = ref(false);
 const showAddModal = ref(false);
 const showSqlModal = ref(false);
-const showAiConfigModal = ref(false);
 const showEditModal = ref(false);
 const showCategoryModal = ref(false);
 const showEditCategoryModal = ref(false);
@@ -519,7 +468,6 @@ const searchKeyword = ref('');
 const selectedType = ref<string | null>(null);
 const selectedCategory = ref<number | null>(null);
 const formRef = ref<FormInst | null>(null);
-const testingConnection = ref(false);
 let autoRefreshTimer: number | null = null;
 
 // 颜色选择预设
@@ -560,20 +508,6 @@ const TrashIcon = Trash;
 const SearchIcon = Search;
 const ExpandIcon = Expand;
 const EditIcon = Create;
-
-// AI 配置表单
-const aiConfigForm = ref({
-  provider: 'deepseek' as AiProvider,
-  apiKey: '',
-  baseUrl: '',
-  model: ''
-});
-
-// AI 提供商选项
-const aiProviderOptions = [
-  { label: 'DeepSeek', value: 'deepseek' },
-  { label: '通义千问 (Qwen)', value: 'qwen' }
-];
 
 // 编辑表单（支持多标签）
 const editForm = ref({
@@ -682,7 +616,7 @@ onMounted(async () => {
   await sqlStore.loadRecentSqls();
   await sqlStore.loadFavoriteSqls();
   await sqlStore.loadCategories();
-  await sqlStore.checkAiStatus();
+  await aiStore.loadConfig();
 
   // 启动自动刷新，每5秒检查一次新的SQL
   autoRefreshTimer = window.setInterval(async () => {
@@ -847,61 +781,17 @@ function handleCopyFullSql() {
   message.success('已复制到剪贴板');
 }
 
-// 保存 AI 配置
-async function handleSaveAiConfig() {
-  if (!aiConfigForm.value.apiKey) {
-    message.error('请输入 API Key');
-    return false;
-  }
-
-  try {
-    await sqlStore.configureAi(
-      aiConfigForm.value.provider,
-      aiConfigForm.value.apiKey,
-      aiConfigForm.value.baseUrl || undefined,
-      aiConfigForm.value.model || undefined
-    );
-    message.success('AI 配置保存成功');
-    showAiConfigModal.value = false;
-  } catch (error) {
-    message.error('配置保存失败');
-    return false;
-  }
-}
-
-// 测试 AI 连接
-async function handleTestConnection() {
-  if (!aiConfigForm.value.apiKey) {
-    message.error('请先输入 API Key');
-    return;
-  }
-
-  testingConnection.value = true;
-  try {
-    // 先保存配置
-    await sqlStore.configureAi(
-      aiConfigForm.value.provider,
-      aiConfigForm.value.apiKey,
-      aiConfigForm.value.baseUrl || undefined,
-      aiConfigForm.value.model || undefined
-    );
-
-    // 测试连接
-    const success = await sqlStore.testAiConnection();
-    if (success) {
-      message.success('连接测试成功');
-    } else {
-      message.error('连接测试失败');
-    }
-  } catch (error) {
-    message.error('连接测试失败: ' + (error as Error).message);
-  } finally {
-    testingConnection.value = false;
-  }
+// 跳转到 AI 设置页面
+function goToAiSettings() {
+  router.push('/settings?tab=integrations');
 }
 
 // AI 自动分类
 async function handleAiClassify() {
+  if (!aiStore.isEnabled) {
+    message.warning('请先在设置页面配置 AI');
+    return;
+  }
   try {
     const results = await sqlStore.aiClassifySqls(undefined, 20);
     message.success(`成功分类 ${results.length} 条 SQL`);

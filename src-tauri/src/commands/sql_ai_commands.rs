@@ -1,8 +1,11 @@
-use tauri::State;
-use std::sync::Mutex;
 use crate::db::connection::DbConnection;
+use crate::services::ai_service::AiService;
+use crate::services::sql_ai_service::{
+    AiProvider, CategoryWithPrompt, SqlAiConfig, SqlAiService, SqlClassifyResult,
+};
 use crate::services::sql_service::SqlService;
-use crate::services::sql_ai_service::{SqlAiService, SqlAiConfig, AiProvider, SqlClassifyResult, CategoryWithPrompt};
+use std::sync::Mutex;
+use tauri::State;
 
 /// AI 服务状态
 pub struct SqlAiState(pub Mutex<Option<SqlAiService>>);
@@ -14,6 +17,10 @@ impl SqlAiState {
 }
 
 /// 配置 AI 服务
+///
+/// # 废弃说明
+/// 此命令已废弃，请使用全局 AI 配置（通过 ai_commands 模块）
+#[deprecated(note = "请使用全局 AI 配置，通过 ai_commands::save_ai_config")]
 #[tauri::command]
 pub fn configure_sql_ai(
     ai_state: State<SqlAiState>,
@@ -43,6 +50,10 @@ pub fn configure_sql_ai(
 }
 
 /// 获取当前 AI 配置状态
+///
+/// # 废弃说明
+/// 此命令已废弃，请使用全局 AI 配置（通过 ai_commands 模块）
+#[deprecated(note = "请使用全局 AI 配置，通过 ai_commands::is_ai_enabled")]
 #[tauri::command]
 pub fn get_sql_ai_status(ai_state: State<SqlAiState>) -> Result<bool, String> {
     let state = ai_state.0.lock().map_err(|e| e.to_string())?;
@@ -50,10 +61,12 @@ pub fn get_sql_ai_status(ai_state: State<SqlAiState>) -> Result<bool, String> {
 }
 
 /// 测试 AI 连接
+///
+/// # 废弃说明
+/// 此命令已废弃，请使用全局 AI 配置（通过 ai_commands 模块）
+#[deprecated(note = "请使用全局 AI 配置，通过 ai_commands::test_ai_connection")]
 #[tauri::command]
-pub async fn test_sql_ai_connection(
-    ai_state: State<'_, SqlAiState>,
-) -> Result<bool, String> {
+pub async fn test_sql_ai_connection(ai_state: State<'_, SqlAiState>) -> Result<bool, String> {
     // 在单独的作用域中获取配置，确保 MutexGuard 在 await 之前被释放
     let config = {
         let state = ai_state.0.lock().map_err(|e| e.to_string())?;
@@ -71,29 +84,41 @@ pub async fn test_sql_ai_connection(
     }; // MutexGuard 在这里被释放
 
     let temp_service = SqlAiService::new(config);
-    temp_service.test_connection().await.map_err(|e| e.to_string())
+    temp_service
+        .test_connection()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// 使用 AI 自动分类 SQL
 #[tauri::command]
 pub async fn ai_classify_sqls(
     db: State<'_, DbConnection>,
-    ai_state: State<'_, SqlAiState>,
     sql_ids: Option<Vec<i64>>,
     limit: Option<usize>,
 ) -> Result<Vec<SqlClassifyResult>, String> {
-    // 获取 AI 服务配置
+    // 从数据库加载全局 AI 配置
     let config = {
-        let state = ai_state.0.lock().map_err(|e| e.to_string())?;
-        let service = state.as_ref().ok_or("AI 服务未配置")?;
+        let conn = db.0.lock().map_err(|e| e.to_string())?;
+        let ai_config = AiService::load_config(&conn).map_err(|e| e.to_string())?;
+
+        if !ai_config.enabled {
+            return Err("AI 功能未启用，请在设置中启用 AI".to_string());
+        }
+
+        if ai_config.api_key.is_empty() {
+            return Err("AI 未配置，请先在设置中配置 AI".to_string());
+        }
+
+        // 转换为 SqlAiConfig
         SqlAiConfig {
-            provider: match service.config.provider {
-                AiProvider::DeepSeek => AiProvider::DeepSeek,
-                AiProvider::Qwen => AiProvider::Qwen,
+            provider: match ai_config.provider {
+                crate::services::ai_service::AiProvider::DeepSeek => AiProvider::DeepSeek,
+                crate::services::ai_service::AiProvider::Qwen => AiProvider::Qwen,
             },
-            api_key: service.config.api_key.clone(),
-            base_url: service.config.base_url.clone(),
-            model: service.config.model.clone(),
+            api_key: ai_config.api_key,
+            base_url: ai_config.base_url,
+            model: ai_config.model,
         }
     };
 
@@ -133,11 +158,13 @@ pub async fn ai_classify_sqls(
         SqlService::get_all_categories(&conn)
             .map_err(|e| e.to_string())?
             .into_iter()
-            .filter_map(|c| c.id.map(|id| CategoryWithPrompt {
-                id,
-                name: c.name,
-                ai_prompt: c.ai_prompt,
-            }))
+            .filter_map(|c| {
+                c.id.map(|id| CategoryWithPrompt {
+                    id,
+                    name: c.name,
+                    ai_prompt: c.ai_prompt,
+                })
+            })
             .collect()
     };
 
@@ -153,10 +180,8 @@ pub async fn ai_classify_sqls(
         let conn = db.0.lock().map_err(|e| e.to_string())?;
 
         // 获取分类 ID 映射
-        let category_map: std::collections::HashMap<String, i64> = categories
-            .iter()
-            .map(|c| (c.name.clone(), c.id))
-            .collect();
+        let category_map: std::collections::HashMap<String, i64> =
+            categories.iter().map(|c| (c.name.clone(), c.id)).collect();
 
         for result in &results {
             // 更新名称
@@ -164,7 +189,8 @@ pub async fn ai_classify_sqls(
                 .map_err(|e| e.to_string())?;
 
             // 设置多个分类标签
-            let category_ids: Vec<i64> = result.categories
+            let category_ids: Vec<i64> = result
+                .categories
                 .iter()
                 .filter_map(|name| category_map.get(name).copied())
                 .collect();
@@ -191,14 +217,12 @@ pub fn manual_classify_sql(
 
     // 更新名称
     if let Some(n) = &name {
-        SqlService::update_sql_name(&conn, sql_id, Some(n))
-            .map_err(|e| e.to_string())?;
+        SqlService::update_sql_name(&conn, sql_id, Some(n)).map_err(|e| e.to_string())?;
     }
 
     // 设置分类标签
     if let Some(ids) = category_ids {
-        SqlService::set_sql_categories(&conn, sql_id, &ids)
-            .map_err(|e| e.to_string())?;
+        SqlService::set_sql_categories(&conn, sql_id, &ids).map_err(|e| e.to_string())?;
     }
 
     Ok(())

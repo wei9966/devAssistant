@@ -1,6 +1,6 @@
-use rusqlite::{params, Connection};
 use anyhow::Result;
 use regex::Regex;
+use rusqlite::{params, Connection};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -73,9 +73,9 @@ impl SqlService {
 
     /// 检查是否是有效的 SQL 语句
     pub fn is_valid_sql(text: &str) -> bool {
-        let sql_pattern = Regex::new(
-            r"(?i)^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\s+"
-        ).unwrap();
+        let sql_pattern =
+            Regex::new(r"(?i)^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\s+")
+                .unwrap();
 
         sql_pattern.is_match(text)
     }
@@ -125,7 +125,7 @@ impl SqlService {
              FROM sql_categories c
              INNER JOIN sql_category_mappings m ON c.id = m.category_id
              WHERE m.sql_id = ?
-             ORDER BY c.sort_order ASC"
+             ORDER BY c.sort_order ASC",
         ) {
             Ok(s) => s,
             Err(_) => return vec![],
@@ -135,7 +135,9 @@ impl SqlService {
             Ok(SqlCategoryInfo {
                 id: row.get(0)?,
                 name: row.get(1)?,
-                color: row.get::<_, Option<String>>(2)?.unwrap_or_else(|| "#6366f1".to_string()),
+                color: row
+                    .get::<_, Option<String>>(2)?
+                    .unwrap_or_else(|| "#6366f1".to_string()),
             })
         })
         .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -150,27 +152,28 @@ impl SqlService {
                     created_at, name
              FROM sql_history
              ORDER BY executed_at DESC
-             LIMIT ?"
+             LIMIT ?",
         )?;
 
-        let mut records: Vec<SqlRecord> = stmt.query_map(params![limit], |row| {
-            Ok(SqlRecord {
-                id: Some(row.get(0)?),
-                sql_text: row.get(1)?,
-                sql_type: row.get(2)?,
-                database_name: row.get(3)?,
-                executed_at: row.get(4)?,
-                execution_source: row.get(5)?,
-                is_favorite: row.get(6)?,
-                tags: row.get(7)?,
-                description: row.get(8)?,
-                usage_count: row.get(9).ok(),
-                created_at: row.get(10).ok(),
-                name: row.get(11).ok(),
-                categories: vec![],
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let mut records: Vec<SqlRecord> = stmt
+            .query_map(params![limit], |row| {
+                Ok(SqlRecord {
+                    id: Some(row.get(0)?),
+                    sql_text: row.get(1)?,
+                    sql_type: row.get(2)?,
+                    database_name: row.get(3)?,
+                    executed_at: row.get(4)?,
+                    execution_source: row.get(5)?,
+                    is_favorite: row.get(6)?,
+                    tags: row.get(7)?,
+                    description: row.get(8)?,
+                    usage_count: row.get(9).ok(),
+                    created_at: row.get(10).ok(),
+                    name: row.get(11).ok(),
+                    categories: vec![],
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         // 为每条记录加载分类标签
         for record in &mut records {
@@ -190,27 +193,28 @@ impl SqlService {
                     created_at, name
              FROM sql_history
              WHERE is_favorite = 1
-             ORDER BY executed_at DESC"
+             ORDER BY executed_at DESC",
         )?;
 
-        let mut records: Vec<SqlRecord> = stmt.query_map([], |row| {
-            Ok(SqlRecord {
-                id: Some(row.get(0)?),
-                sql_text: row.get(1)?,
-                sql_type: row.get(2)?,
-                database_name: row.get(3)?,
-                executed_at: row.get(4)?,
-                execution_source: row.get(5)?,
-                is_favorite: row.get(6)?,
-                tags: row.get(7)?,
-                description: row.get(8)?,
-                usage_count: row.get(9).ok(),
-                created_at: row.get(10).ok(),
-                name: row.get(11).ok(),
-                categories: vec![],
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let mut records: Vec<SqlRecord> = stmt
+            .query_map([], |row| {
+                Ok(SqlRecord {
+                    id: Some(row.get(0)?),
+                    sql_text: row.get(1)?,
+                    sql_type: row.get(2)?,
+                    database_name: row.get(3)?,
+                    executed_at: row.get(4)?,
+                    execution_source: row.get(5)?,
+                    is_favorite: row.get(6)?,
+                    tags: row.get(7)?,
+                    description: row.get(8)?,
+                    usage_count: row.get(9).ok(),
+                    created_at: row.get(10).ok(),
+                    name: row.get(11).ok(),
+                    categories: vec![],
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         // 为每条记录加载分类标签
         for record in &mut records {
@@ -238,11 +242,7 @@ impl SqlService {
     }
 
     /// 更新 SQL 名称
-    pub fn update_sql_name(
-        conn: &Connection,
-        sql_id: i64,
-        name: Option<&str>,
-    ) -> Result<()> {
+    pub fn update_sql_name(conn: &Connection, sql_id: i64, name: Option<&str>) -> Result<()> {
         conn.execute(
             "UPDATE sql_history SET name = ? WHERE id = ?",
             params![name, sql_id],
@@ -251,11 +251,7 @@ impl SqlService {
     }
 
     /// 设置 SQL 的分类标签（多个）
-    pub fn set_sql_categories(
-        conn: &Connection,
-        sql_id: i64,
-        category_ids: &[i64],
-    ) -> Result<()> {
+    pub fn set_sql_categories(conn: &Connection, sql_id: i64, category_ids: &[i64]) -> Result<()> {
         // 先删除原有的分类关联
         conn.execute(
             "DELETE FROM sql_category_mappings WHERE sql_id = ?",
@@ -274,11 +270,7 @@ impl SqlService {
     }
 
     /// 为 SQL 添加一个分类标签
-    pub fn add_sql_category(
-        conn: &Connection,
-        sql_id: i64,
-        category_id: i64,
-    ) -> Result<()> {
+    pub fn add_sql_category(conn: &Connection, sql_id: i64, category_id: i64) -> Result<()> {
         conn.execute(
             "INSERT OR IGNORE INTO sql_category_mappings (sql_id, category_id) VALUES (?, ?)",
             params![sql_id, category_id],
@@ -287,11 +279,7 @@ impl SqlService {
     }
 
     /// 从 SQL 移除一个分类标签
-    pub fn remove_sql_category(
-        conn: &Connection,
-        sql_id: i64,
-        category_id: i64,
-    ) -> Result<()> {
+    pub fn remove_sql_category(conn: &Connection, sql_id: i64, category_id: i64) -> Result<()> {
         conn.execute(
             "DELETE FROM sql_category_mappings WHERE sql_id = ? AND category_id = ?",
             params![sql_id, category_id],
@@ -370,21 +358,22 @@ impl SqlService {
              ORDER BY sort_order ASC"
         )?;
 
-        let records = stmt.query_map([], |row| {
-            Ok(SqlCategory {
-                id: Some(row.get(0)?),
-                name: row.get(1)?,
-                description: row.get(2)?,
-                color: row.get(3)?,
-                icon: row.get(4)?,
-                ai_prompt: row.get(5)?,
-                sort_order: row.get(6).ok(),
-                is_system: row.get::<_, Option<i32>>(7)?.map(|v| v != 0),
-                created_at: row.get(8).ok(),
-                updated_at: row.get(9).ok(),
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let records = stmt
+            .query_map([], |row| {
+                Ok(SqlCategory {
+                    id: Some(row.get(0)?),
+                    name: row.get(1)?,
+                    description: row.get(2)?,
+                    color: row.get(3)?,
+                    icon: row.get(4)?,
+                    ai_prompt: row.get(5)?,
+                    sort_order: row.get(6).ok(),
+                    is_system: row.get::<_, Option<i32>>(7)?.map(|v| v != 0),
+                    created_at: row.get(8).ok(),
+                    updated_at: row.get(9).ok(),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(records)
     }
@@ -430,7 +419,10 @@ impl SqlService {
             params![category_id],
         )?;
         // 然后删除分类
-        conn.execute("DELETE FROM sql_categories WHERE id = ?", params![category_id])?;
+        conn.execute(
+            "DELETE FROM sql_categories WHERE id = ?",
+            params![category_id],
+        )?;
         Ok(())
     }
 
@@ -444,27 +436,28 @@ impl SqlService {
              WHERE (h.name IS NULL OR h.name = '')
                 OR NOT EXISTS (SELECT 1 FROM sql_category_mappings m WHERE m.sql_id = h.id)
              ORDER BY h.executed_at DESC
-             LIMIT ?"
+             LIMIT ?",
         )?;
 
-        let mut records: Vec<SqlRecord> = stmt.query_map(params![limit], |row| {
-            Ok(SqlRecord {
-                id: Some(row.get(0)?),
-                sql_text: row.get(1)?,
-                sql_type: row.get(2)?,
-                database_name: row.get(3)?,
-                executed_at: row.get(4)?,
-                execution_source: row.get(5)?,
-                is_favorite: row.get(6)?,
-                tags: row.get(7)?,
-                description: row.get(8)?,
-                usage_count: row.get(9).ok(),
-                created_at: row.get(10).ok(),
-                name: row.get(11).ok(),
-                categories: vec![],
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let mut records: Vec<SqlRecord> = stmt
+            .query_map(params![limit], |row| {
+                Ok(SqlRecord {
+                    id: Some(row.get(0)?),
+                    sql_text: row.get(1)?,
+                    sql_type: row.get(2)?,
+                    database_name: row.get(3)?,
+                    executed_at: row.get(4)?,
+                    execution_source: row.get(5)?,
+                    is_favorite: row.get(6)?,
+                    tags: row.get(7)?,
+                    description: row.get(8)?,
+                    usage_count: row.get(9).ok(),
+                    created_at: row.get(10).ok(),
+                    name: row.get(11).ok(),
+                    categories: vec![],
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         // 为每条记录加载分类标签
         for record in &mut records {
@@ -477,7 +470,11 @@ impl SqlService {
     }
 
     /// 根据分类获取 SQL 记录（通过多对多关系）
-    pub fn get_sqls_by_category(conn: &Connection, category_id: i64, limit: usize) -> Result<Vec<SqlRecord>> {
+    pub fn get_sqls_by_category(
+        conn: &Connection,
+        category_id: i64,
+        limit: usize,
+    ) -> Result<Vec<SqlRecord>> {
         let mut stmt = conn.prepare(
             "SELECT DISTINCT h.id, h.sql_text, h.sql_type, h.database_name, h.executed_at,
                     h.execution_source, h.is_favorite, h.tags, h.description, h.usage_count,
@@ -486,27 +483,28 @@ impl SqlService {
              INNER JOIN sql_category_mappings m ON h.id = m.sql_id
              WHERE m.category_id = ?
              ORDER BY h.executed_at DESC
-             LIMIT ?"
+             LIMIT ?",
         )?;
 
-        let mut records: Vec<SqlRecord> = stmt.query_map(params![category_id, limit], |row| {
-            Ok(SqlRecord {
-                id: Some(row.get(0)?),
-                sql_text: row.get(1)?,
-                sql_type: row.get(2)?,
-                database_name: row.get(3)?,
-                executed_at: row.get(4)?,
-                execution_source: row.get(5)?,
-                is_favorite: row.get(6)?,
-                tags: row.get(7)?,
-                description: row.get(8)?,
-                usage_count: row.get(9).ok(),
-                created_at: row.get(10).ok(),
-                name: row.get(11).ok(),
-                categories: vec![],
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let mut records: Vec<SqlRecord> = stmt
+            .query_map(params![category_id, limit], |row| {
+                Ok(SqlRecord {
+                    id: Some(row.get(0)?),
+                    sql_text: row.get(1)?,
+                    sql_type: row.get(2)?,
+                    database_name: row.get(3)?,
+                    executed_at: row.get(4)?,
+                    execution_source: row.get(5)?,
+                    is_favorite: row.get(6)?,
+                    tags: row.get(7)?,
+                    description: row.get(8)?,
+                    usage_count: row.get(9).ok(),
+                    created_at: row.get(10).ok(),
+                    name: row.get(11).ok(),
+                    categories: vec![],
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         // 为每条记录加载所有分类标签
         for record in &mut records {
@@ -523,13 +521,12 @@ impl SqlService {
         let mut stmt = conn.prepare(
             "SELECT category_id, COUNT(DISTINCT sql_id) as count
              FROM sql_category_mappings
-             GROUP BY category_id"
+             GROUP BY category_id",
         )?;
 
-        let records = stmt.query_map([], |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let records = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(records)
     }

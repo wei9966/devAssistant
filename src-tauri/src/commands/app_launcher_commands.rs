@@ -1,10 +1,10 @@
-use tauri::State;
 use crate::db::connection::DbConnection;
 use crate::models::{
-    AppItem, Category, Workflow, LaunchHistory,
-    AppSearchParams, LaunchResult, WorkflowLaunchResult
+    AppItem, AppLauncherSettings, AppSearchParams, Category, LaunchHistory, LaunchResult, Workflow,
+    WorkflowLaunchResult,
 };
-use crate::services::{AppScannerService, AppLauncherService};
+use crate::services::{AppLauncherService, AppScannerService};
+use tauri::State;
 
 // ==================== 应用扫描 ====================
 
@@ -17,7 +17,7 @@ pub async fn scan_installed_apps(path: Option<String>) -> Result<Vec<AppItem>, S
 /// 手动添加应用
 #[tauri::command]
 pub async fn add_manual_app(path: String, name: Option<String>) -> Result<AppItem, String> {
-    AppScannerService::add_manual_app(path, name).await
+    AppScannerService::add_manual_app(path, name, None).await
 }
 
 // ==================== 应用管理 ====================
@@ -51,10 +51,7 @@ pub async fn search_apps(
 
 /// 添加应用
 #[tauri::command]
-pub async fn add_app(
-    db: State<'_, DbConnection>,
-    app: AppItem,
-) -> Result<(), String> {
+pub async fn add_app(db: State<'_, DbConnection>, app: AppItem) -> Result<(), String> {
     let conn = db.0.clone();
     let service = AppLauncherService::new(conn);
     service.add_app(app).await
@@ -62,10 +59,7 @@ pub async fn add_app(
 
 /// 更新应用
 #[tauri::command]
-pub async fn update_app(
-    db: State<'_, DbConnection>,
-    app: AppItem,
-) -> Result<(), String> {
+pub async fn update_app(db: State<'_, DbConnection>, app: AppItem) -> Result<(), String> {
     let conn = db.0.clone();
     let service = AppLauncherService::new(conn);
     service.update_app(app).await
@@ -73,10 +67,7 @@ pub async fn update_app(
 
 /// 删除应用
 #[tauri::command]
-pub async fn delete_app(
-    db: State<'_, DbConnection>,
-    app_id: String,
-) -> Result<(), String> {
+pub async fn delete_app(db: State<'_, DbConnection>, app_id: String) -> Result<(), String> {
     let conn = db.0.clone();
     let service = AppLauncherService::new(conn);
     service.delete_app(&app_id).await
@@ -108,9 +99,10 @@ pub async fn launch_apps(
     let mut results = Vec::new();
 
     for app_id in app_ids {
-        let result = service.launch_app(&app_id).await.unwrap_or_else(|e| {
-            LaunchResult::failure(app_id.clone(), app_id, e)
-        });
+        let result = service
+            .launch_app(&app_id)
+            .await
+            .unwrap_or_else(|e| LaunchResult::failure(app_id.clone(), app_id, e));
         results.push(result);
 
         // 延迟
@@ -147,10 +139,7 @@ pub async fn get_categories(db: State<'_, DbConnection>) -> Result<Vec<Category>
 
 /// 添加分类
 #[tauri::command]
-pub async fn add_category(
-    db: State<'_, DbConnection>,
-    category: Category,
-) -> Result<(), String> {
+pub async fn add_category(db: State<'_, DbConnection>, category: Category) -> Result<(), String> {
     let conn = db.0.clone();
     let service = AppLauncherService::new(conn);
     service.add_category(category).await
@@ -169,10 +158,7 @@ pub async fn update_category(
 
 /// 保存分类（自动判断是添加还是更新）
 #[tauri::command]
-pub async fn save_category(
-    db: State<'_, DbConnection>,
-    category: Category,
-) -> Result<(), String> {
+pub async fn save_category(db: State<'_, DbConnection>, category: Category) -> Result<(), String> {
     let conn = db.0.clone();
     let service = AppLauncherService::new(conn);
 
@@ -185,10 +171,7 @@ pub async fn save_category(
 
 /// 删除分类
 #[tauri::command]
-pub async fn delete_category(
-    db: State<'_, DbConnection>,
-    id: String,
-) -> Result<(), String> {
+pub async fn delete_category(db: State<'_, DbConnection>, id: String) -> Result<(), String> {
     let conn = db.0.clone();
     let service = AppLauncherService::new(conn);
     service.delete_category(&id).await
@@ -217,10 +200,7 @@ pub async fn get_workflow_by_id(
 
 /// 添加工作流
 #[tauri::command]
-pub async fn add_workflow(
-    db: State<'_, DbConnection>,
-    workflow: Workflow,
-) -> Result<(), String> {
+pub async fn add_workflow(db: State<'_, DbConnection>, workflow: Workflow) -> Result<(), String> {
     let conn = db.0.clone();
     let service = AppLauncherService::new(conn);
     service.add_workflow(workflow).await
@@ -263,9 +243,7 @@ pub async fn get_launch_history(
 
 /// 清除启动历史
 #[tauri::command]
-pub async fn clear_launch_history(
-    db: State<'_, DbConnection>,
-) -> Result<(), String> {
+pub async fn clear_launch_history(db: State<'_, DbConnection>) -> Result<(), String> {
     let conn = db.0.clone();
     let service = AppLauncherService::new(conn);
     service.clear_launch_history().await
@@ -275,10 +253,7 @@ pub async fn clear_launch_history(
 
 /// 切换应用置顶状态
 #[tauri::command]
-pub async fn toggle_app_pin(
-    db: State<'_, DbConnection>,
-    app_id: String,
-) -> Result<bool, String> {
+pub async fn toggle_app_pin(db: State<'_, DbConnection>, app_id: String) -> Result<bool, String> {
     let conn = db.0.clone();
     let service = AppLauncherService::new(conn);
 
@@ -337,10 +312,7 @@ pub async fn export_config(db: State<'_, DbConnection>) -> Result<String, String
 
 /// 导入配置（JSON格式）
 #[tauri::command]
-pub async fn import_config(
-    db: State<'_, DbConnection>,
-    config_json: String,
-) -> Result<(), String> {
+pub async fn import_config(db: State<'_, DbConnection>, config_json: String) -> Result<(), String> {
     use serde_json::Value;
 
     let conn = db.0.clone();
@@ -398,6 +370,54 @@ pub async fn update_app_icon(
     let conn = db.0.clone();
     let service = AppLauncherService::new(conn);
     service.update_app_icon(&app_id, icon_data).await
+}
+
+// ==================== 应用启动器设置 ====================
+
+/// 获取应用启动器设置
+#[tauri::command]
+pub async fn get_launcher_settings(db: State<'_, DbConnection>) -> Result<AppLauncherSettings, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+
+    // 查询设置
+    let result = conn.query_row(
+        "SELECT allowed_extensions FROM app_launcher_settings WHERE id = 1",
+        [],
+        |row| {
+            let extensions_json: String = row.get(0)?;
+            let allowed_extensions: Vec<String> =
+                serde_json::from_str(&extensions_json).unwrap_or_else(|_| vec!["exe".to_string(), "lnk".to_string()]);
+            Ok(AppLauncherSettings { allowed_extensions })
+        },
+    );
+
+    match result {
+        Ok(settings) => Ok(settings),
+        Err(_) => {
+            // 如果查询失败,返回默认设置
+            Ok(AppLauncherSettings::default())
+        }
+    }
+}
+
+/// 更新应用启动器设置
+#[tauri::command]
+pub async fn update_launcher_settings(
+    db: State<'_, DbConnection>,
+    settings: AppLauncherSettings,
+) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().timestamp();
+
+    let extensions_json = settings.to_json()?;
+
+    conn.execute(
+        "UPDATE app_launcher_settings SET allowed_extensions = ?1, updated_at = ?2 WHERE id = 1",
+        rusqlite::params![extensions_json, now],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[cfg(test)]
