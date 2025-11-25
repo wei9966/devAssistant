@@ -355,16 +355,14 @@ export const useAppLauncherStore = defineStore('appLauncher', () => {
   async function loadCategories() {
     try {
       const dbCategories = await appLauncherApi.getCategories();
-      // 合并默认分类和数据库分类
-      const allCategories = [
-        ...DEFAULT_CATEGORIES.map((cat) => ({ ...cat, createdAt: Date.now() })),
-        ...dbCategories,
-      ];
-      // 去重（以id为准）
-      const uniqueCategories = Array.from(
-        new Map(allCategories.map((cat) => [cat.id, cat])).values()
-      );
-      categories.value = uniqueCategories.sort((a, b) => a.sortOrder - b.sortOrder);
+      // 直接使用数据库中的分类，不再自动合并默认分类
+      // 默认分类只在首次使用时（数据库为空）由 AppLauncher.vue 初始化
+      if (dbCategories && dbCategories.length > 0) {
+        categories.value = dbCategories.sort((a, b) => a.sortOrder - b.sortOrder);
+      } else {
+        // 仅在数据库为空时使用默认分类
+        categories.value = DEFAULT_CATEGORIES.map((cat) => ({ ...cat, createdAt: Date.now() }));
+      }
     } catch (e) {
       console.error('加载分类失败:', e);
     }

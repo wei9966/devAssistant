@@ -221,7 +221,7 @@ const dialog = useDialog();
 const scanning = ref(false);
 const refreshingIcons = ref(false);
 const searchKeyword = ref('');
-const selectedCategory = ref('all');
+const selectedCategory = ref(localStorage.getItem('appLauncher_selectedCategory') || 'all');
 const viewMode = ref<'grid' | 'list'>('grid');
 const showEditDialog = ref(false);
 const showWorkflowDialog = ref(false);
@@ -259,17 +259,12 @@ const loadCategoriesFromDatabase = async () => {
     const { invoke } = await import('@tauri-apps/api/core');
     let dbCategories = await invoke('get_categories');
 
-    // 确保所有默认分类都存在于数据库中
-    const defaultCats = DEFAULT_CATEGORIES.map((cat) => ({ ...cat, createdAt: Date.now() }));
-    const dbCategoryIds = new Set(Array.isArray(dbCategories) ? dbCategories.map(c => c.id) : []);
-
-    // 找出缺失的默认分类
-    const missingCategories = defaultCats.filter(cat => !dbCategoryIds.has(cat.id));
-
-    // 保存缺失的默认分类到数据库
-    if (missingCategories.length > 0) {
-      console.log('正在初始化默认分类:', missingCategories.map(c => c.name).join(', '));
-      for (const category of missingCategories) {
+    // 只在数据库完全为空时（首次使用）才初始化默认分类
+    // 如果数据库中有分类数据，说明用户已经开始使用，不应该自动添加被删除的分类
+    if (!Array.isArray(dbCategories) || dbCategories.length === 0) {
+      console.log('首次使用，正在初始化默认分类');
+      const defaultCats = DEFAULT_CATEGORIES.map((cat) => ({ ...cat, createdAt: Date.now() }));
+      for (const category of defaultCats) {
         try {
           await invoke('save_category', { category });
         } catch (error) {
@@ -285,7 +280,7 @@ const loadCategoriesFromDatabase = async () => {
       categories.value = dbCategories.sort((a, b) => a.sortOrder - b.sortOrder);
     } else {
       // 如果仍然没有分类（极端情况），使用默认分类
-      categories.value = defaultCats;
+      categories.value = DEFAULT_CATEGORIES.map((cat) => ({ ...cat, createdAt: Date.now() }));
     }
   } catch (error) {
     console.error('加载分类失败:', error);
@@ -300,6 +295,13 @@ onMounted(async () => {
     loadAppsFromDatabase(),
     loadCategoriesFromDatabase(),
   ]);
+
+  // 验证保存的分类是否仍然存在，如果不存在则回退到"全部"
+  const savedCategory = selectedCategory.value;
+  if (savedCategory !== 'all' && !categories.value.some(cat => cat.id === savedCategory)) {
+    selectedCategory.value = 'all';
+    localStorage.setItem('appLauncher_selectedCategory', 'all');
+  }
 });
 
 // 计算属性
@@ -474,6 +476,8 @@ const handleClearSearch = () => {
 
 const handleSelectCategory = (categoryId: string) => {
   selectedCategory.value = categoryId;
+  // 保存选中的分类到本地存储
+  localStorage.setItem('appLauncher_selectedCategory', categoryId);
 };
 
 const handleLaunch = async (appIdOrApp: string | AppItem) => {
