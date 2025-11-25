@@ -7,10 +7,12 @@ use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 /// 快捷键配置
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct ShortcutConfig {
     pub task_board: String,
     pub sql_history: String,
     pub app_launcher: String,
+    pub quick_task: String,
 }
 
 impl Default for ShortcutConfig {
@@ -19,6 +21,7 @@ impl Default for ShortcutConfig {
             task_board: "Ctrl+Shift+N".to_string(),
             sql_history: "Ctrl+Shift+S".to_string(),
             app_launcher: "Ctrl+Shift+Space".to_string(),
+            quick_task: "Ctrl+Shift+T".to_string(),
         }
     }
 }
@@ -76,6 +79,7 @@ pub fn update_shortcut_config(
         old_config.task_board.as_str(),
         old_config.sql_history.as_str(),
         old_config.app_launcher.as_str(),
+        old_config.quick_task.as_str(),
     ];
 
     for shortcut in shortcuts {
@@ -105,16 +109,25 @@ pub fn update_shortcut_config(
         ));
     }
 
+    // SQL面板使用独立透明窗口
     let sql_history_shortcut = config.sql_history.clone();
     if let Err(e) = app.global_shortcut().on_shortcut(
         sql_history_shortcut.as_str(),
         move |app, _shortcut, event| {
             if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.unminimize();
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                    let _ = window.emit("navigate-to", "/sql-history");
+                // 获取 SQL 面板窗口
+                if let Some(sql_window) = app.get_webview_window("sql-panel") {
+                    let is_visible = sql_window.is_visible().unwrap_or(false);
+
+                    if is_visible {
+                        // 如果已显示，则隐藏
+                        let _ = sql_window.hide();
+                    } else {
+                        // 显示并居中
+                        let _ = sql_window.center();
+                        let _ = sql_window.show();
+                        let _ = sql_window.set_focus();
+                    }
                 }
             }
         },
@@ -125,16 +138,25 @@ pub fn update_shortcut_config(
         ));
     }
 
+    // 应用启动器使用独立透明窗口
     let app_launcher_shortcut = config.app_launcher.clone();
     if let Err(e) = app.global_shortcut().on_shortcut(
         app_launcher_shortcut.as_str(),
         move |app, _shortcut, event| {
             if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.unminimize();
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                    let _ = window.emit("navigate-to", "/app-launcher");
+                // 获取启动器窗口
+                if let Some(launcher_window) = app.get_webview_window("launcher") {
+                    let is_visible = launcher_window.is_visible().unwrap_or(false);
+
+                    if is_visible {
+                        // 如果已显示，则隐藏
+                        let _ = launcher_window.hide();
+                    } else {
+                        // 显示并居中
+                        let _ = launcher_window.center();
+                        let _ = launcher_window.show();
+                        let _ = launcher_window.set_focus();
+                    }
                 }
             }
         },
@@ -142,6 +164,35 @@ pub fn update_shortcut_config(
         return Err(format!(
             "无法注册应用启动器快捷键 {}: {}",
             app_launcher_shortcut, e
+        ));
+    }
+
+    // 快速任务使用独立透明窗口
+    let quick_task_shortcut = config.quick_task.clone();
+    if let Err(e) = app.global_shortcut().on_shortcut(
+        quick_task_shortcut.as_str(),
+        move |app, _shortcut, event| {
+            if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                // 获取快速任务窗口
+                if let Some(task_window) = app.get_webview_window("quick-task") {
+                    let is_visible = task_window.is_visible().unwrap_or(false);
+
+                    if is_visible {
+                        // 如果已显示，则隐藏
+                        let _ = task_window.hide();
+                    } else {
+                        // 显示并居中
+                        let _ = task_window.center();
+                        let _ = task_window.show();
+                        let _ = task_window.set_focus();
+                    }
+                }
+            }
+        },
+    ) {
+        return Err(format!(
+            "无法注册快速任务快捷键 {}: {}",
+            quick_task_shortcut, e
         ));
     }
 

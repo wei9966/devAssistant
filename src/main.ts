@@ -32,7 +32,20 @@ if (!import.meta.env.DEV) {
 listen<string>('navigate-to', (event) => {
   const route = event.payload
   console.log('收到导航请求:', route)
-  router.push(route)
+
+  // 如果是应用启动器，触发全屏模态框而不是路由跳转
+  if (route === '/app-launcher') {
+    // 通过自定义事件通知 App.vue 打开启动器模态框
+    window.dispatchEvent(new CustomEvent('open-cyberpunk-launcher'))
+  } else if (route === '/quick-task') {
+    // 触发快速任务创建模态框
+    window.dispatchEvent(new CustomEvent('open-quick-task-modal'))
+  } else if (route === '/sql-history') {
+    // 触发SQL历史模态框
+    window.dispatchEvent(new CustomEvent('open-cyberpunk-sql'))
+  } else {
+    router.push(route)
+  }
 })
 
 // 开发环境日志

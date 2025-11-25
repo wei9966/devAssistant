@@ -21,6 +21,54 @@
         "resizable": true,
         "fullscreen": false,
         "focus": true
+      },
+      {
+        "label": "launcher",
+        "title": "App Launcher",
+        "url": "launcher.html",
+        "width": 750,
+        "height": 520,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "center": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "focus": true
+      },
+      {
+        "label": "sql-panel",
+        "title": "SQL Panel",
+        "url": "sql-panel.html",
+        "width": 920,
+        "height": 620,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "center": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "focus": true
+      },
+      {
+        "label": "quick-task",
+        "title": "Quick Task",
+        "url": "quick-task.html",
+        "width": 700,
+        "height": 130,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "center": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "focus": true
       }
     ],
     "security": {
@@ -46,6 +94,45 @@
             "global-shortcut:allow-register-all",
             "global-shortcut:allow-unregister",
             "global-shortcut:allow-unregister-all"
+          ]
+        },
+        {
+          "identifier": "launcher-capability",
+          "description": "Launcher window capabilities",
+          "windows": ["launcher"],
+          "permissions": [
+            "core:default",
+            "core:window:allow-close",
+            "core:window:allow-hide",
+            "core:window:allow-show",
+            "core:window:allow-set-focus",
+            "shell:allow-open"
+          ]
+        },
+        {
+          "identifier": "sql-panel-capability",
+          "description": "SQL Panel window capabilities",
+          "windows": ["sql-panel"],
+          "permissions": [
+            "core:default",
+            "core:window:allow-close",
+            "core:window:allow-hide",
+            "core:window:allow-show",
+            "core:window:allow-set-focus"
+          ]
+        },
+        {
+          "identifier": "quick-task-capability",
+          "description": "Quick Task window capabilities",
+          "windows": ["quick-task"],
+          "permissions": [
+            "core:default",
+            "core:window:allow-close",
+            "core:window:allow-hide",
+            "core:window:allow-show",
+            "core:window:allow-set-focus",
+            "core:window:allow-set-size",
+            "core:window:allow-center"
           ]
         }
       ]

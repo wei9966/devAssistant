@@ -84,6 +84,23 @@
                 </div>
               </div>
             </div>
+            <!-- 赛博朋克全屏启动器 -->
+            <CyberpunkLauncher
+              v-model="showCyberpunkLauncher"
+              @launch="handleLauncherLaunch"
+            />
+
+            <!-- 快速任务创建模态框 -->
+            <QuickTaskModal
+              v-model:show="showQuickTaskModal"
+              @created="handleTaskCreated"
+            />
+
+            <!-- 赛博朋克SQL查询模态框 -->
+            <CyberpunkSqlModal
+              v-model="showCyberpunkSql"
+              @edit="handleSqlEdit"
+            />
           </n-dialog-provider>
         </n-notification-provider>
       </n-message-provider>
@@ -112,6 +129,9 @@ import {
   SettingsOutline as SettingsIcon
 } from '@vicons/ionicons5'
 import { invoke } from '@tauri-apps/api/core'
+import CyberpunkLauncher from '@/components/appLauncher/CyberpunkLauncher.vue'
+import QuickTaskModal from '@/components/QuickTaskModal.vue'
+import CyberpunkSqlModal from '@/components/sql/CyberpunkSqlModal.vue'
 
 interface SystemInfo {
   cpu_usage: number
@@ -126,6 +146,48 @@ const cpuUsage = ref<number>(0)
 const memoryUsage = ref<number>(0)
 const memoryTotal = ref<number>(0)
 const memoryUsed = ref<number>(0)
+
+// 赛博朋克启动器状态
+const showCyberpunkLauncher = ref(false)
+
+// 快速任务模态框状态
+const showQuickTaskModal = ref(false)
+
+// 赛博朋克SQL模态框状态
+const showCyberpunkSql = ref(false)
+
+// 打开赛博朋克启动器
+const openCyberpunkLauncher = () => {
+  showCyberpunkLauncher.value = true
+}
+
+// 打开快速任务模态框
+const openQuickTaskModal = () => {
+  showQuickTaskModal.value = true
+}
+
+// 打开赛博朋克SQL模态框
+const openCyberpunkSql = () => {
+  showCyberpunkSql.value = true
+}
+
+// 处理启动器启动应用事件
+const handleLauncherLaunch = () => {
+  // 应用启动后的回调，可以添加通知等
+}
+
+// 处理任务创建完成事件
+const handleTaskCreated = (taskId: number) => {
+  console.log('任务已创建:', taskId)
+  // 可以在这里添加刷新任务列表等逻辑
+}
+
+// 处理SQL编辑事件
+const handleSqlEdit = (sql: any) => {
+  console.log('编辑SQL:', sql)
+  // 跳转到SQL历史页面进行编辑
+  router.push({ name: 'sql-history' })
+}
 
 // 主题配置 - 使用深色主题
 const theme = darkTheme
@@ -219,17 +281,44 @@ const formatMemory = (bytes: number): string => {
 
 // 定时获取系统信息
 let systemInterval: number | null = null
+
+// 监听全局快捷键事件
+const handleOpenLauncher = () => {
+  openCyberpunkLauncher()
+}
+
+// 监听打开快速任务模态框事件
+const handleOpenQuickTask = () => {
+  openQuickTaskModal()
+}
+
+// 监听打开SQL模态框事件
+const handleOpenSqlModal = () => {
+  openCyberpunkSql()
+}
+
 onMounted(() => {
   getSystemInfo() // 立即获取一次
   systemInterval = window.setInterval(() => {
     getSystemInfo()
   }, 3000)
+
+  // 监听打开启动器的自定义事件
+  window.addEventListener('open-cyberpunk-launcher', handleOpenLauncher)
+  // 监听打开快速任务模态框的自定义事件
+  window.addEventListener('open-quick-task-modal', handleOpenQuickTask)
+  // 监听打开SQL模态框的自定义事件
+  window.addEventListener('open-cyberpunk-sql', handleOpenSqlModal)
 })
 
 onUnmounted(() => {
   if (systemInterval) {
     clearInterval(systemInterval)
   }
+  // 移除事件监听
+  window.removeEventListener('open-cyberpunk-launcher', handleOpenLauncher)
+  window.removeEventListener('open-quick-task-modal', handleOpenQuickTask)
+  window.removeEventListener('open-cyberpunk-sql', handleOpenSqlModal)
 })
 </script>
 

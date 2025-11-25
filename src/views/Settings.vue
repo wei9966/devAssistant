@@ -151,6 +151,20 @@
                     </div>
                   </div>
 
+                  <div class="setting-item">
+                    <div class="setting-info">
+                      <div class="setting-label">快速任务</div>
+                      <div class="setting-desc">快速创建新任务</div>
+                    </div>
+                    <div class="shortcut-input">
+                      <n-input
+                        v-model:value="shortcuts.quickTask"
+                        placeholder="如: Ctrl+Shift+T"
+                        @keydown="handleShortcutKeyDown($event, 'quickTask')"
+                      />
+                    </div>
+                  </div>
+
                   <div class="shortcut-tips">
                     <n-alert type="info" :bordered="false">
                       <template #icon>
@@ -559,6 +573,7 @@ const shortcuts = ref({
   taskBoard: 'Ctrl+Shift+N',
   sqlHistory: 'Ctrl+Shift+S',
   appLauncher: 'Ctrl+Shift+Space',
+  quickTask: 'Ctrl+Shift+T',
 });
 
 // AI 配置
@@ -795,12 +810,14 @@ async function loadShortcuts() {
       task_board: string;
       sql_history: string;
       app_launcher: string;
+      quick_task: string;
     }>('get_shortcut_config');
 
     shortcuts.value = {
       taskBoard: config.task_board,
       sqlHistory: config.sql_history,
       appLauncher: config.app_launcher,
+      quickTask: config.quick_task,
     };
   } catch (error) {
     console.error('加载快捷键配置失败:', error);
@@ -817,6 +834,7 @@ async function saveShortcuts() {
         task_board: shortcuts.value.taskBoard,
         sql_history: shortcuts.value.sqlHistory,
         app_launcher: shortcuts.value.appLauncher,
+        quick_task: shortcuts.value.quickTask,
       },
     });
     message.success('快捷键已更新');
@@ -846,7 +864,7 @@ async function resetShortcuts() {
   });
 }
 
-function handleShortcutKeyDown(event: KeyboardEvent, field: 'taskBoard' | 'sqlHistory' | 'appLauncher') {
+function handleShortcutKeyDown(event: KeyboardEvent, field: 'taskBoard' | 'sqlHistory' | 'appLauncher' | 'quickTask') {
   event.preventDefault();
 
   const modifiers: string[] = [];

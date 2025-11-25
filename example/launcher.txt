@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevAssistant - Cyberpunk Launcher Preview</title>
+    <!-- Tailwind CSS (用于快速布局和样式) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Phosphor Icons (极客风格图标库) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        /* --- 核心：赛博朋克霓虹光效定义 --- */
+        
+        /* 自定义字体，推荐 JetBrains Mono 或类似等宽字体 */
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #050508;
+            color: #e2e8f0;
+            overflow: hidden; /* 防止滚动 */
+        }
+
+        /* 滚动条隐藏 */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+
+        /* 1. 模态框的霓虹边框光晕 */
+        .neon-box-glow {
+            /* 多重阴影实现复杂的发光层次 */
+            box-shadow: 
+                0 0 0 1px rgba(139, 92, 246, 0.3),  /* 内圈紫线 */
+                0 0 20px rgba(139, 92, 246, 0.15),  /* 中圈紫雾 */
+                0 0 40px rgba(6, 182, 212, 0.1);    /* 外圈蓝雾 */
+        }
+
+        /* 2. 选中项的高亮光效 */
+        .item-active-glow {
+            background: rgba(139, 92, 246, 0.15);
+            border: 1px solid rgba(139, 92, 246, 0.5);
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+        }
+
+        /* 3. 搜索框的光标动画 */
+        .cursor-blink {
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* 4. 模态框进出动画 (Vue Transition) */
+        .cyber-fade-enter-active,
+        .cyber-fade-leave-active {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .cyber-fade-enter-from,
+        .cyber-fade-leave-to {
+            opacity: 0;
+            transform: scale(0.95) translateY(10px); /* 轻微的缩放和位移 */
+            filter: blur(10px);
+        }
+        
+        .cyber-fade-enter-to,
+        .cyber-fade-leave-from {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            filter: blur(0);
+        }
+
+        /* 背景模糊遮罩过渡 */
+        .backdrop-fade-enter-active,
+        .backdrop-fade-leave-active {
+            transition: opacity 0.3s ease;
+        }
+        .backdrop-fade-enter-from,
+        .backdrop-fade-leave-to {
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="h-screen w-screen flex relative">
+    
+    <!-- ========================================= -->
+    <!-- layer 1: 模拟的主应用界面 (Dashboard) -->
+    <!-- 这里的目的是展示模态框如何覆盖在现有内容上 -->
+    <!-- ========================================= -->
+    
+    <!-- 侧边栏 -->
+    <aside class="w-20 bg-[#0a0a12] border-r border-white/5 flex flex-col items-center py-6 gap-8 z-0">
+        <div class="w-10 h-10 bg-gradient-to-br from-violet-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-900/20">
+            <i class="ph ph-command text-xl text-white"></i>
+        </div>
+        <div class="flex flex-col gap-6 w-full items-center">
+            <div class="p-3 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer"><i class="ph ph-squares-four text-2xl"></i></div>
+            <div class="p-3 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer"><i class="ph ph-database text-2xl"></i></div>
+            <div class="p-3 rounded-lg bg-violet-500/10 text-violet-400 border-l-2 border-violet-500 cursor-pointer"><i class="ph ph-notebook text-2xl"></i></div>
+            <div class="p-3 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer"><i class="ph ph-chart-line-up text-2xl"></i></div>
+        </div>
+        <div class="mt-auto p-3 text-slate-500"><i class="ph ph-gear text-2xl"></i></div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="flex-1 bg-[#050508] p-8 flex flex-col gap-6 z-0 overflow-hidden relative">
+        <!-- 头部 -->
+        <header class="flex justify-between items-center mb-4">
+            <div>
+                <h1 class="text-2xl font-bold text-white tracking-wide">工作日志</h1>
+                <p class="text-slate-500 text-sm mt-1">2025年 11月 25日 | 星期二</p>
+            </div>
+            <div class="flex gap-3">
+                <button class="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm text-slate-300 transition">历史归档</button>
+                <button class="px-4 py-2 bg-violet-600 hover:bg-violet-500 shadow-lg shadow-violet-900/50 rounded-lg text-sm text-white transition flex items-center gap-2">
+                    <i class="ph ph-magic-wand"></i> AI 生成日报
+                </button>
+            </div>
+        </header>
+
+        <!-- 模拟的内容卡片 -->
+        <div class="grid grid-cols-3 gap-6 h-full opacity-80">
+            <div class="col-span-2 bg-[#0f0f18] border border-white/5 rounded-2xl p-6 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-600 to-transparent opacity-50"></div>
+                <div class="flex items-center gap-2 text-violet-400 mb-4">
+                    <i class="ph ph-pen-nib"></i>
+                    <span class="text-sm font-medium">Editor - Markdown</span>
+                </div>
+                <div class="space-y-4 text-slate-400 font-mono text-sm leading-relaxed">
+                    <p>### 本周工作成果</p>
+                    <p>完成新技术方案的研究与调研，为后续接口技术选型提供初步结论...</p>
+                    <p>- 梳理并完善项目文档体系</p>
+                    <p>- 参与团队技术讨论会议</p>
+                    <div class="h-4"></div>
+                    <p class="text-slate-600">// 光标位置模拟</p>
+                    <div class="inline-block w-2 h-5 bg-violet-500 animate-pulse"></div>
+                </div>
+            </div>
+            <div class="col-span-1 flex flex-col gap-6">
+                <div class="bg-[#0f0f18] border border-white/5 rounded-2xl p-6 flex-1">
+                    <div class="text-slate-500 text-sm mb-4">最近记录</div>
+                    <div class="space-y-4">
+                        <div class="pl-4 border-l border-violet-500/30 relative">
+                            <div class="absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full bg-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.5)]"></div>
+                            <div class="text-xs text-slate-500 mb-1">10:42 AM</div>
+                            <div class="text-sm text-slate-300">提交了 API 接口文档 v1.2</div>
+                        </div>
+                        <div class="pl-4 border-l border-white/5">
+                            <div class="absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full bg-slate-700"></div>
+                            <div class="text-xs text-slate-500 mb-1">09:15 AM</div>
+                            <div class="text-sm text-slate-300">早会记录同步</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 这里的模拟按钮 -->
+                <div class="bg-gradient-to-r from-violet-900/20 to-blue-900/20 border border-white/5 rounded-2xl p-6 flex items-center justify-between group cursor-pointer hover:border-violet-500/30 transition" @click="toggleLauncher">
+                    <div>
+                        <div class="text-violet-400 font-bold">模拟唤起</div>
+                        <div class="text-xs text-slate-500 mt-1">点击或按 <kbd class="bg-white/10 px-1 rounded text-white">Alt</kbd> + <kbd class="bg-white/10 px-1 rounded text-white">S</kbd></div>
+                    </div>
+                    <i class="ph ph-lightning text-2xl text-violet-500 group-hover:text-white transition"></i>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========================================= -->
+    <!-- layer 2: 全屏模态启动器 (The Launcher) -->
+    <!-- 这是您需要实现的核心部分 -->
+    <!-- ========================================= -->
+    
+    <!-- 1. 背景遮罩 (Backdrop) -->
+    <!-- z-index 设为 50，backdrop-blur-md 提供毛玻璃效果 -->
+    <transition name="backdrop-fade">
+        <div v-if="isVisible" class="fixed inset-0 z-40 bg-[#050508]/60 backdrop-blur-xl flex items-center justify-center" @click.self="toggleLauncher">
+            
+            <!-- 2. 模态框主体 (Modal Container) -->
+            <transition name="cyber-fade">
+                <div v-if="isVisible" class="w-[800px] h-[550px] bg-[#0c0c14]/90 rounded-2xl flex flex-col relative overflow-hidden neon-box-glow border border-white/10">
+                    
+                    <!-- 装饰背景噪点/网格 (可选) -->
+                    <div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(#4c1d95 1px, transparent 1px); background-size: 30px 30px;"></div>
+
+                    <!-- Header: 搜索栏 -->
+                    <div class="p-6 pb-2 relative z-10">
+                        <div class="flex items-center gap-4 border-b border-white/10 pb-4">
+                            <!-- 动态图标 -->
+                            <i class="ph ph-magnifying-glass text-3xl text-violet-400 animate-pulse"></i>
+                            
+                            <!-- 巨大的输入框 -->
+                            <input 
+                                ref="searchInput"
+                                type="text" 
+                                v-model="searchQuery"
+                                placeholder="尝试搜索应用，命令，或者AI" 
+                                class="w-full bg-transparent text-2xl text-white placeholder-slate-600 outline-none font-light tracking-wide h-12"
+                                @keydown.down.prevent="navigate('down')"
+                                @keydown.up.prevent="navigate('up')"
+                                @keydown.enter="openApp(selectedIndex)"
+                            >
+                            
+                            <!-- 尾部提示 -->
+                            <div class="flex gap-2 text-xs text-slate-500 font-mono border border-white/10 px-2 py-1 rounded bg-black/20">
+                                <span>CMD</span>
+                                <span>K</span>
+                            </div>
+                        </div>
+
+                        <!-- 快捷分类标签 (Capsule Buttons) -->
+                        <div class="flex gap-3 mt-4 overflow-x-auto pb-2 no-scrollbar">
+                            <button 
+                                v-for="tag in tags" 
+                                :key="tag.name"
+                                :class="['px-3 py-1 rounded-full text-xs transition border', activeTag === tag.name ? 'bg-violet-500/20 border-violet-500 text-violet-300' : 'bg-white/5 border-transparent text-slate-500 hover:text-slate-300']"
+                                @click="activeTag = tag.name"
+                            >
+                                <i :class="['ph', tag.icon, 'mr-1']"></i> {{ tag.name }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Body: 应用网格 -->
+                    <div class="flex-1 overflow-y-auto p-6 pt-2 z-10 grid grid-cols-5 content-start gap-4">
+                        <div 
+                            v-for="(app, index) in filteredApps" 
+                            :key="app.id"
+                            :class="[
+                                'group flex flex-col items-center justify-center p-4 rounded-xl transition duration-200 cursor-pointer border border-transparent',
+                                selectedIndex === index ? 'item-active-glow' : 'hover:bg-white/5 hover:border-white/10'
+                            ]"
+                            @click="openApp(index)"
+                            @mouseenter="selectedIndex = index"
+                        >
+                            <div :class="['w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-3 shadow-lg transition-transform group-hover:scale-110', app.colorClass]">
+                                <i :class="['ph', app.icon, 'text-white']"></i>
+                            </div>
+                            <span :class="['text-xs text-center font-medium transition', selectedIndex === index ? 'text-white' : 'text-slate-400 group-hover:text-slate-200']">{{ app.name }}</span>
+                        </div>
+                        
+                        <!-- 空状态 -->
+                        <div v-if="filteredApps.length === 0" class="col-span-5 text-center text-slate-600 py-10">
+                            No results found for "{{ searchQuery }}"
+                        </div>
+                    </div>
+
+                    <!-- Footer: 状态栏与提示 -->
+                    <div class="h-10 bg-black/40 border-t border-white/5 flex items-center justify-between px-6 z-10">
+                        <div class="flex gap-4 text-[10px] font-mono text-slate-500">
+                            <span class="flex items-center gap-1"><i class="ph ph-cpu text-violet-500"></i> CPU 12%</span>
+                            <span class="flex items-center gap-1"><i class="ph ph-memory text-blue-500"></i> MEM 4.2GB</span>
+                        </div>
+                        
+                        <div class="flex gap-4 text-[11px] text-slate-500 font-mono">
+                            <span class="flex items-center gap-1"><kbd class="bg-white/10 px-1 rounded text-[9px]">TAB</kbd> 切换</span>
+                            <span class="flex items-center gap-1"><kbd class="bg-white/10 px-1 rounded text-[9px]">↑↓</kbd> 选择</span>
+                            <span class="flex items-center gap-1"><kbd class="bg-white/10 px-1 rounded text-[9px]">↵</kbd> 打开</span>
+                            <span class="flex items-center gap-1"><kbd class="bg-white/10 px-1 rounded text-[9px]">ESC</kbd> 关闭</span>
+                        </div>
+                    </div>
+
+                </div>
+            </transition>
+        </div>
+    </transition>
+
+</div>
+
+<script>
+    const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = Vue;
+
+    createApp({
+        setup() {
+            const isVisible = ref(false);
+            const searchQuery = ref('');
+            const selectedIndex = ref(0);
+            const activeTag = ref('All');
+            const searchInput = ref(null);
+
+            // 模拟数据
+            const tags = [
+                { name: 'All', icon: 'ph-squares-four' },
+                { name: 'Dev Tools', icon: 'ph-code' },
+                { name: 'AI', icon: 'ph-magic-wand' },
+                { name: 'Database', icon: 'ph-database' },
+                { name: 'Office', icon: 'ph-briefcase' }
+            ];
+
+            const allApps = [
+                { id: 1, name: 'VS Code', icon: 'ph-code', category: 'Dev Tools', colorClass: 'bg-blue-600' },
+                { id: 2, name: 'Terminal', icon: 'ph-terminal-window', category: 'Dev Tools', colorClass: 'bg-slate-700' },
+                { id: 3, name: 'Chrome', icon: 'ph-globe', category: 'Dev Tools', colorClass: 'bg-yellow-600' },
+                { id: 4, name: 'SQL Studio', icon: 'ph-database', category: 'Database', colorClass: 'bg-red-600' },
+                { id: 5, name: 'ChatGPT', icon: 'ph-robot', category: 'AI', colorClass: 'bg-emerald-600' },
+                { id: 6, name: 'Docker', icon: 'ph-cube', category: 'Dev Tools', colorClass: 'bg-blue-500' },
+                { id: 7, name: 'Postman', icon: 'ph-paper-plane-tilt', category: 'Dev Tools', colorClass: 'bg-orange-600' },
+                { id: 8, name: 'Notion', icon: 'ph-notebook', category: 'Office', colorClass: 'bg-black border border-white/20' },
+                { id: 9, name: 'Figma', icon: 'ph-paint-brush', category: 'Office', colorClass: 'bg-purple-600' },
+                { id: 10, name: 'Redis', icon: 'ph-hard-drives', category: 'Database', colorClass: 'bg-red-500' },
+                { id: 11, name: 'Spotify', icon: 'ph-spotify-logo', category: 'Office', colorClass: 'bg-green-500' },
+                { id: 12, name: 'Calculator', icon: 'ph-calculator', category: 'Office', colorClass: 'bg-slate-600' },
+                { id: 13, name: 'Github', icon: 'ph-github-logo', category: 'Dev Tools', colorClass: 'bg-slate-800' },
+                { id: 14, name: 'Settings', icon: 'ph-gear', category: 'Office', colorClass: 'bg-slate-500' },
+                { id: 15, name: 'Image Gen', icon: 'ph-image', category: 'AI', colorClass: 'bg-pink-600' },
+            ];
+
+            // 过滤逻辑
+            const filteredApps = computed(() => {
+                let result = allApps;
+                
+                // Tag 过滤
+                if (activeTag.value !== 'All') {
+                    result = result.filter(app => app.category === activeTag.value);
+                }
+
+                // 搜索 过滤
+                if (searchQuery.value) {
+                    const q = searchQuery.value.toLowerCase();
+                    result = result.filter(app => app.name.toLowerCase().includes(q));
+                }
+
+                return result;
+            });
+
+            // 方法
+            const toggleLauncher = () => {
+                isVisible.value = !isVisible.value;
+                if (isVisible.value) {
+                    searchQuery.value = '';
+                    selectedIndex.value = 0;
+                    // 必须等待 DOM 渲染后聚焦
+                    nextTick(() => {
+                        searchInput.value?.focus();
+                    });
+                }
+            };
+
+            const navigate = (direction) => {
+                if (direction === 'down') {
+                    if (selectedIndex.value < filteredApps.value.length - 1) {
+                        selectedIndex.value++;
+                    }
+                } else if (direction === 'up') {
+                    if (selectedIndex.value > 0) {
+                        selectedIndex.value--;
+                    }
+                }
+                // 这里可以加滚动条跟随逻辑
+            };
+
+            const openApp = (index) => {
+                const app = filteredApps.value[index];
+                if (app) {
+                    alert(`Opening ${app.name}... (Simulation)`);
+                    toggleLauncher();
+                }
+            };
+
+            // 键盘事件监听
+            const handleKeydown = (e) => {
+                // 模拟 Alt + S (因为 Alt+Space 可能被浏览器阻止)
+                if (e.altKey && (e.key === 's' || e.key === 'S')) {
+                    e.preventDefault();
+                    toggleLauncher();
+                }
+                
+                // ESC 关闭
+                if (e.key === 'Escape' && isVisible.value) {
+                    toggleLauncher();
+                }
+            };
+
+            onMounted(() => {
+                window.addEventListener('keydown', handleKeydown);
+            });
+
+            onUnmounted(() => {
+                window.removeEventListener('keydown', handleKeydown);
+            });
+
+            return {
+                isVisible,
+                searchQuery,
+                selectedIndex,
+                activeTag,
+                tags,
+                filteredApps,
+                searchInput,
+                toggleLauncher,
+                navigate,
+                openApp
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

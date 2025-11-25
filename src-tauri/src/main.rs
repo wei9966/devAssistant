@@ -99,16 +99,25 @@ fn main() {
             }
 
             // 注册全局快捷键: SQL历史
+            // 使用独立透明窗口
             let sql_history_shortcut = loaded_config.sql_history.clone();
             if let Err(e) = app.global_shortcut().on_shortcut(
                 sql_history_shortcut.as_str(),
                 move |app, _shortcut, event| {
                     if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.unminimize();
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                            let _ = window.emit("navigate-to", "/sql-history");
+                        // 获取 SQL 面板窗口
+                        if let Some(sql_window) = app.get_webview_window("sql-panel") {
+                            let is_visible = sql_window.is_visible().unwrap_or(false);
+
+                            if is_visible {
+                                // 如果已显示，则隐藏
+                                let _ = sql_window.hide();
+                            } else {
+                                // 显示并居中
+                                let _ = sql_window.center();
+                                let _ = sql_window.show();
+                                let _ = sql_window.set_focus();
+                            }
                         }
                     }
                 },
@@ -117,21 +126,57 @@ fn main() {
             }
 
             // 注册全局快捷键: 应用启动器
+            // 使用独立透明窗口，类似 Mac Spotlight
             let app_launcher_shortcut = loaded_config.app_launcher.clone();
             if let Err(e) = app.global_shortcut().on_shortcut(
                 app_launcher_shortcut.as_str(),
                 move |app, _shortcut, event| {
                     if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.unminimize();
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                            let _ = window.emit("navigate-to", "/app-launcher");
+                        // 获取启动器窗口
+                        if let Some(launcher_window) = app.get_webview_window("launcher") {
+                            let is_visible = launcher_window.is_visible().unwrap_or(false);
+
+                            if is_visible {
+                                // 如果已显示，则隐藏
+                                let _ = launcher_window.hide();
+                            } else {
+                                // 显示并居中
+                                let _ = launcher_window.center();
+                                let _ = launcher_window.show();
+                                let _ = launcher_window.set_focus();
+                            }
                         }
                     }
                 },
             ) {
                 eprintln!("警告: 无法注册快捷键 {}: {}", app_launcher_shortcut, e);
+            }
+
+            // 注册全局快捷键: 快速任务
+            // 使用独立透明窗口
+            let quick_task_shortcut = loaded_config.quick_task.clone();
+            if let Err(e) = app.global_shortcut().on_shortcut(
+                quick_task_shortcut.as_str(),
+                move |app, _shortcut, event| {
+                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        // 获取快速任务窗口
+                        if let Some(task_window) = app.get_webview_window("quick-task") {
+                            let is_visible = task_window.is_visible().unwrap_or(false);
+
+                            if is_visible {
+                                // 如果已显示，则隐藏
+                                let _ = task_window.hide();
+                            } else {
+                                // 显示并居中
+                                let _ = task_window.center();
+                                let _ = task_window.show();
+                                let _ = task_window.set_focus();
+                            }
+                        }
+                    }
+                },
+            ) {
+                eprintln!("警告: 无法注册快捷键 {}: {}", quick_task_shortcut, e);
             }
 
             Ok(())

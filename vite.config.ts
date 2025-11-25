@@ -34,6 +34,15 @@ export default defineConfig({
     // don't minify for debug builds
     minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
     // produce sourcemaps for debug builds
-    sourcemap: !!process.env.TAURI_DEBUG
+    sourcemap: !!process.env.TAURI_DEBUG,
+    // 多入口配置
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        launcher: resolve(__dirname, 'launcher.html'),
+        'sql-panel': resolve(__dirname, 'sql-panel.html'),
+        'quick-task': resolve(__dirname, 'quick-task.html')
+      }
+    }
   }
 })

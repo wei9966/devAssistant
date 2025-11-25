@@ -1,0 +1,310 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Plus, 
+  Maximize2, 
+  Minimize2, 
+  Code, 
+  Database, 
+  Layout, 
+  FileText, 
+  Zap, 
+  Clock, 
+  AlertCircle, 
+  CheckCircle,
+  Hash,
+  ArrowUp,
+  Send,
+  X
+} from 'lucide-react';
+
+const QuickTaskModal = () => {
+  // 状态管理
+  const [isOpen, setIsOpen] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false); // 控制是否展开详细模式
+  const [inputValue, setInputValue] = useState("");
+  const [detectedTags, setDetectedTags] = useState([]);
+  const [selectedQuadrant, setSelectedQuadrant] = useState('q2'); // 默认重要不紧急
+  const inputRef = useRef(null);
+
+  // 模拟智能解析逻辑 (简单的正则)
+  useEffect(() => {
+    const tags = inputValue.match(/#[\w\u4e00-\u9fa5]+/g);
+    if (tags) {
+      setDetectedTags(tags.map(t => t.replace('#', '')));
+    } else {
+      setDetectedTags([]);
+    }
+  }, [inputValue]);
+
+  // 自动聚焦
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  const toggleExpand = () => setIsExpanded(!isExpanded);
+
+  // 样式常量
+  const baseBg = "bg-slate-900";
+  const modalBg = "bg-slate-800";
+  const accentColor = "purple";
+  const borderColor = "border-slate-700";
+
+  if (!isOpen) return (
+    <div className="flex items-center justify-center h-screen bg-black text-slate-400">
+      <button 
+        onClick={() => setIsOpen(true)}
+        className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-all shadow-lg shadow-purple-500/30 flex items-center gap-2"
+      >
+        <Zap size={20} />
+        模拟全局快捷键呼出 (Alt + Space)
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="relative w-full h-screen bg-black/80 backdrop-blur-sm flex items-start justify-center pt-[15vh] font-sans">
+      {/* 核心模态框 */}
+      <div 
+        className={`
+          relative w-full max-w-2xl 
+          ${modalBg} border ${borderColor} 
+          rounded-xl shadow-2xl shadow-purple-900/20 
+          transition-all duration-300 ease-out
+          ${isExpanded ? 'min-h-[500px]' : 'min-h-[80px]'}
+          overflow-hidden
+        `}
+      >
+        
+        {/* --- 顶部：极简输入区 (Spotlight Area) --- */}
+        <div className="relative p-4 flex items-center gap-4 border-b border-transparent data-[expanded=true]:border-slate-700" data-expanded={isExpanded}>
+          {/* 左侧图标 (状态指示器) */}
+          <div className="flex-shrink-0">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-purple-600 to-indigo-600 shadow-lg shadow-purple-500/30`}>
+              <Plus className="text-white" size={24} />
+            </div>
+          </div>
+
+          {/* 输入框核心 */}
+          <div className="flex-1 relative">
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="输入任务标题... (尝试输入 #前端 !高优)"
+              className={`
+                w-full bg-transparent text-xl text-white placeholder-slate-500 
+                outline-none border-none
+                h-12
+              `}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  // 提交逻辑
+                  setInputValue('');
+                  alert("任务已快速创建！");
+                }
+              }}
+            />
+            
+            {/* 智能解析展示区 (当输入框有值时显示) */}
+            {inputValue && (
+              <div className="absolute top-12 left-0 flex gap-2 text-xs">
+                {detectedTags.map(tag => (
+                  <span key={tag} className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                    <Hash size={10} /> {tag}
+                  </span>
+                ))}
+                {inputValue.includes('!') && (
+                  <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1">
+                    <ArrowUp size={10} /> 高优先级
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 右侧操作区 */}
+          <div className="flex items-center gap-2 text-slate-400">
+            <div className="text-xs px-2 py-1 rounded bg-slate-700/50 border border-slate-600 hidden sm:block">
+              ↵ Create
+            </div>
+            
+            <div className="w-px h-6 bg-slate-700 mx-1"></div>
+            
+            <button 
+              onClick={toggleExpand}
+              className={`p-2 rounded-lg hover:bg-slate-700 transition-colors ${isExpanded ? 'text-purple-400 bg-slate-700/50' : ''}`}
+              title={isExpanded ? "收起详情" : "展开详情"}
+            >
+              {isExpanded ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+            </button>
+          </div>
+        </div>
+
+        {/* --- 下半部分：扩展详情区 (Expanded Area) --- */}
+        <div 
+          className={`
+            overflow-hidden transition-all duration-500 ease-in-out
+            ${isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}
+          `}
+        >
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            {/* 左列：描述与基础信息 */}
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">描述</label>
+                <textarea 
+                  className="w-full h-32 bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-slate-300 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none resize-none transition-colors"
+                  placeholder="添加更详细的任务描述、代码片段或备注..."
+                ></textarea>
+              </div>
+
+              {/* 快速分类 (Pills) */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">分类</label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { icon: Code, label: '后端', color: 'blue' },
+                    { icon: Database, label: '数据库', color: 'green' },
+                    { icon: Layout, label: '前端', color: 'pink' },
+                    { icon: FileText, label: '文档', color: 'orange' },
+                  ].map((cat) => (
+                    <button key={cat.label} className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-slate-700/30 border border-slate-700 hover:border-purple-500/50 hover:bg-slate-700 transition-all text-xs text-slate-300 group">
+                      <cat.icon size={14} className={`group-hover:text-${cat.color}-400`} />
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 右列：四象限选择器 (简化版) */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex justify-between items-center">
+                优先级矩阵
+                <span className="text-[10px] text-purple-400 cursor-pointer hover:underline">什么是这个?</span>
+              </label>
+              
+              <div className="grid grid-cols-2 gap-3 h-48">
+                {/* 象限 1 */}
+                <button 
+                  onClick={() => setSelectedQuadrant('q1')}
+                  className={`
+                    relative rounded-lg border p-3 flex flex-col justify-between transition-all group
+                    ${selectedQuadrant === 'q1' 
+                      ? 'bg-red-500/10 border-red-500 ring-1 ring-red-500' 
+                      : 'bg-slate-700/20 border-slate-700 hover:border-slate-500'}
+                  `}
+                >
+                  <div className="flex justify-between items-start">
+                    <Zap size={16} className={selectedQuadrant === 'q1' ? 'text-red-400' : 'text-slate-500'} />
+                    {selectedQuadrant === 'q1' && <CheckCircle size={14} className="text-red-500" />}
+                  </div>
+                  <span className={`text-xs font-medium ${selectedQuadrant === 'q1' ? 'text-red-200' : 'text-slate-400 group-hover:text-slate-300'}`}>
+                    紧急且重要
+                  </span>
+                </button>
+
+                {/* 象限 2 (默认高频) */}
+                <button 
+                  onClick={() => setSelectedQuadrant('q2')}
+                  className={`
+                    relative rounded-lg border p-3 flex flex-col justify-between transition-all group
+                    ${selectedQuadrant === 'q2' 
+                      ? 'bg-orange-500/10 border-orange-500 ring-1 ring-orange-500' 
+                      : 'bg-slate-700/20 border-slate-700 hover:border-slate-500'}
+                  `}
+                >
+                  <div className="flex justify-between items-start">
+                    <Clock size={16} className={selectedQuadrant === 'q2' ? 'text-orange-400' : 'text-slate-500'} />
+                     {selectedQuadrant === 'q2' && <CheckCircle size={14} className="text-orange-500" />}
+                  </div>
+                  <span className={`text-xs font-medium ${selectedQuadrant === 'q2' ? 'text-orange-200' : 'text-slate-400 group-hover:text-slate-300'}`}>
+                    重要不紧急
+                  </span>
+                </button>
+
+                {/* 象限 3 */}
+                <button 
+                  onClick={() => setSelectedQuadrant('q3')}
+                  className={`
+                    relative rounded-lg border p-3 flex flex-col justify-between transition-all group
+                    ${selectedQuadrant === 'q3' 
+                      ? 'bg-blue-500/10 border-blue-500 ring-1 ring-blue-500' 
+                      : 'bg-slate-700/20 border-slate-700 hover:border-slate-500'}
+                  `}
+                >
+                  <div className="flex justify-between items-start">
+                    <AlertCircle size={16} className={selectedQuadrant === 'q3' ? 'text-blue-400' : 'text-slate-500'} />
+                     {selectedQuadrant === 'q3' && <CheckCircle size={14} className="text-blue-500" />}
+                  </div>
+                  <span className={`text-xs font-medium ${selectedQuadrant === 'q3' ? 'text-blue-200' : 'text-slate-400 group-hover:text-slate-300'}`}>
+                    紧急不重要
+                  </span>
+                </button>
+
+                {/* 象限 4 */}
+                <button 
+                  onClick={() => setSelectedQuadrant('q4')}
+                  className={`
+                    relative rounded-lg border p-3 flex flex-col justify-between transition-all group
+                    ${selectedQuadrant === 'q4' 
+                      ? 'bg-slate-500/20 border-slate-400 ring-1 ring-slate-400' 
+                      : 'bg-slate-700/20 border-slate-700 hover:border-slate-500'}
+                  `}
+                >
+                  <div className="flex justify-between items-start">
+                    <Minimize2 size={16} className={selectedQuadrant === 'q4' ? 'text-slate-300' : 'text-slate-500'} />
+                     {selectedQuadrant === 'q4' && <CheckCircle size={14} className="text-slate-400" />}
+                  </div>
+                  <span className={`text-xs font-medium ${selectedQuadrant === 'q4' ? 'text-slate-200' : 'text-slate-400 group-hover:text-slate-300'}`}>
+                    不急不重要
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 底部操作栏 */}
+          <div className="px-6 py-4 bg-slate-900/50 border-t border-slate-700 flex justify-between items-center">
+            <div className="flex items-center gap-4 text-xs text-slate-500">
+               <span>AI 助手已就绪</span>
+               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> 系统正常</span>
+            </div>
+            <div className="flex gap-3">
+               <button 
+                onClick={() => setIsOpen(false)}
+                className="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-sm"
+               >
+                 取消 (Esc)
+               </button>
+               <button className="px-6 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium shadow-lg shadow-purple-500/20 transition-all text-sm flex items-center gap-2">
+                 创建任务 <Send size={14} />
+               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 关闭按钮 (绝对定位) */}
+        <button 
+          onClick={() => setIsOpen(false)}
+          className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"
+        >
+          <X size={20} />
+        </button>
+
+      </div>
+      
+      {/* 提示信息 */}
+      <div className="absolute bottom-10 text-slate-600 text-xs text-center">
+        <p>DevAssistant Quick Task v2.0</p>
+        <p className="mt-1">点击右上角图标或使用 Tab 键切换焦点</p>
+      </div>
+    </div>
+  );
+};
+
+export default QuickTaskModal;
