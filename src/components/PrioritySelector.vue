@@ -4,8 +4,8 @@
       <!-- 高优先级 -->
       <div
         class="priority-item priority-high"
-        :class="{ 'selected': modelValue === 3 }"
-        @click="handleSelect(3)"
+        :class="{ 'selected': modelValue === 1 }"
+        @click="handleSelect(1)"
       >
         <div class="priority-badge">
           <div class="priority-dot"></div>
@@ -16,7 +16,7 @@
         <div class="priority-content">
           <h4 class="priority-title">高优先级</h4>
         </div>
-        <div v-if="modelValue === 3" class="selected-check">
+        <div v-if="modelValue === 1" class="selected-check">
           <n-icon size="18" color="#f43f5e">
             <CheckmarkCircle />
           </n-icon>
@@ -48,8 +48,8 @@
       <!-- 低优先级 -->
       <div
         class="priority-item priority-low"
-        :class="{ 'selected': modelValue === 1 }"
-        @click="handleSelect(1)"
+        :class="{ 'selected': modelValue === 3 }"
+        @click="handleSelect(3)"
       >
         <div class="priority-badge">
           <div class="priority-dot"></div>
@@ -60,7 +60,7 @@
         <div class="priority-content">
           <h4 class="priority-title">低优先级</h4>
         </div>
-        <div v-if="modelValue === 1" class="selected-check">
+        <div v-if="modelValue === 3" class="selected-check">
           <n-icon size="18" color="#10b981">
             <CheckmarkCircle />
           </n-icon>

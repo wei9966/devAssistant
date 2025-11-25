@@ -55,33 +55,36 @@ impl TaskStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum TaskCategory {
-    Dev,      // 开发
-    Ops,      // 运维
-    Study,    // 学习
-    Other,    // 其他
+    Backend,   // 后端开发
+    Database,  // 数据库
+    Feature,   // 功能开发
+    Docs,      // 文档
+    Other,     // 其他
 }
 
 impl TaskCategory {
     pub fn as_str(&self) -> &str {
         match self {
-            TaskCategory::Dev => "dev",
-            TaskCategory::Ops => "ops",
-            TaskCategory::Study => "study",
+            TaskCategory::Backend => "backend",
+            TaskCategory::Database => "database",
+            TaskCategory::Feature => "feature",
+            TaskCategory::Docs => "docs",
             TaskCategory::Other => "other",
         }
     }
 
     pub fn from_str(s: &str) -> Self {
         match s {
-            "dev" => TaskCategory::Dev,
-            "ops" => TaskCategory::Ops,
-            "study" => TaskCategory::Study,
+            "backend" => TaskCategory::Backend,
+            "database" => TaskCategory::Database,
+            "feature" => TaskCategory::Feature,
+            "docs" => TaskCategory::Docs,
             _ => TaskCategory::Other,
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TaskPriority {
     High = 1,
     Medium = 2,
@@ -103,6 +106,27 @@ impl TaskPriority {
             TaskPriority::Medium => 2,
             TaskPriority::Low => 3,
         }
+    }
+}
+
+// 自定义序列化：将 TaskPriority 序列化为数字
+impl Serialize for TaskPriority {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i32(self.as_i32())
+    }
+}
+
+// 自定义反序列化：从数字反序列化为 TaskPriority
+impl<'de> Deserialize<'de> for TaskPriority {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let n = i32::deserialize(deserializer)?;
+        Ok(TaskPriority::from_i32(n))
     }
 }
 

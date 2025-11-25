@@ -167,15 +167,31 @@ pub async fn update_category(
     service.update_category(category).await
 }
 
+/// 保存分类（自动判断是添加还是更新）
+#[tauri::command]
+pub async fn save_category(
+    db: State<'_, DbConnection>,
+    category: Category,
+) -> Result<(), String> {
+    let conn = db.0.clone();
+    let service = AppLauncherService::new(conn);
+
+    // 尝试获取现有分类，如果存在则更新，否则添加
+    match service.get_category_by_id(&category.id).await {
+        Ok(_) => service.update_category(category).await,
+        Err(_) => service.add_category(category).await,
+    }
+}
+
 /// 删除分类
 #[tauri::command]
 pub async fn delete_category(
     db: State<'_, DbConnection>,
-    category_id: String,
+    id: String,
 ) -> Result<(), String> {
     let conn = db.0.clone();
     let service = AppLauncherService::new(conn);
-    service.delete_category(&category_id).await
+    service.delete_category(&id).await
 }
 
 // ==================== 工作流管理 ====================

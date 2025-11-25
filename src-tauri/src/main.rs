@@ -170,6 +170,7 @@ fn main() {
             commands::app_launcher_commands::get_categories,
             commands::app_launcher_commands::add_category,
             commands::app_launcher_commands::update_category,
+            commands::app_launcher_commands::save_category,
             commands::app_launcher_commands::delete_category,
             commands::app_launcher_commands::get_workflows,
             commands::app_launcher_commands::get_workflow_by_id,

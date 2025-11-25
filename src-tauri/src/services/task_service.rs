@@ -1,6 +1,7 @@
 use rusqlite::{params, Connection};
 use anyhow::Result;
 use crate::models::task::{Task, TaskStatus, TaskCategory, TaskPriority, TaskQuadrant, WorkContext, ImportTask, ImportResult};
+use crate::services::tag_service::TagService;
 
 pub struct TaskService;
 
@@ -16,10 +17,17 @@ impl TaskService {
              ORDER BY priority ASC, last_active_at DESC"
         )?;
 
-        let tasks = stmt.query_map([], |row| {
+        let mut tasks = stmt.query_map([], |row| {
             Self::map_row_to_task(row)
         })?
         .collect::<Result<Vec<_>, _>>()?;
+
+        // 为每个任务加载标签
+        for task in tasks.iter_mut() {
+            if let Some(task_id) = task.id {
+                task.tags = TagService::get_task_tags(conn, task_id).ok();
+            }
+        }
 
         Ok(tasks)
     }
@@ -36,10 +44,17 @@ impl TaskService {
              ORDER BY completed_at DESC"
         )?;
 
-        let tasks = stmt.query_map(params![format!("-{}", days)], |row| {
+        let mut tasks = stmt.query_map(params![format!("-{}", days)], |row| {
             Self::map_row_to_task(row)
         })?
         .collect::<Result<Vec<_>, _>>()?;
+
+        // 为每个任务加载标签
+        for task in tasks.iter_mut() {
+            if let Some(task_id) = task.id {
+                task.tags = TagService::get_task_tags(conn, task_id).ok();
+            }
+        }
 
         Ok(tasks)
     }
@@ -218,12 +233,17 @@ impl TaskService {
             updates.join(", ")
         );
 
+        eprintln!("=== Executing SQL ===");
+        eprintln!("SQL: {}", sql);
+        eprintln!("Updates count: {}", updates.len());
+
         let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec
             .iter()
             .map(|b| b.as_ref())
             .collect();
 
-        conn.execute(&sql, params_refs.as_slice())?;
+        let affected_rows = conn.execute(&sql, params_refs.as_slice())?;
+        eprintln!("Affected rows: {}", affected_rows);
 
         Ok(())
     }

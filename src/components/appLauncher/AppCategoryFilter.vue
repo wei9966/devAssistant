@@ -12,6 +12,7 @@
         }"
         @click="handleSelectCategory(category.id)"
         @dragover.prevent="handleDragOver(category.id, $event)"
+        @dragenter="(e) => { console.log('🎯 DragEnter on category:', category.id); e.preventDefault(); }"
         @dragleave="handleDragLeave"
         @drop.prevent="handleDrop(category.id, $event)"
       >
@@ -88,26 +89,53 @@ const handleManageCategories = () => {
 
 // 拖放处理
 const handleDragOver = (categoryId: string, e: DragEvent) => {
+  console.log('🎯 CategoryFilter DragOver - Category:', categoryId);
+
+  e.preventDefault(); // CRITICAL: Must prevent default to allow drop
+  e.stopPropagation(); // Stop event from bubbling
+
   dragOverCategory.value = categoryId;
+
   if (e.dataTransfer) {
     e.dataTransfer.dropEffect = 'move';
+    console.log('   ✓ dropEffect set to:', e.dataTransfer.dropEffect);
+  }
+
+  return false;
+};
+
+const handleDragLeave = (e: DragEvent) => {
+  console.log('🚪 CategoryFilter DragLeave');
+  // Only clear if we're actually leaving the tab, not entering a child
+  if (e.currentTarget === e.target || !(e.currentTarget as HTMLElement)?.contains(e.relatedTarget as Node)) {
+    dragOverCategory.value = null;
   }
 };
 
-const handleDragLeave = () => {
-  dragOverCategory.value = null;
-};
-
 const handleDrop = (categoryId: string, e: DragEvent) => {
+  console.log('🎉 CategoryFilter Drop - Category:', categoryId);
+
+  e.preventDefault();
+  e.stopPropagation();
+
   dragOverCategory.value = null;
 
-  if (e.dataTransfer) {
-    try {
-      const appData = JSON.parse(e.dataTransfer.getData('application/json'));
-      emit('drop', categoryId, appData);
-    } catch (error) {
-      console.error('解析拖放数据失败:', error);
-    }
+  if (!e.dataTransfer) {
+    console.error('❌ No dataTransfer in drop event!');
+    return;
+  }
+
+  try {
+    const dataString = e.dataTransfer.getData('application/json');
+    console.log('   📦 Data received:', dataString.substring(0, 50) + '...');
+
+    const appData = JSON.parse(dataString);
+    console.log('   ✓ Parsed app:', appData.name);
+
+    emit('drop', categoryId, appData);
+    console.log('   ✓ Drop event emitted to parent');
+  } catch (error) {
+    console.error('❌ Failed to parse drag data:', error);
   }
 };
 
@@ -172,6 +200,8 @@ onMounted(() => {
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
+  pointer-events: auto;  /* 确保可以接收事件 */
+  z-index: 10;  /* 确保在其他元素之上 */
 }
 
 .category-tab::before {
@@ -219,6 +249,7 @@ onMounted(() => {
 .category-icon {
   font-size: 16px;
   line-height: 1;
+  pointer-events: none;  /* 让事件穿透到父元素 */
 }
 
 .category-name {
@@ -226,6 +257,7 @@ onMounted(() => {
   font-weight: 500;
   color: #cbd5e1;
   transition: color 0.3s;
+  pointer-events: none;  /* 让事件穿透到父元素 */
 }
 
 .category-tab:hover .category-name,
@@ -239,6 +271,7 @@ onMounted(() => {
   justify-content: center;
   min-width: 20px;
   height: 20px;
+  pointer-events: none;  /* 让事件穿透到父元素 */
   padding: 0 6px;
   background: rgba(99, 102, 241, 0.2);
   border-radius: 10px;

@@ -75,11 +75,26 @@ pub fn update_task(
     notes: Option<String>,
     quadrant: Option<String>,
 ) -> Result<(), String> {
+    // 添加调试日志
+    eprintln!("=== update_task called ===");
+    eprintln!("task_id: {}", task_id);
+    eprintln!("title: {:?}", title);
+    eprintln!("description: {:?}", description);
+    eprintln!("category: {:?}", category);
+    eprintln!("priority: {:?}", priority);
+    eprintln!("git_branch: {:?}", git_branch);
+    eprintln!("notes: {:?}", notes);
+    eprintln!("quadrant: {:?}", quadrant);
+
     let conn = db.0.lock().map_err(|e| e.to_string())?;
 
     let cat = category.map(|c| TaskCategory::from_str(&c));
     let pri = priority.map(TaskPriority::from_i32);
     let quad = quadrant.map(|q| TaskQuadrant::from_str(&q));
+
+    eprintln!("Converted category: {:?}", cat);
+    eprintln!("Converted priority: {:?}", pri);
+    eprintln!("Converted quadrant: {:?}", quad);
 
     TaskService::update_task(
         &conn,

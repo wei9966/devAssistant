@@ -222,14 +222,14 @@ const getPriorityBadgeType = (priority: number) => {
   position: relative;
   overflow: hidden;
   cursor: pointer;
-  min-height: 120px;
+  min-height: 160px;
 }
 
 /* 确保 n-card 内部内容正确布局 */
 .task-card :deep(.n-card__content) {
   display: flex;
   flex-direction: column;
-  min-height: 100px;
+  min-height: 140px;
   padding: 16px !important;
 }
 
@@ -389,7 +389,7 @@ const getPriorityBadgeType = (priority: number) => {
   padding-top: 12px;
   border-top: 1px solid rgba(51, 65, 85, 0.3);
   flex-shrink: 0;
-  min-height: 40px;
+  min-height: 60px;
 }
 
 .priority-section {
@@ -434,6 +434,8 @@ const getPriorityBadgeType = (priority: number) => {
   gap: 6px;
   opacity: 0.6;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  align-items: center;
+  min-height: 32px;
 }
 
 /* 响应式优化: 在小屏幕上保持按钮可见 */
@@ -444,10 +446,19 @@ const getPriorityBadgeType = (priority: number) => {
 
   .task-footer {
     gap: 6px;
+    min-height: 70px;
   }
 
   .priority-section {
     flex-shrink: 0;
+  }
+
+  .task-card {
+    min-height: 180px;
+  }
+
+  .task-card :deep(.n-card__content) {
+    min-height: 160px;
   }
 }
 

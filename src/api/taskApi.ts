@@ -79,13 +79,13 @@ export const taskApi = {
   ): Promise<void> {
     await invoke('update_task', {
       taskId,
-      title: updates.title || null,
-      description: updates.description || null,
-      category: updates.category || null,
-      priority: updates.priority || null,
-      gitBranch: updates.gitBranch || null,
-      notes: updates.notes || null,
-      quadrant: updates.quadrant || null,
+      title: updates.title !== undefined ? updates.title : null,
+      description: updates.description !== undefined ? updates.description : null,
+      category: updates.category !== undefined ? updates.category : null,
+      priority: updates.priority !== undefined ? updates.priority : null,
+      gitBranch: updates.gitBranch !== undefined ? updates.gitBranch : null,
+      notes: updates.notes !== undefined ? updates.notes : null,
+      quadrant: updates.quadrant !== undefined ? updates.quadrant : null,
     });
   },
 

@@ -2,7 +2,7 @@ export interface Task {
   id?: number;
   title: string;
   description?: string;
-  category: 'dev' | 'ops' | 'study' | 'other';
+  category: 'backend' | 'database' | 'feature' | 'docs' | 'other';
   priority: 1 | 2 | 3;  // 1-高 | 2-中 | 3-低
   status: 'todo' | 'active' | 'done' | 'deferred';
   quadrant?: TaskQuadrant;
@@ -47,9 +47,10 @@ export interface FileContext {
 
 // 任务分类的中文映射
 export const CATEGORY_LABELS: Record<Task['category'], string> = {
-  dev: '开发',
-  ops: '运维',
-  study: '学习',
+  backend: '后端开发',
+  database: '数据库',
+  feature: '功能开发',
+  docs: '文档',
   other: '其他',
 };
 

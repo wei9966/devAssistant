@@ -463,6 +463,30 @@ impl AppLauncherService {
         Ok(categories)
     }
 
+    /// 根据ID获取分类
+    pub async fn get_category_by_id(&self, id: &str) -> Result<Category, String> {
+        let db = self.db.lock().map_err(|e| e.to_string())?;
+
+        let category = db
+            .query_row(
+                "SELECT id, name, color, icon, sort_order, created_at FROM categories WHERE id = ?",
+                [id],
+                |row| {
+                    Ok(Category {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        color: row.get(2)?,
+                        icon: row.get(3)?,
+                        sort_order: row.get(4)?,
+                        created_at: row.get(5)?,
+                    })
+                },
+            )
+            .map_err(|e| e.to_string())?;
+
+        Ok(category)
+    }
+
     /// 添加分类
     pub async fn add_category(&self, category: Category) -> Result<(), String> {
         let db = self.db.lock().map_err(|e| e.to_string())?;

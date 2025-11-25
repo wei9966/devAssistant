@@ -1,15 +1,16 @@
 <template>
-  <n-card
+  <div
     class="app-card"
     :class="{ pinned: app.isPinned, hidden: app.isHidden, dragging: isDragging }"
     draggable="true"
     @dragstart="handleDragStart"
     @dragend="handleDragEnd"
+    @click="handleLaunch"
   >
     <!-- Hover Glow Effect -->
     <div class="hover-glow"></div>
 
-    <div class="card-content" @click="handleLaunch" @dragstart.stop>
+    <div class="card-content">
       <!-- 应用图标 -->
       <div class="app-icon">
         <img v-if="app.icon" :src="app.icon" :alt="app.name" @error="handleIconError" draggable="false" />
@@ -32,7 +33,7 @@
     </div>
 
     <!-- 操作按钮（悬停显示） -->
-    <div class="card-actions">
+    <div class="card-actions" @dragstart.prevent.stop>
       <n-button
         text
         size="small"
@@ -56,12 +57,12 @@
         </template>
       </n-button>
     </div>
-  </n-card>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { NCard, NButton, NIcon } from 'naive-ui';
+import { NButton, NIcon } from 'naive-ui';
 import { AppsOutline, CreateOutline, TrashOutline, Pin } from '@vicons/ionicons5';
 import type { AppItem } from '@/types/appLauncher';
 
@@ -108,22 +109,40 @@ const handleIconError = () => {
 };
 
 const handleDragStart = (e: DragEvent) => {
-  e.stopPropagation(); // 阻止事件冒泡
-  isDragging.value = true;
-  dragStartTime.value = Date.now();
+  console.log('🚀 AppCard DragStart - App:', props.app.name);
 
-  if (e.dataTransfer) {
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('application/json', JSON.stringify(props.app));
+  if (!e.dataTransfer) {
+    console.error('❌ No dataTransfer!');
+    return;
   }
-  emit('dragstart', props.app);
+
+  try {
+    isDragging.value = true;
+    dragStartTime.value = Date.now();
+
+    // Set transfer data
+    e.dataTransfer.effectAllowed = 'move';
+    const appJson = JSON.stringify(props.app);
+    e.dataTransfer.setData('application/json', appJson);
+    e.dataTransfer.setData('text/plain', props.app.name);
+
+    console.log('   ✓ effectAllowed:', e.dataTransfer.effectAllowed);
+    console.log('   ✓ Data length:', appJson.length);
+
+    emit('dragstart', props.app);
+    console.log('   ✓ Drag started successfully');
+  } catch (error) {
+    console.error('❌ DragStart error:', error);
+    isDragging.value = false;
+  }
 };
 
 const handleDragEnd = (e: DragEvent) => {
+  console.log('🏁 AppCard DragEnd - App:', props.app.name);
+  console.log('   dropEffect:', e.dataTransfer?.dropEffect);
+  console.log('   Drag duration:', Date.now() - dragStartTime.value, 'ms');
+
   isDragging.value = false;
-  if (e.target instanceof HTMLElement) {
-    e.target.style.opacity = '1';
-  }
   emit('dragend');
 };
 </script>
@@ -133,29 +152,23 @@ const handleDragEnd = (e: DragEvent) => {
   position: relative;
   background: rgba(30, 41, 59, 0.4);
   border: 1px solid rgba(51, 65, 85, 0.5);
-  border-radius: 16px !important;
+  border-radius: 16px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   cursor: grab;
   height: 160px;
+  padding: 20px;
   user-select: none;
-  -webkit-user-drag: element;
-}
-
-.app-card.dragging {
-  opacity: 0.5;
-  cursor: grabbing;
-  transform: scale(0.95);
-}
-
-.app-card :deep(.n-card__content) {
-  padding: 20px !important;
-  height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.app-card:hover {
+.app-card.dragging {
+  opacity: 0.6;
+  cursor: grabbing !important;
+}
+
+.app-card:hover:not(.dragging) {
   background: rgba(30, 41, 59, 0.8);
   border-color: rgba(99, 102, 241, 0.6);
   box-shadow: 0 10px 30px -5px rgba(99, 102, 241, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
@@ -184,6 +197,10 @@ const handleDragEnd = (e: DragEvent) => {
   pointer-events: none;
 }
 
+.app-card.dragging * :not(.card-actions):not(.card-actions *) {
+  pointer-events: none !important;
+}
+
 .app-card:hover .hover-glow {
   transform: translateX(100%);
 }
@@ -194,7 +211,6 @@ const handleDragEnd = (e: DragEvent) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
   gap: 12px;
   position: relative;
 }

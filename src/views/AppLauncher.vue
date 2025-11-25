@@ -1,5 +1,9 @@
 <template>
-  <div class="app-launcher">
+  <div
+    class="app-launcher"
+    @dragover.prevent="handleGlobalDragOver"
+    @dragenter.prevent="handleGlobalDragEnter"
+  >
     <!-- Header -->
     <div class="launcher-header">
       <h2 class="page-title">应用启动器</h2>
@@ -240,9 +244,53 @@ const loadAppsFromDatabase = async () => {
   }
 };
 
+// 从数据库加载分类
+const loadCategoriesFromDatabase = async () => {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    let dbCategories = await invoke('get_categories');
+
+    // 确保所有默认分类都存在于数据库中
+    const defaultCats = DEFAULT_CATEGORIES.map((cat) => ({ ...cat, createdAt: Date.now() }));
+    const dbCategoryIds = new Set(Array.isArray(dbCategories) ? dbCategories.map(c => c.id) : []);
+
+    // 找出缺失的默认分类
+    const missingCategories = defaultCats.filter(cat => !dbCategoryIds.has(cat.id));
+
+    // 保存缺失的默认分类到数据库
+    if (missingCategories.length > 0) {
+      console.log('正在初始化默认分类:', missingCategories.map(c => c.name).join(', '));
+      for (const category of missingCategories) {
+        try {
+          await invoke('save_category', { category });
+        } catch (error) {
+          console.error('保存默认分类失败:', category.name, error);
+        }
+      }
+      // 重新加载分类
+      dbCategories = await invoke('get_categories');
+    }
+
+    // 使用数据库中的分类
+    if (Array.isArray(dbCategories) && dbCategories.length > 0) {
+      categories.value = dbCategories.sort((a, b) => a.sortOrder - b.sortOrder);
+    } else {
+      // 如果仍然没有分类（极端情况），使用默认分类
+      categories.value = defaultCats;
+    }
+  } catch (error) {
+    console.error('加载分类失败:', error);
+    // 出错时使用默认分类
+    categories.value = DEFAULT_CATEGORIES.map((cat) => ({ ...cat, createdAt: Date.now() }));
+  }
+};
+
 // 组件挂载时加载数据
-onMounted(() => {
-  loadAppsFromDatabase();
+onMounted(async () => {
+  await Promise.all([
+    loadAppsFromDatabase(),
+    loadCategoriesFromDatabase(),
+  ]);
 });
 
 // 计算属性
@@ -593,41 +641,74 @@ const handleManageCategories = () => {
   showCategoryManager.value = true;
 };
 
+// 全局拖拽处理器
+const handleGlobalDragOver = (e: DragEvent) => {
+  console.log('🔍 Global dragover:', {
+    target: (e.target as HTMLElement)?.className,
+    tagName: (e.target as HTMLElement)?.tagName,
+  });
+  // e.preventDefault() 已经由 .prevent 修饰符调用
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move';
+  }
+};
+
+const handleGlobalDragEnter = (e: DragEvent) => {
+  console.log('🟢 Global dragenter:', (e.target as HTMLElement)?.className);
+  // e.preventDefault() 已经由 .prevent 修饰符调用
+};
+
 // 处理拖放到分类
 const handleCategoryDrop = async (categoryId: string, appData: any) => {
+  console.log('=== AppLauncher handleCategoryDrop ===');
+  console.log('Target Category ID:', categoryId);
+  console.log('Dropped App Data:', appData);
+
   try {
     // 找到被拖拽的应用
     const app = allApps.value.find((a) => a.id === appData.id);
+    console.log('Found app in allApps:', !!app);
+
     if (!app) {
+      console.error('App not found! appData.id:', appData.id);
       message.error('未找到该应用');
       return;
     }
 
+    console.log('App current category:', app.category);
+    console.log('Target category:', categoryId);
+
     // 如果分类没变，不做处理
     if (app.category === categoryId) {
+      console.log('Category unchanged, skipping');
       message.info('应用已在该分类中');
       return;
     }
 
     // 更新应用分类
     const updatedApp = { ...app, category: categoryId };
+    console.log('Updated app:', updatedApp);
 
     // 调用后端更新
     const { invoke } = await import('@tauri-apps/api/core');
+    console.log('Calling backend update_app...');
     await invoke('update_app', { app: updatedApp });
+    console.log('Backend update successful');
 
     // 更新本地状态
     const index = allApps.value.findIndex((a) => a.id === app.id);
     if (index !== -1) {
       allApps.value[index] = updatedApp;
+      console.log('Local state updated at index:', index);
     }
 
     // 显示成功消息
     const categoryName = categories.value.find((c) => c.id === categoryId)?.name || categoryId;
     message.success(`已将「${app.name}」移动到「${categoryName}」分类`);
+    console.log('=== Drop handler complete ===');
   } catch (error) {
     message.error('更新分类失败: ' + error);
-    console.error('更新分类失败:', error);
+    console.error('=== Drop handler error ===', error);
   }
 };
 
@@ -682,10 +763,45 @@ const handleCancelWorkflow = () => {
   currentWorkflow.value = null;
 };
 
-const handleSaveCategories = (newCategories: Category[]) => {
-  categories.value = newCategories;
-  message.success('分类已保存');
-  showCategoryManager.value = false;
+const handleSaveCategories = async (newCategories: Category[]) => {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+
+    // 获取数据库中的现有分类
+    const dbCategories = await invoke('get_categories') as Category[];
+    const dbCategoryIds = new Set(dbCategories.map(cat => cat.id));
+
+    // 找出要删除的分类（在数据库中但不在新分类列表中）
+    const newCategoryIds = new Set(newCategories.map(cat => cat.id));
+    const categoriesToDelete = dbCategories.filter(cat => !newCategoryIds.has(cat.id));
+
+    // 删除不再需要的分类
+    for (const category of categoriesToDelete) {
+      try {
+        await invoke('delete_category', { id: category.id });
+      } catch (error) {
+        console.error('删除分类失败:', category.name, error);
+      }
+    }
+
+    // 保存或更新所有分类
+    for (const category of newCategories) {
+      try {
+        await invoke('save_category', { category });
+      } catch (error) {
+        console.error('保存分类失败:', category.name, error);
+        message.error(`保存分类"${category.name}"失败`);
+      }
+    }
+
+    // 更新本地状态
+    categories.value = newCategories;
+    message.success('分类已保存');
+    showCategoryManager.value = false;
+  } catch (error) {
+    message.error('保存分类失败: ' + error);
+    console.error('保存分类失败:', error);
+  }
 };
 
 const handleCancelCategoryManager = () => {

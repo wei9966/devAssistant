@@ -67,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h } from 'vue';
+import { ref, computed, watch, h } from 'vue';
 import {
   NModal,
   NForm,
@@ -123,14 +123,9 @@ const newCategory = ref({
 // 监听props变化，初始化可编辑列表
 const initCategories = () => {
   // 包含所有分类，包括默认分类
+  console.log('初始化分类列表，分类数量:', props.categories.length);
   editableCategories.value = props.categories.map((cat) => ({ ...cat }));
-};
-
-// 当对话框显示时初始化
-const handleOpen = () => {
-  if (dialogVisible.value) {
-    initCategories();
-  }
+  console.log('可编辑分类列表:', editableCategories.value);
 };
 
 // 表格列定义
@@ -270,13 +265,13 @@ const handleCancel = () => {
   emit('cancel');
 };
 
-// 监听对话框显示状态
-computed(() => {
-  if (props.show) {
-    handleOpen();
+// 监听对话框显示状态，当显示时初始化分类列表
+watch(() => props.show, (newValue) => {
+  if (newValue) {
+    console.log('分类管理对话框打开，接收到的分类:', props.categories);
+    initCategories();
   }
-  return props.show;
-});
+}, { immediate: true });
 </script>
 
 <style scoped>
