@@ -73,6 +73,9 @@
               v-for="app in pinnedApps"
               :key="app.id"
               class="quick-app-item"
+              draggable="true"
+              @dragstart="onQuickItemDragStart(app, $event)"
+              @dragend="onQuickItemDragEnd"
               @click="handleLaunch(app)"
             >
               <div class="quick-app-icon">
@@ -95,6 +98,9 @@
               v-for="app in recentApps"
               :key="app.id"
               class="quick-app-item"
+              draggable="true"
+              @dragstart="onQuickItemDragStart(app, $event)"
+              @dragend="onQuickItemDragEnd"
               @click="handleLaunch(app)"
             >
               <div class="quick-app-icon">
@@ -243,7 +249,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
 };
 
 // 滚动到选中项
-const scrollToSelected = () => {
+  const scrollToSelected = () => {
   nextTick(() => {
     const selectedEl = document.querySelector('.result-item.selected');
     if (selectedEl) {
@@ -259,6 +265,20 @@ const handleLaunch = (app: AppItem) => {
   searchKeyword.value = '';
   selectedIndex.value = 0;
 };
+
+const onQuickItemDragStart = (app: AppItem, e: DragEvent) => {
+  if (!e.dataTransfer) return;
+  const json = JSON.stringify(app);
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('application/json', json);
+  e.dataTransfer.setData('text/plain', app.name);
+  const ghost = document.createElement('canvas');
+  ghost.width = 1;
+  ghost.height = 1;
+  e.dataTransfer.setDragImage(ghost, 0, 0);
+};
+
+const onQuickItemDragEnd = () => {};
 
 // 监听显示状态，自动聚焦
 watch(modalVisible, (visible) => {

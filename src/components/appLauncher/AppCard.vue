@@ -122,6 +122,10 @@ const handleDragStart = (e: DragEvent) => {
 
     // Set transfer data
     e.dataTransfer.effectAllowed = 'move';
+    const ghost = document.createElement('canvas');
+    ghost.width = 1;
+    ghost.height = 1;
+    e.dataTransfer.setDragImage(ghost, 0, 0);
     const appJson = JSON.stringify(props.app);
     e.dataTransfer.setData('application/json', appJson);
     e.dataTransfer.setData('text/plain', props.app.name);

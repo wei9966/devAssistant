@@ -665,6 +665,10 @@ const handleCategoryDrop = async (categoryId: string, appData: any) => {
   console.log('Dropped App Data:', appData);
 
   try {
+    if (categoryId === 'all') {
+      message.info('无法拖拽到“全部”分类');
+      return;
+    }
     // 找到被拖拽的应用
     const app = allApps.value.find((a) => a.id === appData.id);
     console.log('Found app in allApps:', !!app);

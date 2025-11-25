@@ -1,6 +1,6 @@
 <template>
   <div class="category-filter">
-    <div class="category-tabs">
+    <div class="category-tabs" ref="categoryTabsRef">
       <!-- 分类标签 -->
       <div
         v-for="category in categories"
@@ -12,7 +12,7 @@
         }"
         @click="handleSelectCategory(category.id)"
         @dragover.prevent="handleDragOver(category.id, $event)"
-        @dragenter="(e) => { console.log('🎯 DragEnter on category:', category.id); e.preventDefault(); }"
+        @dragenter.prevent="handleDragEnter(category.id, $event)"
         @dragleave="handleDragLeave"
         @drop.prevent="handleDrop(category.id, $event)"
       >
@@ -102,6 +102,16 @@ const handleDragOver = (categoryId: string, e: DragEvent) => {
   }
 
   return false;
+};
+
+const handleDragEnter = (categoryId: string, e: DragEvent) => {
+  console.log('🎯 DragEnter on category:', categoryId);
+  e.preventDefault();
+  e.stopPropagation();
+  dragOverCategory.value = categoryId;
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move';
+  }
 };
 
 const handleDragLeave = (e: DragEvent) => {
