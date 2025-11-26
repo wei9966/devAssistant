@@ -330,40 +330,68 @@
 
       <!-- 右侧时间轴（大屏显示） -->
       <div class="timeline-section">
-        <h3 class="timeline-title">最近记录</h3>
+        <h3 class="timeline-title">
+          {{ logMode === 'daily' ? '日报记录' : '周报记录' }}
+        </h3>
         <div class="timeline-container">
           <!-- 垂直线 -->
           <div class="timeline-line" />
 
-          <!-- 时间节点 -->
-          <div
-            v-for="(log, index) in workLogStore.recentLogs"
-            :key="log.date"
-            class="timeline-item"
-            :class="{ 'timeline-item-active': isToday(log.date) }"
-            @click="selectLog(log)"
-          >
-            <!-- 圆点 -->
+          <!-- 日报时间节点 -->
+          <template v-if="logMode === 'daily'">
             <div
-              class="timeline-dot"
-              :class="{
-                'dot-active': isToday(log.date),
-                'dot-default': !isToday(log.date)
-              }"
-            />
-            <!-- 内容 -->
-            <div class="timeline-content">
-              <div class="timeline-date">{{ formatDate(log.date) }}</div>
-              <div class="timeline-text">
-                {{ truncate(log.content, 60) || '暂无内容' }}
+              v-for="log in dailyLogs"
+              :key="log.date"
+              class="timeline-item"
+              :class="{ 'timeline-item-active': isSelectedDate(log.date) }"
+              @click="selectDailyLog(log)"
+            >
+              <div
+                class="timeline-dot"
+                :class="{
+                  'dot-active': isSelectedDate(log.date),
+                  'dot-default': !isSelectedDate(log.date)
+                }"
+              />
+              <div class="timeline-content">
+                <div class="timeline-date">{{ formatDate(log.date) }}</div>
+                <div class="timeline-text">
+                  {{ truncate(log.content, 60) || '暂无内容' }}
+                </div>
               </div>
             </div>
-          </div>
+            <div v-if="dailyLogs.length === 0" class="timeline-empty">
+              <n-empty description="暂无日报记录" size="small" />
+            </div>
+          </template>
 
-          <!-- 空状态 -->
-          <div v-if="workLogStore.recentLogs.length === 0" class="timeline-empty">
-            <n-empty description="暂无历史记录" size="small" />
-          </div>
+          <!-- 周报时间节点 -->
+          <template v-else>
+            <div
+              v-for="log in weeklyLogs"
+              :key="log.date"
+              class="timeline-item"
+              :class="{ 'timeline-item-active': isSelectedWeek(log.date) }"
+              @click="selectWeeklyLog(log)"
+            >
+              <div
+                class="timeline-dot"
+                :class="{
+                  'dot-active': isSelectedWeek(log.date),
+                  'dot-default': !isSelectedWeek(log.date)
+                }"
+              />
+              <div class="timeline-content">
+                <div class="timeline-date">{{ formatWeekDate(log.date) }}</div>
+                <div class="timeline-text">
+                  {{ truncate(log.content, 60) || '暂无内容' }}
+                </div>
+              </div>
+            </div>
+            <div v-if="weeklyLogs.length === 0" class="timeline-empty">
+              <n-empty description="暂无周报记录" size="small" />
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -462,6 +490,21 @@ const weekRangeText = computed(() => {
   const start = dayjs(weekRange.value[0]).format('MM月DD日');
   const end = dayjs(weekRange.value[1]).format('MM月DD日');
   return `${start} - ${end}`;
+});
+
+// 按类型过滤日志
+const dailyLogs = computed(() => {
+  return workLogStore.recentLogs.filter(log => {
+    // 日报日期格式: YYYY-MM-DD
+    return /^\d{4}-\d{2}-\d{2}$/.test(log.date);
+  });
+});
+
+const weeklyLogs = computed(() => {
+  return workLogStore.recentLogs.filter(log => {
+    // 周报日期格式: YYYY-WW
+    return /^\d{4}-\d{2}$/.test(log.date) || /^\d{4}-W\d{2}$/.test(log.date);
+  });
 });
 
 // LocalStorage 键名
@@ -650,8 +693,8 @@ onBeforeUnmount(() => {
 
 async function loadLogs() {
   try {
-    // 加载最近7天的日志
-    await workLogStore.loadRecentLogs(7);
+    // 加载所有日志（包括日报和周报）
+    await workLogStore.loadAllLogs();
 
     // 加载当前选中日期的日志
     const dateStr = dayjs(selectedDate.value).format('YYYY-MM-DD');
@@ -691,8 +734,8 @@ async function handleSave() {
       clearDraft();
     }
 
-    // 重新加载最近日志
-    await workLogStore.loadRecentLogs(7);
+    // 重新加载所有日志
+    await workLogStore.loadAllLogs();
   } catch (error) {
     message.error('保存失败');
     console.error(error);
@@ -818,9 +861,57 @@ function handleArchive() {
   message.info('历史归档功能开发中');
 }
 
-function selectLog(log: WorkLog) {
-  selectedDate.value = new Date(log.date).getTime();
+// 选择日报记录
+function selectDailyLog(log: WorkLog) {
+  const date = new Date(log.date);
+  if (!isNaN(date.getTime())) {
+    selectedDate.value = date.getTime();
+    currentLog.value = log.content;
+  }
+}
+
+// 选择周报记录
+function selectWeeklyLog(log: WorkLog) {
+  // 周报日期格式: YYYY-WW，无法直接转换为日期
+  // 只更新内容，不更新日期选择器
   currentLog.value = log.content;
+
+  // 尝试解析周数并设置周范围
+  const match = log.date.match(/^(\d{4})-W?(\d{2})$/);
+  if (match) {
+    const year = parseInt(match[1]);
+    const week = parseInt(match[2]);
+    // 计算该周的起始日期
+    const startOfYear = dayjs(`${year}-01-01`);
+    const startOfWeek = startOfYear.add(week - 1, 'week').startOf('week');
+    const endOfWeek = startOfWeek.endOf('week');
+    weekRange.value = [startOfWeek.valueOf(), endOfWeek.valueOf()];
+  }
+}
+
+// 检查是否为当前选中的日期
+function isSelectedDate(date: string) {
+  const logDate = dayjs(date);
+  const selected = dayjs(selectedDate.value);
+  return logDate.isSame(selected, 'day');
+}
+
+// 检查是否为当前选中的周
+function isSelectedWeek(date: string) {
+  const currentWeekKey = dayjs(weekRange.value[0]).format('YYYY-WW');
+  // 处理两种格式: YYYY-WW 或 YYYY-XX
+  const normalizedDate = date.includes('W') ? date : date.replace(/^(\d{4})-(\d{2})$/, '$1-W$2');
+  return normalizedDate === currentWeekKey || date === currentWeekKey.replace('W', '');
+}
+
+// 格式化周报日期显示
+function formatWeekDate(date: string) {
+  // 周报日期格式: YYYY-WW 或 YYYY-XX
+  const match = date.match(/^(\d{4})-W?(\d{2})$/);
+  if (match) {
+    return `${match[1]}年 第${match[2]}周`;
+  }
+  return date;
 }
 
 function handleAddTag() {

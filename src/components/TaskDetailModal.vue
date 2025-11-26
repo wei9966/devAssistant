@@ -70,7 +70,7 @@
           <span class="section-title">任务描述</span>
         </div>
         <div class="section-content">
-          <p class="description-text">{{ task.description }}</p>
+          <div class="markdown-content" v-html="renderedDescription"></div>
         </div>
       </div>
 
@@ -194,7 +194,7 @@
           <span class="section-title">备注</span>
         </div>
         <div class="section-content">
-          <p class="notes-text">{{ task.notes }}</p>
+          <div class="markdown-content notes-content" v-html="renderedNotes"></div>
         </div>
       </div>
     </div>
@@ -238,6 +238,7 @@ import {
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
+import { marked } from 'marked';
 import { CATEGORY_LABELS, PRIORITY_LABELS, STATUS_LABELS, QUADRANT_CONFIG } from '@/types/task';
 import type { Task, TaskQuadrant, Tag } from '@/types/task';
 import { tagApi } from '@/api/tagApi';
@@ -271,6 +272,28 @@ const emit = defineEmits<{
 const showModal = computed({
   get: () => props.show,
   set: (value) => emit('update:show', value),
+});
+
+// 将描述的 Markdown 转换为 HTML
+const renderedDescription = computed(() => {
+  if (!props.task?.description) return '';
+  try {
+    return marked(props.task.description);
+  } catch (error) {
+    console.error('Markdown 渲染失败:', error);
+    return props.task.description;
+  }
+});
+
+// 将备注的 Markdown 转换为 HTML
+const renderedNotes = computed(() => {
+  if (!props.task?.notes) return '';
+  try {
+    return marked(props.task.notes);
+  } catch (error) {
+    console.error('Markdown 渲染失败:', error);
+    return props.task.notes;
+  }
 });
 
 // 编辑状态
@@ -583,14 +606,157 @@ const getPriorityBadgeType = (priority: number) => {
   padding-left: 26px;
 }
 
-/* 描述文本 */
-.description-text {
+/* Markdown 内容样式 */
+.markdown-content {
   font-size: 14px;
   line-height: 1.7;
   color: #cbd5e1;
-  margin: 0;
-  white-space: pre-wrap;
   word-break: break-word;
+}
+
+.markdown-content :deep(h1),
+.markdown-content :deep(h2),
+.markdown-content :deep(h3),
+.markdown-content :deep(h4),
+.markdown-content :deep(h5),
+.markdown-content :deep(h6) {
+  color: #e2e8f0;
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
+
+.markdown-content :deep(h1) {
+  font-size: 1.5em;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  padding-bottom: 0.3em;
+}
+
+.markdown-content :deep(h2) {
+  font-size: 1.3em;
+}
+
+.markdown-content :deep(h3) {
+  font-size: 1.1em;
+}
+
+.markdown-content :deep(p) {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-content :deep(p:first-child) {
+  margin-top: 0;
+}
+
+.markdown-content :deep(ul),
+.markdown-content :deep(ol) {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  padding-left: 1.5em;
+}
+
+.markdown-content :deep(li) {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+.markdown-content :deep(code) {
+  background: rgba(51, 65, 85, 0.5);
+  color: #fbbf24;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.markdown-content :deep(pre) {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 8px;
+  padding: 0.8em;
+  overflow-x: auto;
+  margin: 0.8em 0;
+}
+
+.markdown-content :deep(pre code) {
+  background: transparent;
+  color: #cbd5e1;
+  padding: 0;
+}
+
+.markdown-content :deep(blockquote) {
+  border-left: 3px solid #6366f1;
+  margin: 0.8em 0;
+  padding-left: 1em;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.markdown-content :deep(a) {
+  color: #6366f1;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.markdown-content :deep(a:hover) {
+  color: #818cf8;
+  text-decoration: underline;
+}
+
+.markdown-content :deep(strong) {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.markdown-content :deep(em) {
+  color: #cbd5e1;
+}
+
+.markdown-content :deep(hr) {
+  border: none;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  margin: 1em 0;
+}
+
+.markdown-content :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8em 0;
+}
+
+.markdown-content :deep(th),
+.markdown-content :deep(td) {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 0.5em 0.8em;
+  text-align: left;
+}
+
+.markdown-content :deep(th) {
+  background: rgba(51, 65, 85, 0.3);
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.markdown-content :deep(tr:nth-child(even)) {
+  background: rgba(51, 65, 85, 0.1);
+}
+
+/* 备注区块特殊样式 */
+.notes-content {
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 8px;
+  border-left: 3px solid #6366f1;
+}
+
+.notes-content :deep(p:first-child) {
+  margin-top: 0;
+}
+
+.notes-content :deep(p:last-child) {
+  margin-bottom: 0;
 }
 
 /* 信息网格 */
