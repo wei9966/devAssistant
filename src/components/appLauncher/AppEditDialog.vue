@@ -130,7 +130,8 @@ import {
   type FormRules,
 } from 'naive-ui';
 import { FolderOpenOutline, TrashOutline, ImageOutline, CloudUploadOutline } from '@vicons/ionicons5';
-import type { AppItem, Category, ItemType, AppLauncherSettings } from '@/types/appLauncher';
+import type { AppItem, Category, AppLauncherSettings } from '@/types/appLauncher';
+import { ItemType } from '@/types/appLauncher';
 import { invoke } from '@tauri-apps/api/core';
 
 interface AppFormData {
@@ -183,7 +184,7 @@ const defaultFormData: AppFormData = {
   launchArgs: '',
   isPinned: false,
   icon: undefined,
-  itemType: 'Application' as ItemType,
+  itemType: ItemType.Application,
 };
 
 const formData = ref<AppFormData>({ ...defaultFormData });
@@ -250,10 +251,10 @@ watch(
         launchArgs: newApp.launchArgs || '',
         isPinned: newApp.isPinned,
         icon: newApp.icon,
-        itemType: newApp.itemType || ('Application' as ItemType),
+        itemType: newApp.itemType || ItemType.Application,
       };
       // 根据item type设置选择模式
-      selectMode.value = newApp.itemType === 'Folder' ? 'folder' : 'file';
+      selectMode.value = newApp.itemType === ItemType.Folder ? 'folder' : 'file';
     } else {
       formData.value = { ...defaultFormData };
       selectMode.value = 'file';
@@ -275,17 +276,17 @@ watch(
 // 确定item type
 const determineItemType = (path: string, isFolder: boolean): ItemType => {
   if (isFolder) {
-    return 'Folder' as ItemType;
+    return ItemType.Folder;
   }
 
   const ext = path.split('.').pop()?.toLowerCase() || '';
 
-  if (ext === 'exe') return 'Application' as ItemType;
-  if (ext === 'lnk') return 'Shortcut' as ItemType;
-  if (ext === 'rdp') return 'RemoteDesktop' as ItemType;
-  if (ext === 'url') return 'UrlLink' as ItemType;
+  if (ext === 'exe') return ItemType.Application;
+  if (ext === 'lnk') return ItemType.Shortcut;
+  if (ext === 'rdp') return ItemType.RemoteDesktop;
+  if (ext === 'url') return ItemType.UrlLink;
 
-  return 'File' as ItemType;
+  return ItemType.File;
 };
 
 // 选择文件或文件夹
@@ -303,7 +304,7 @@ const handleSelectFile = async () => {
 
       if (selected && typeof selected === 'string') {
         formData.value.path = selected;
-        formData.value.itemType = 'Folder' as ItemType;
+        formData.value.itemType = ItemType.Folder;
 
         // 如果名称为空，从路径提取文件夹名
         if (!formData.value.name) {

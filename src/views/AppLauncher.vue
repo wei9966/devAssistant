@@ -237,7 +237,7 @@ import AppQuickLaunchModal from '@/components/appLauncher/AppQuickLaunchModal.vu
 import CategoryManager from '@/components/appLauncher/CategoryManager.vue';
 import LauncherSettingsDialog from '@/components/appLauncher/LauncherSettingsDialog.vue';
 import type { AppItem, Category, Workflow } from '@/types/appLauncher';
-import { DEFAULT_CATEGORIES } from '@/types/appLauncher';
+import { DEFAULT_CATEGORIES, ItemType } from '@/types/appLauncher';
 
 const message = useMessage();
 const dialog = useDialog();
@@ -469,11 +469,11 @@ const handleScanApps = async () => {
             };
 
             try {
-              // 保存到数据库
-              await invoke('add_app', { app: newApp });
+              // 保存到数据库，后端会自动提取图标并返回完整数据
+              const savedApp = await invoke<AppItem>('add_app', { app: newApp });
 
-              // 更新本地状态
-              allApps.value.push(newApp);
+              // 更新本地状态（使用后端返回的数据，包含图标）
+              allApps.value.push(savedApp);
               addedCount++;
             } catch (error) {
               console.error('保存应用失败:', app.name, error);
@@ -674,16 +674,16 @@ const handleSaveApp = async (data: any) => {
         isPinned: data.isPinned || false,
         isHidden: false,
         launchCount: 0,
-        itemType: data.itemType || 'Application',
+        itemType: data.itemType || ItemType.Application,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
 
-      // 保存到数据库
-      await invoke('add_app', { app: newApp });
+      // 保存到数据库，后端会自动提取图标并返回完整数据
+      const savedApp = await invoke<AppItem>('add_app', { app: newApp });
 
-      // 更新本地状态
-      allApps.value.push(newApp);
+      // 更新本地状态（使用后端返回的数据，包含图标）
+      allApps.value.push(savedApp);
 
       message.success('应用已添加');
     }

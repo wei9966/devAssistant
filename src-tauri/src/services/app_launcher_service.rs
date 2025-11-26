@@ -1,8 +1,10 @@
 use crate::models::{
     AppItem, AppSearchParams, Category, ItemType, LaunchHistory, LaunchResult, Workflow, WorkflowLaunchResult,
 };
+use crate::services::app_scanner_service::AppScannerService;
 use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
+use std::path::Path;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -160,9 +162,19 @@ impl AppLauncherService {
         Ok(apps)
     }
 
-    /// 添加应用
-    pub async fn add_app(&self, app: AppItem) -> Result<(), String> {
+    /// 添加应用（返回保存后的完整应用数据，包含自动提取的图标）
+    pub async fn add_app(&self, app: AppItem) -> Result<AppItem, String> {
         let db = self.db.lock().map_err(|e| e.to_string())?;
+
+        // 检查图标是否为空（None 或空字符串都视为没有图标）
+        let has_icon = app.icon.as_ref().map_or(false, |s| !s.trim().is_empty());
+
+        // 如果应用没有图标，尝试自动提取
+        let icon = if !has_icon && !app.path.is_empty() {
+            AppScannerService::extract_icon_base64(Path::new(&app.path))
+        } else {
+            app.icon.clone()
+        };
 
         db.execute(
             "INSERT INTO apps (id, name, path, icon, category, tags, launch_count, last_launched_at, is_pinned, is_hidden, launch_args, created_at, updated_at)
@@ -171,7 +183,7 @@ impl AppLauncherService {
                 app.id,
                 app.name,
                 app.path,
-                app.icon,
+                icon,
                 app.category,
                 app.tags_to_json(),
                 app.launch_count,
@@ -185,7 +197,10 @@ impl AppLauncherService {
         )
         .map_err(|e| e.to_string())?;
 
-        Ok(())
+        // 返回包含图标的完整应用数据
+        let mut saved_app = app;
+        saved_app.icon = icon;
+        Ok(saved_app)
     }
 
     /// 更新应用
@@ -256,6 +271,11 @@ impl AppLauncherService {
     async fn execute_launch(app: &AppItem) -> LaunchResult {
         use std::process::Command;
 
+        // 获取应用程序所在的目录作为工作目录
+        let working_dir = Path::new(&app.path)
+            .parent()
+            .map(|p| p.to_path_buf());
+
         #[cfg(target_os = "windows")]
         {
             // 根据不同的item_type使用不同的启动方式
@@ -268,6 +288,13 @@ impl AppLauncherService {
                     cmd.arg("start");
                     cmd.arg("");
                     cmd.arg(&app.path);
+
+                    // 设置工作目录为应用程序所在目录
+                    if let Some(ref dir) = working_dir {
+                        if dir.exists() {
+                            cmd.current_dir(dir);
+                        }
+                    }
 
                     // 添加启动参数
                     if let Some(args) = &app.launch_args {
@@ -298,6 +325,13 @@ impl AppLauncherService {
                     cmd.arg("start");
                     cmd.arg("");
                     cmd.arg(&app.path);
+
+                    // 设置工作目录为文件所在目录
+                    if let Some(ref dir) = working_dir {
+                        if dir.exists() {
+                            cmd.current_dir(dir);
+                        }
+                    }
 
                     match cmd.spawn() {
                         Ok(_) => LaunchResult::success(app.id.clone(), app.name.clone()),

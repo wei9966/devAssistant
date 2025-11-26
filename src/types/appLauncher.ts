@@ -1,14 +1,14 @@
 // AppLauncher 类型定义
 // 与 Rust 模型保持一致
 
-// 项目类型枚举
+// 项目类型枚举 (与后端 serde rename_all = "camelCase" 保持一致)
 export enum ItemType {
-  Application = 'Application',
-  Shortcut = 'Shortcut',
-  File = 'File',
-  Folder = 'Folder',
-  RemoteDesktop = 'RemoteDesktop',
-  UrlLink = 'UrlLink',
+  Application = 'application',
+  Shortcut = 'shortcut',
+  File = 'file',
+  Folder = 'folder',
+  RemoteDesktop = 'remoteDesktop',
+  UrlLink = 'urlLink',
 }
 
 // 项目类型的中文名称映射

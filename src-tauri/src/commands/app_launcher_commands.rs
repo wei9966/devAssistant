@@ -49,9 +49,9 @@ pub async fn search_apps(
     service.search_apps(params).await
 }
 
-/// 添加应用
+/// 添加应用（返回保存后的完整应用数据，包含自动提取的图标）
 #[tauri::command]
-pub async fn add_app(db: State<'_, DbConnection>, app: AppItem) -> Result<(), String> {
+pub async fn add_app(db: State<'_, DbConnection>, app: AppItem) -> Result<AppItem, String> {
     let conn = db.0.clone();
     let service = AppLauncherService::new(conn);
     service.add_app(app).await
