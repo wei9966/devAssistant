@@ -207,7 +207,7 @@ impl AppLauncherService {
     pub async fn update_app(&self, app: AppItem) -> Result<(), String> {
         let db = self.db.lock().map_err(|e| e.to_string())?;
 
-        let now = chrono::Utc::now().timestamp();
+        let now = chrono::Local::now().timestamp();
 
         db.execute(
             "UPDATE apps SET name = ?1, path = ?2, icon = ?3, category = ?4, tags = ?5,
@@ -354,7 +354,7 @@ impl AppLauncherService {
     /// 记录启动历史
     async fn record_launch(&self, app_id: &str) -> Result<(), String> {
         let db = self.db.lock().map_err(|e| e.to_string())?;
-        let now = chrono::Utc::now().timestamp();
+        let now = chrono::Local::now().timestamp();
 
         db.execute(
             "INSERT INTO launch_history (app_id, launched_at) VALUES (?1, ?2)",
@@ -368,7 +368,7 @@ impl AppLauncherService {
     /// 更新启动统计
     async fn update_launch_stats(&self, app_id: &str) -> Result<(), String> {
         let db = self.db.lock().map_err(|e| e.to_string())?;
-        let now = chrono::Utc::now().timestamp();
+        let now = chrono::Local::now().timestamp();
 
         db.execute(
             "UPDATE apps SET launch_count = launch_count + 1, last_launched_at = ?1 WHERE id = ?2",
@@ -455,7 +455,7 @@ impl AppLauncherService {
     /// 更新工作流
     pub async fn update_workflow(&self, workflow: Workflow) -> Result<(), String> {
         let db = self.db.lock().map_err(|e| e.to_string())?;
-        let now = chrono::Utc::now().timestamp();
+        let now = chrono::Local::now().timestamp();
 
         db.execute(
             "UPDATE workflows SET name = ?1, app_ids = ?2, launch_delay = ?3, updated_at = ?4 WHERE id = ?5",
@@ -667,7 +667,7 @@ impl AppLauncherService {
                 let db = self.db.lock().map_err(|e| e.to_string())?;
                 db.execute(
                     "UPDATE apps SET icon = ?, updated_at = ? WHERE id = ?",
-                    rusqlite::params![new_icon, chrono::Utc::now().timestamp(), app.id],
+                    rusqlite::params![new_icon, chrono::Local::now().timestamp(), app.id],
                 )
                 .map_err(|e| e.to_string())?;
 
@@ -688,7 +688,7 @@ impl AppLauncherService {
 
         db.execute(
             "UPDATE apps SET icon = ?, updated_at = ? WHERE id = ?",
-            rusqlite::params![icon_data, chrono::Utc::now().timestamp(), app_id],
+            rusqlite::params![icon_data, chrono::Local::now().timestamp(), app_id],
         )
         .map_err(|e| e.to_string())?;
 

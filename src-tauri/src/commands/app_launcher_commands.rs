@@ -314,7 +314,7 @@ pub async fn export_config(db: State<'_, DbConnection>) -> Result<String, String
 
     let config = json!({
         "version": "1.0",
-        "exported_at": chrono::Utc::now().timestamp(),
+        "exported_at": chrono::Local::now().timestamp(),
         "apps": apps,
         "categories": categories,
         "workflows": workflows,
@@ -420,7 +420,7 @@ pub async fn update_launcher_settings(
     settings: AppLauncherSettings,
 ) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Local::now().timestamp();
 
     // 只序列化数组部分，保持与数据库初始化格式一致
     let extensions_json = serde_json::to_string(&settings.allowed_extensions)

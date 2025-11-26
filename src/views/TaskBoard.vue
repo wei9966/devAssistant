@@ -278,11 +278,23 @@
         </n-form>
       </div>
       <template #footer>
-        <n-space justify="end">
-          <n-button @click="handleCancelEdit">取消</n-button>
-          <n-button class="primary-button" @click="isEditing ? handleUpdate() : handleCreate()">
-            {{ isEditing ? '保存' : '创建' }}
-          </n-button>
+        <n-space justify="space-between" style="width: 100%;">
+          <span v-if="!isEditing && isAiEnabled" class="ai-status-hint">
+            <span class="ai-dot"></span>
+            AI 智能分析已启用
+          </span>
+          <span v-else></span>
+          <n-space>
+            <n-button @click="handleCancelEdit" :disabled="isCreating">取消</n-button>
+            <n-button
+              class="primary-button"
+              @click="isEditing ? handleUpdate() : handleCreate()"
+              :loading="isCreating"
+              :disabled="isCreating"
+            >
+              {{ isCreating ? 'AI 分析中...' : (isEditing ? '保存' : (isAiEnabled ? 'AI 智能创建' : '创建')) }}
+            </n-button>
+          </n-space>
         </n-space>
       </template>
     </n-modal>
@@ -343,6 +355,8 @@ const editingTaskId = ref<number | null>(null);
 const aiClassifying = ref(false);
 const aiEnhancing = ref(false);
 const aiGeneratingSubtasks = ref(false);
+const isAiEnabled = ref(false);
+const isCreating = ref(false); // 创建任务中状态
 
 // AI 增强描述缓存（基于标题和描述内容）
 const enhanceCache = new Map<string, string>();
@@ -468,6 +482,14 @@ onMounted(async () => {
   // 加载标签
   await loadTags();
 
+  // 检查 AI 是否启用
+  try {
+    isAiEnabled.value = await aiApi.isEnabled();
+  } catch (error) {
+    console.error('检查 AI 状态失败:', error);
+    isAiEnabled.value = false;
+  }
+
   // 检查僵尸任务
   const staleTasks = await taskStore.checkStaleTasks(3);
   if (staleTasks.length > 0) {
@@ -505,19 +527,69 @@ async function handleCreate() {
       return;
     }
 
+    // 防止重复提交
+    if (isCreating.value) return;
+    isCreating.value = true;
+
+    let finalCategory = formData.category;
+    let finalPriority = formData.priority;
+    let finalQuadrant = formData.quadrant;
+    let aiSuggestedTagIds: number[] = [];
+
+    // 如果 AI 启用，自动进行 AI 分类
+    if (isAiEnabled.value) {
+      try {
+        const existingTagNames = availableTags.value.map(t => t.name);
+        const result = await aiApi.classifyTask(
+          formData.title,
+          formData.description || undefined,
+          existingTagNames
+        );
+
+        // 使用 AI 推荐的分类（如果用户没有手动修改过默认值）
+        if (formData.category === 'other' && result.category) {
+          finalCategory = result.category as Task['category'];
+        }
+        if (formData.priority === 2 && result.priority) {
+          finalPriority = result.priority as Task['priority'];
+        }
+        if (formData.quadrant === 'urgent_not_important' && result.quadrant) {
+          finalQuadrant = result.quadrant as TaskQuadrant;
+        }
+
+        // 处理 AI 推荐的标签
+        if (result.suggestedTags && result.suggestedTags.length > 0) {
+          for (const suggestedTag of result.suggestedTags) {
+            const matchedTag = availableTags.value.find(
+              t => t.name.toLowerCase() === suggestedTag.toLowerCase()
+            );
+            if (matchedTag && matchedTag.id) {
+              aiSuggestedTagIds.push(matchedTag.id);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('AI 分类失败，使用默认值:', error);
+        // AI 失败不阻止创建，继续使用用户选择的值
+      }
+    }
+
     // 创建任务
     const taskId = await taskStore.createTask(
       formData.title,
       formData.description || undefined,
-      formData.category,
-      formData.priority,
-      formData.quadrant
+      finalCategory,
+      finalPriority,
+      finalQuadrant
     );
 
-    // 如果选择了标签,添加标签
-    if (formData.tagIds.length > 0) {
+    // 合并用户选择的标签和 AI 推荐的标签（去重）
+    const allTagIds = [...new Set([...formData.tagIds, ...aiSuggestedTagIds])];
+
+    // 如果有标签,添加标签
+    if (allTagIds.length > 0) {
       try {
-        await tagApi.addTagsToTask(taskId, formData.tagIds);
+        await tagApi.addTagsToTask(taskId, allTagIds);
       } catch (error) {
         console.error('添加标签失败:', error);
         message.warning('任务创建成功,但添加标签失败');
@@ -527,11 +599,17 @@ async function handleCreate() {
     // 刷新任务列表
     await taskStore.loadTasks();
 
-    message.success('任务创建成功');
+    if (isAiEnabled.value) {
+      message.success('任务已通过 AI 智能创建');
+    } else {
+      message.success('任务创建成功');
+    }
     handleCancelEdit();
   } catch (error: any) {
     console.error('创建任务失败:', error);
     message.error(error?.message || '创建任务失败，请检查输入内容');
+  } finally {
+    isCreating.value = false;
   }
 }
 
@@ -723,12 +801,6 @@ async function handleAiClassify() {
 
   aiClassifying.value = true;
 
-  // 显示loading提示
-  message.loading('AI 正在分析任务...', {
-    duration: 0,
-    key: 'ai-classify-loading'
-  });
-
   try {
     // 获取现有标签名称列表
     const existingTagNames = availableTags.value.map(t => t.name);
@@ -774,9 +846,6 @@ async function handleAiClassify() {
         formData.tagIds = matchedTagIds;
       }
 
-      // 移除loading消息
-      message.destroy('ai-classify-loading');
-
       // 显示置信度
       const confidencePercent = (result.confidence * 100).toFixed(0);
       message.success(`AI 分类成功（置信度: ${confidencePercent}%）`);
@@ -785,27 +854,13 @@ async function handleAiClassify() {
       if (newTags.length > 0) {
         message.info(`建议新标签: ${newTags.join(', ')}。可在标签管理中创建。`);
       }
-
-      // 显示已应用的标签
-      if (matchedTagIds.length > 0) {
-        const appliedTagNames = availableTags.value
-          .filter(t => t.id && matchedTagIds.includes(t.id))
-          .map(t => t.name);
-        message.success(`已应用标签: ${appliedTagNames.join(', ')}`);
-      }
     } else {
-      // 移除loading消息
-      message.destroy('ai-classify-loading');
-
       // 没有标签建议时只显示置信度
       const confidencePercent = (result.confidence * 100).toFixed(0);
       message.success(`AI 分类成功（置信度: ${confidencePercent}%）`);
     }
   } catch (error: any) {
     console.error('AI 分类失败:', error);
-
-    // 移除loading消息
-    message.destroy('ai-classify-loading');
     message.error(error?.message || 'AI 分类失败，请检查 AI 配置');
   } finally {
     aiClassifying.value = false;
@@ -838,12 +893,6 @@ async function handleAiEnhance() {
   aiEnhanceDebounceTimer = setTimeout(async () => {
     aiEnhancing.value = true;
 
-    // 显示带key的loading消息，避免重复显示
-    const loadingMsg = message.loading('AI 正在优化描述，请稍候...', {
-      duration: 0,
-      key: 'ai-enhance-loading'
-    });
-
     try {
       const enhancedDesc = await aiApi.enhanceTaskDescription(
         formData.title,
@@ -858,14 +907,9 @@ async function handleAiEnhance() {
       // 清理缓存（如果超过限制）
       cleanupCache();
 
-      // 移除loading消息
-      message.destroy('ai-enhance-loading');
       message.success('任务描述已优化');
     } catch (error: any) {
       console.error('AI 增强描述失败:', error);
-
-      // 移除loading消息
-      message.destroy('ai-enhance-loading');
       message.error(error?.message || 'AI 增强描述失败，请检查 AI 配置');
     } finally {
       aiEnhancing.value = false;
@@ -883,20 +927,11 @@ async function handleAiGenerateSubtasks() {
 
   aiGeneratingSubtasks.value = true;
 
-  // 显示loading提示
-  message.loading('AI 正在生成子任务...', {
-    duration: 0,
-    key: 'ai-subtasks-loading'
-  });
-
   try {
     const subtasks = await aiApi.generateSubtasks(
       formData.title,
       formData.description || undefined
     );
-
-    // 移除loading消息
-    message.destroy('ai-subtasks-loading');
 
     if (subtasks.length > 0) {
       // 直接将子任务添加到描述中
@@ -909,9 +944,6 @@ async function handleAiGenerateSubtasks() {
     }
   } catch (error: any) {
     console.error('AI 生成子任务失败:', error);
-
-    // 移除loading消息
-    message.destroy('ai-subtasks-loading');
     message.error(error?.message || 'AI 生成子任务失败，请检查 AI 配置');
   } finally {
     aiGeneratingSubtasks.value = false;
@@ -1274,6 +1306,37 @@ async function handleAiGenerateSubtasks() {
   50% {
     opacity: 0.7;
     transform: scale(1.1);
+  }
+}
+
+/* AI 状态提示 */
+.ai-status-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #a78bfa;
+  padding: 6px 12px;
+  background: rgba(139, 92, 246, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.ai-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #a78bfa;
+  box-shadow: 0 0 8px rgba(167, 139, 250, 0.6);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
   }
 }
 </style>

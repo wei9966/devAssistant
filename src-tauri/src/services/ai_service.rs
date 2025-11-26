@@ -718,15 +718,24 @@ Git 提交记录：
         description: Option<&str>,
         existing_tags: Option<&[String]>,
     ) -> Result<TaskClassifyResult> {
-        let desc = description.unwrap_or("无");
+        // 截断过长的描述，只保留前300字符，提升响应速度
+        let desc = match description {
+            Some(d) if !d.is_empty() => {
+                let trimmed = d.trim();
+                if trimmed.chars().count() > 300 {
+                    format!("{}...", trimmed.chars().take(300).collect::<String>())
+                } else {
+                    trimmed.to_string()
+                }
+            }
+            _ => String::new(),
+        };
 
-        // 构建现有标签提示
+        // 构建现有标签提示（限制数量）
         let tags_hint = if let Some(tags) = existing_tags {
-            if !tags.is_empty() {
-                format!(
-                    "\n\n现有标签列表：\n{}\n\n请优先从以上现有标签中选择最匹配的标签。只有在现有标签都不合适时，才建议新标签。",
-                    tags.iter().map(|t| format!("- {}", t)).collect::<Vec<_>>().join("\n")
-                )
+            let limited_tags: Vec<_> = tags.iter().take(10).collect();
+            if !limited_tags.is_empty() {
+                format!("\n可选标签：{}", limited_tags.iter().map(|t| t.as_str()).collect::<Vec<_>>().join(","))
             } else {
                 String::new()
             }
@@ -734,36 +743,15 @@ Git 提交记录：
             String::new()
         };
 
+        // 精简提示词，减少token消耗
         let prompt = format!(
-            r#"你是一个任务分类助手。请分析以下任务，给出分类建议：
+            r#"任务分类。标题：{}{}{}
 
-任务标题：{}
-任务描述：{}{}
-
-请返回 JSON 格式：
-{{
-  "category": "backend|database|feature|docs|other",
-  "priority": 1-3,
-  "quadrant": "urgent_important|urgent_not_important|not_urgent_important|not_urgent_not_important",
-  "suggestedTags": ["标签1", "标签2"],
-  "confidence": 0.0-1.0
-}}
-
-分类说明：
-- backend: 后端开发相关
-- database: 数据库相关
-- feature: 功能开发
-- docs: 文档相关
-- other: 其他
-
-四象限说明：
-- urgent_important: 紧急且重要
-- urgent_not_important: 紧急不重要
-- not_urgent_important: 不紧急但重要
-- not_urgent_not_important: 不紧急不重要
-
-只返回 JSON，不要其他内容。"#,
-            title, desc, tags_hint
+返回JSON：{{"category":"backend|database|feature|docs|other","priority":1-3,"quadrant":"urgent_important|urgent_not_important|not_urgent_important|not_urgent_not_important","suggestedTags":["标签"],"confidence":0-1}}
+只返回JSON。任务描述保持100字符以下。"#,
+            title,
+            if desc.is_empty() { String::new() } else { format!("\n描述：{}", desc) },
+            tags_hint
         );
 
         let response = self.chat(vec![ChatMessage::user(prompt)]).await?;

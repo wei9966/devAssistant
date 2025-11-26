@@ -42,7 +42,7 @@ impl TaskService {
                     estimated_hours, actual_hours, context_json, notes, quadrant
              FROM tasks
              WHERE status = 'done'
-               AND completed_at >= datetime('now', ? || ' days')
+               AND completed_at >= datetime('now', 'localtime', ? || ' days')
              ORDER BY completed_at DESC",
         )?;
 
@@ -90,7 +90,7 @@ impl TaskService {
 
         conn.execute(
             "INSERT INTO tasks (title, description, category, priority, status, created_at)
-             VALUES (?, ?, ?, ?, 'todo', datetime('now'))",
+             VALUES (?, ?, ?, ?, 'todo', datetime('now', 'localtime'))",
             params![
                 trimmed_title,
                 trimmed_description,
@@ -108,8 +108,8 @@ impl TaskService {
         conn.execute(
             "UPDATE tasks
              SET status = 'active',
-                 started_at = COALESCE(started_at, datetime('now')),
-                 last_active_at = datetime('now')
+                 started_at = COALESCE(started_at, datetime('now', 'localtime')),
+                 last_active_at = datetime('now', 'localtime')
              WHERE id = ?",
             params![task_id],
         )?;
@@ -124,7 +124,7 @@ impl TaskService {
         conn.execute(
             "UPDATE tasks
              SET status = 'todo',
-                 last_active_at = datetime('now'),
+                 last_active_at = datetime('now', 'localtime'),
                  context_json = COALESCE(?, context_json)
              WHERE id = ?",
             params![context_json, task_id],
@@ -138,7 +138,7 @@ impl TaskService {
         conn.execute(
             "UPDATE tasks
              SET status = 'deferred',
-                 last_active_at = datetime('now')
+                 last_active_at = datetime('now', 'localtime')
              WHERE id = ?",
             params![task_id],
         )?;
@@ -151,8 +151,8 @@ impl TaskService {
         conn.execute(
             "UPDATE tasks
              SET status = 'done',
-                 completed_at = datetime('now'),
-                 last_active_at = datetime('now')
+                 completed_at = datetime('now', 'localtime'),
+                 last_active_at = datetime('now', 'localtime')
              WHERE id = ?",
             params![task_id],
         )?;
@@ -273,8 +273,8 @@ impl TaskService {
                     estimated_hours, actual_hours, context_json, notes, quadrant
              FROM tasks
              WHERE status = 'todo'
-               AND created_at < datetime('now', ? || ' days')
-               AND (last_active_at IS NULL OR last_active_at < datetime('now', ? || ' days'))
+               AND created_at < datetime('now', 'localtime', ? || ' days')
+               AND (last_active_at IS NULL OR last_active_at < datetime('now', 'localtime', ? || ' days'))
              ORDER BY priority ASC, created_at ASC",
         )?;
 
@@ -342,7 +342,7 @@ impl TaskService {
             .unwrap_or(TaskStatus::Todo);
 
         // 处理时间字段
-        let created_at = task.created_at.as_deref().unwrap_or("datetime('now')");
+        let created_at = task.created_at.as_deref().unwrap_or("datetime('now', 'localtime')");
         let started_at = task.started_at.as_deref();
         let completed_at = task.completed_at.as_deref();
 
@@ -358,7 +358,7 @@ impl TaskService {
                 title, description, category, priority, status,
                 git_branch, created_at, started_at, completed_at,
                 estimated_hours, actual_hours, notes, last_active_at
-            ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)"
+            ) VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), ?, ?, ?, ?, ?, ?)"
         };
 
         let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![

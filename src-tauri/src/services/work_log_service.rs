@@ -25,7 +25,7 @@ impl WorkLogService {
             // 更新现有记录
             conn.execute(
                 "UPDATE work_logs
-                 SET log_type = ?, content = ?, ai_generated = ?, updated_at = datetime('now')
+                 SET log_type = ?, content = ?, ai_generated = ?, updated_at = datetime('now', 'localtime')
                  WHERE date = ?",
                 params![log_type, content, ai_generated, date],
             )?;
@@ -33,7 +33,7 @@ impl WorkLogService {
             // 创建新记录
             conn.execute(
                 "INSERT INTO work_logs (date, log_type, content, ai_generated, created_at)
-                 VALUES (?, ?, ?, ?, datetime('now'))",
+                 VALUES (?, ?, ?, ?, datetime('now', 'localtime'))",
                 params![date, log_type, content, ai_generated],
             )?;
         }

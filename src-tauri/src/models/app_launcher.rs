@@ -49,7 +49,7 @@ pub struct AppItem {
 impl AppItem {
     /// 创建新的应用项
     pub fn new(id: String, name: String, path: String) -> Self {
-        let now = chrono::Utc::now().timestamp();
+        let now = chrono::Local::now().timestamp();
         Self {
             id,
             name,
@@ -70,7 +70,7 @@ impl AppItem {
 
     /// 创建带类型的应用项
     pub fn new_with_type(id: String, name: String, path: String, item_type: ItemType) -> Self {
-        let now = chrono::Utc::now().timestamp();
+        let now = chrono::Local::now().timestamp();
         Self {
             id,
             name,
@@ -117,7 +117,7 @@ pub struct Category {
 impl Category {
     /// 创建新的分类
     pub fn new(id: String, name: String) -> Self {
-        let now = chrono::Utc::now().timestamp();
+        let now = chrono::Local::now().timestamp();
         Self {
             id,
             name,
@@ -151,7 +151,7 @@ pub struct Workflow {
 impl Workflow {
     /// 创建新的工作流
     pub fn new(id: String, name: String, app_ids: Vec<String>) -> Self {
-        let now = chrono::Utc::now().timestamp();
+        let now = chrono::Local::now().timestamp();
         Self {
             id,
             name,
@@ -191,7 +191,7 @@ pub struct LaunchHistory {
 impl LaunchHistory {
     /// 创建新的启动历史记录
     pub fn new(app_id: String) -> Self {
-        let now = chrono::Utc::now().timestamp();
+        let now = chrono::Local::now().timestamp();
         Self {
             id: None,
             app_id,

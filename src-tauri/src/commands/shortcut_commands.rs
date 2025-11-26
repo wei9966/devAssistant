@@ -379,7 +379,7 @@ fn load_config_from_db(conn: &Connection) -> Result<Option<ShortcutConfig>, Stri
 /// 保存快捷键配置到数据库
 fn save_config_to_db(conn: &Connection, config: &ShortcutConfig) -> Result<(), String> {
     let config_json = serde_json::to_string(config).map_err(|e| e.to_string())?;
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Local::now().timestamp();
 
     conn.execute(
         "INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)",

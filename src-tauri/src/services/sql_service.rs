@@ -97,7 +97,7 @@ impl SqlService {
             // 如果存在，更新执行时间和使用次数
             conn.execute(
                 "UPDATE sql_history
-                 SET executed_at = datetime('now'),
+                 SET executed_at = datetime('now', 'localtime'),
                      usage_count = usage_count + 1,
                      execution_source = ?
                  WHERE id = ?",
@@ -109,7 +109,7 @@ impl SqlService {
             // 不存在，插入新记录
             conn.execute(
                 "INSERT INTO sql_history (sql_text, sql_type, execution_source, executed_at, usage_count, created_at)
-                 VALUES (?, ?, ?, datetime('now'), 1, datetime('now'))",
+                 VALUES (?, ?, ?, datetime('now', 'localtime'), 1, datetime('now', 'localtime'))",
                 params![sql_text, sql_type, source],
             )?;
             let new_id = conn.last_insert_rowid();
@@ -405,7 +405,7 @@ impl SqlService {
         ai_prompt: Option<&str>,
     ) -> Result<()> {
         conn.execute(
-            "UPDATE sql_categories SET name = ?, description = ?, color = ?, icon = ?, ai_prompt = ?, updated_at = datetime('now') WHERE id = ?",
+            "UPDATE sql_categories SET name = ?, description = ?, color = ?, icon = ?, ai_prompt = ?, updated_at = datetime('now', 'localtime') WHERE id = ?",
             params![name, description, color, icon, ai_prompt, category_id],
         )?;
         Ok(())

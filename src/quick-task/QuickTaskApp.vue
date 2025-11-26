@@ -25,7 +25,9 @@
                   v-model="inputValue"
                   type="text"
                   class="task-input"
-                  placeholder="输入任务标题... (尝试输入 #前端 !高优)"
+                  :class="{ 'is-loading': isCreating }"
+                  :placeholder="isCreating ? '正在创建任务...' : '输入任务标题... (尝试输入 #前端 !高优)'"
+                  :disabled="isCreating"
                   @keydown.enter="handleQuickCreate"
                 />
 
@@ -70,7 +72,14 @@
 
               <!-- 右侧操作区 -->
               <div class="input-actions">
-                <div class="hint-badge">
+                <!-- Loading 指示器 -->
+                <div v-if="isCreating" class="loading-indicator">
+                  <svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-dashoffset="20"></circle>
+                  </svg>
+                  <span>AI 分析中...</span>
+                </div>
+                <div v-else class="hint-badge">
                   <kbd>↵</kbd> 创建
                 </div>
 
@@ -485,21 +494,13 @@ const createNewTags = async (tagNames: string[]): Promise<number[]> => {
  */
 const createTaskWithAi = async (title: string, desc?: string): Promise<number | null> => {
   try {
-    // 并行调用 AI 分类和增强描述
-    const [aiResult, enhancedDesc] = await Promise.all([
-      aiApi.classifyTask(title, desc),
-      aiApi.enhanceTaskDescription(title, desc)
-    ]) as [TaskClassifyResult, string]
+    // 只调用 AI 分类，不再生成描述
+    const aiResult = await aiApi.classifyTask(title, desc)
 
-    // 更新描述字段（让用户看到AI生成的描述）
-    if (enhancedDesc && isExpanded.value) {
-      description.value = enhancedDesc
-    }
-
-    // 使用 AI 推荐的分类、优先级和四象限，以及增强后的描述
+    // 使用 AI 推荐的分类、优先级和四象限
     const taskId = await taskApi.createTask(
       title,
-      enhancedDesc || desc,
+      desc, // 使用用户输入的描述，不再用AI生成
       aiResult.category,
       aiResult.priority,
       aiResult.quadrant
@@ -837,6 +838,15 @@ onMounted(async () => {
   color: #64748b;
 }
 
+.task-input.is-loading {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.task-input:disabled {
+  background: transparent;
+}
+
 .parsed-tags {
   display: flex;
   flex-wrap: wrap;
@@ -902,6 +912,29 @@ onMounted(async () => {
 .hint-badge kbd {
   font-size: 11px;
   font-family: monospace;
+}
+
+/* Loading 指示器样式 */
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #a78bfa;
+  padding: 6px 14px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 8px;
+  animation: pulse-bg 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-bg {
+  0%, 100% {
+    background: rgba(139, 92, 246, 0.15);
+  }
+  50% {
+    background: rgba(139, 92, 246, 0.25);
+  }
 }
 
 .divider {

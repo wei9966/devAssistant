@@ -29,7 +29,9 @@
               v-model="inputValue"
               type="text"
               class="task-input"
-              placeholder="输入任务标题... (尝试输入 #前端 !高优)"
+              :class="{ 'is-loading': isCreating }"
+              :placeholder="isCreating ? '正在创建任务...' : '输入任务标题... (尝试输入 #前端 !高优)'"
+              :disabled="isCreating"
               @keydown.enter="handleQuickCreate"
             />
 
@@ -52,7 +54,12 @@
 
           <!-- 右侧操作区 -->
           <div class="input-actions">
-            <div class="hint-badge">
+            <!-- Loading 指示器 -->
+            <div v-if="isCreating" class="loading-indicator">
+              <n-icon size="16" class="spinner"><SyncOutline /></n-icon>
+              <span>创建中...</span>
+            </div>
+            <div v-else class="hint-badge">
               <kbd>↵</kbd> 创建
             </div>
 
@@ -245,6 +252,7 @@ import {
   ServerOutline,
   GridOutline,
   DocumentTextOutline,
+  SyncOutline,
 } from '@vicons/ionicons5';
 import { taskApi } from '@/api/taskApi';
 import type { TaskQuadrant } from '@/types/task';
@@ -271,6 +279,7 @@ const isExpanded = ref(false);
 const selectedCategory = ref<string>('other');
 const selectedQuadrant = ref<TaskQuadrant>('not_urgent_important');
 const showQuadrantHelp = ref(false);
+const isCreating = ref(false);
 
 // 分类选项
 const categories = [
@@ -343,6 +352,7 @@ const resetForm = () => {
   isExpanded.value = false;
   selectedCategory.value = 'other';
   selectedQuadrant.value = 'not_urgent_important';
+  isCreating.value = false;
 };
 
 // 快速创建（极简模式）
@@ -351,6 +361,9 @@ const handleQuickCreate = async () => {
     message.warning('请输入任务标题');
     return;
   }
+
+  if (isCreating.value) return;
+  isCreating.value = true;
 
   try {
     // 清理标题中的标签
@@ -375,6 +388,8 @@ const handleQuickCreate = async () => {
   } catch (error) {
     console.error('创建任务失败:', error);
     message.error('创建任务失败');
+  } finally {
+    isCreating.value = false;
   }
 };
 
@@ -384,6 +399,9 @@ const handleCreate = async () => {
     message.warning('请输入任务标题');
     return;
   }
+
+  if (isCreating.value) return;
+  isCreating.value = true;
 
   try {
     // 清理标题中的标签
@@ -408,6 +426,8 @@ const handleCreate = async () => {
   } catch (error) {
     console.error('创建任务失败:', error);
     message.error('创建任务失败');
+  } finally {
+    isCreating.value = false;
   }
 };
 
@@ -521,6 +541,15 @@ watch(modalVisible, (visible) => {
   color: #64748b;
 }
 
+.task-input.is-loading {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.task-input:disabled {
+  background: transparent;
+}
+
 .parsed-tags {
   display: flex;
   flex-wrap: wrap;
@@ -570,6 +599,42 @@ watch(modalVisible, (visible) => {
 .hint-badge kbd {
   font-size: 11px;
   font-family: monospace;
+}
+
+/* Loading 指示器样式 */
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #a78bfa;
+  padding: 6px 14px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 8px;
+  animation: pulse-bg 1.5s ease-in-out infinite;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-bg {
+  0%, 100% {
+    background: rgba(139, 92, 246, 0.15);
+  }
+  50% {
+    background: rgba(139, 92, 246, 0.25);
+  }
 }
 
 .divider {
