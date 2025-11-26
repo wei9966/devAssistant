@@ -485,13 +485,21 @@ const createNewTags = async (tagNames: string[]): Promise<number[]> => {
  */
 const createTaskWithAi = async (title: string, desc?: string): Promise<number | null> => {
   try {
-    // 调用 AI 分类任务
-    const aiResult: TaskClassifyResult = await aiApi.classifyTask(title, desc)
+    // 并行调用 AI 分类和增强描述
+    const [aiResult, enhancedDesc] = await Promise.all([
+      aiApi.classifyTask(title, desc),
+      aiApi.enhanceTaskDescription(title, desc)
+    ]) as [TaskClassifyResult, string]
 
-    // 使用 AI 推荐的分类、优先级和四象限
+    // 更新描述字段（让用户看到AI生成的描述）
+    if (enhancedDesc && isExpanded.value) {
+      description.value = enhancedDesc
+    }
+
+    // 使用 AI 推荐的分类、优先级和四象限，以及增强后的描述
     const taskId = await taskApi.createTask(
       title,
-      desc,
+      enhancedDesc || desc,
       aiResult.category,
       aiResult.priority,
       aiResult.quadrant

@@ -33,7 +33,7 @@
                   ref="searchInputRef"
                   type="text"
                   v-model="searchQuery"
-                  placeholder="尝试搜索应用，命令，或者AI"
+                  placeholder="尝试搜索应用，命令，或者AI（支持拼音）"
                   class="search-input"
                   @keydown.down.prevent="navigate('down')"
                   @keydown.up.prevent="navigate('up')"
@@ -126,6 +126,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useAppLauncherStore } from '@/stores/appLauncherStore'
 import type { AppItem, Category } from '@/types/appLauncher'
 import { invoke } from '@tauri-apps/api/core'
+import { pinyin, match } from 'pinyin-pro'
 
 interface SystemInfo {
   cpu_usage: number
@@ -191,10 +192,26 @@ const displayApps = computed(() => {
   // 搜索过滤
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase()
-    apps = apps.filter(app =>
-      app.name.toLowerCase().includes(query) ||
-      app.tags.some(tag => tag.toLowerCase().includes(query))
-    )
+    apps = apps.filter(app => {
+      // 应用名称匹配
+      const nameMatch = app.name.toLowerCase().includes(query)
+
+      // 标签匹配
+      const tagMatch = app.tags.some(tag => tag.toLowerCase().includes(query))
+
+      // 拼音全拼匹配
+      const pinyinFull = pinyin(app.name, { toneType: 'none', type: 'array' }).join('').toLowerCase()
+      const pinyinFullMatch = pinyinFull.includes(query)
+
+      // 拼音首字母匹配
+      const pinyinFirst = pinyin(app.name, { pattern: 'first', type: 'array' }).join('').toLowerCase()
+      const pinyinFirstMatch = pinyinFirst.includes(query)
+
+      // pinyin-pro 的模糊匹配
+      const fuzzyMatch = match(app.name, query)
+
+      return nameMatch || tagMatch || pinyinFullMatch || pinyinFirstMatch || fuzzyMatch
+    })
   }
 
   // 按使用频率和置顶排序

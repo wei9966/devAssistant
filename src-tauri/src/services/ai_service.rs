@@ -716,13 +716,29 @@ Git 提交记录：
         &self,
         title: &str,
         description: Option<&str>,
+        existing_tags: Option<&[String]>,
     ) -> Result<TaskClassifyResult> {
         let desc = description.unwrap_or("无");
+
+        // 构建现有标签提示
+        let tags_hint = if let Some(tags) = existing_tags {
+            if !tags.is_empty() {
+                format!(
+                    "\n\n现有标签列表：\n{}\n\n请优先从以上现有标签中选择最匹配的标签。只有在现有标签都不合适时，才建议新标签。",
+                    tags.iter().map(|t| format!("- {}", t)).collect::<Vec<_>>().join("\n")
+                )
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+
         let prompt = format!(
             r#"你是一个任务分类助手。请分析以下任务，给出分类建议：
 
 任务标题：{}
-任务描述：{}
+任务描述：{}{}
 
 请返回 JSON 格式：
 {{
@@ -747,7 +763,7 @@ Git 提交记录：
 - not_urgent_not_important: 不紧急不重要
 
 只返回 JSON，不要其他内容。"#,
-            title, desc
+            title, desc, tags_hint
         );
 
         let response = self.chat(vec![ChatMessage::user(prompt)]).await?;

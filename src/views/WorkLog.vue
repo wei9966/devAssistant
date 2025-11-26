@@ -7,57 +7,69 @@
         <!-- 顶部标题和操作按钮 -->
         <div class="header-actions">
           <h2 class="page-title">工作日志</h2>
+          <n-tabs v-model:value="logMode" type="segment" animated class="log-mode-tabs">
+            <n-tab-pane name="daily" tab="日报" />
+            <n-tab-pane name="weekly" tab="周报" />
+          </n-tabs>
           <div class="action-buttons">
-            <n-button
-              type="info"
-              secondary
-              @click="handleAiGenerate"
-              :loading="aiGenerating"
-              class="ai-button-primary"
-            >
-              <template #icon>
-                <n-icon>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                  </svg>
-                </n-icon>
-              </template>
-              AI 生成日志
-            </n-button>
-            <n-button
-              type="warning"
-              secondary
-              @click="handleAiPolish"
-              :loading="aiPolishing"
-              :disabled="!currentLog.trim()"
-              class="ai-button-polish"
-            >
-              <template #icon>
-                <n-icon>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                </n-icon>
-              </template>
-              AI 润色
-            </n-button>
-            <n-button
-              type="success"
-              secondary
-              @click="handleGenerateWeekly"
-              :loading="generatingWeekly"
-              class="ai-button-weekly"
-            >
-              <template #icon>
-                <n-icon>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 3v18m0-18l4 4m-4-4L8 7" />
-                    <path d="M12 21l4-4m-4 4l-4-4" opacity="0.5" />
-                  </svg>
-                </n-icon>
-              </template>
-              AI 生成周报
-            </n-button>
+            <!-- 日报模式的按钮 -->
+            <template v-if="logMode === 'daily'">
+              <n-button
+                type="info"
+                secondary
+                @click="handleAiGenerate"
+                :loading="aiGenerating"
+                class="ai-button-primary"
+              >
+                <template #icon>
+                  <n-icon>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                    </svg>
+                  </n-icon>
+                </template>
+                AI 生成日志
+              </n-button>
+              <n-button
+                type="warning"
+                secondary
+                @click="handleAiPolish"
+                :loading="aiPolishing"
+                :disabled="!currentLog.trim()"
+                class="ai-button-polish"
+              >
+                <template #icon>
+                  <n-icon>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                  </n-icon>
+                </template>
+                AI 润色
+              </n-button>
+            </template>
+
+            <!-- 周报模式的按钮 -->
+            <template v-else>
+              <n-button
+                type="success"
+                secondary
+                @click="handleGenerateWeekly"
+                :loading="generatingWeekly"
+                class="ai-button-weekly"
+              >
+                <template #icon>
+                  <n-icon>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 3v18m0-18l4 4m-4-4L8 7" />
+                      <path d="M12 21l4-4m-4 4l-4-4" opacity="0.5" />
+                    </svg>
+                  </n-icon>
+                </template>
+                AI 生成周报
+              </n-button>
+            </template>
+
             <n-button secondary @click="handleArchive">
               历史归档
             </n-button>
@@ -66,78 +78,253 @@
 
         <!-- 编辑器卡片 -->
         <div class="editor-card">
-          <!-- 顶部：日期和图标 -->
-          <div class="editor-header">
-            <div class="date-info">
-              <div class="icon-box">
-                <n-icon size="20" color="#a78bfa">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-                  </svg>
-                </n-icon>
+          <!-- 日报模式 -->
+          <template v-if="logMode === 'daily'">
+            <!-- 顶部：日期和图标 -->
+            <div class="editor-header">
+              <div class="date-info">
+                <div class="icon-box">
+                  <n-icon size="20" color="#a78bfa">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                    </svg>
+                  </n-icon>
+                </div>
+                <div class="date-content">
+                  <div class="current-date">{{ formatDateFull(selectedDate) }}</div>
+                  <div class="date-subtitle">{{ getDateSubtitle() }}</div>
+                </div>
               </div>
-              <div class="date-content">
-                <div class="current-date">{{ formatDateFull(selectedDate) }}</div>
-                <div class="date-subtitle">{{ getDateSubtitle() }}</div>
+              <div class="header-right-actions">
+                <n-button
+                  text
+                  @click="isPreviewMode = !isPreviewMode"
+                  class="preview-toggle-button"
+                  :disabled="!currentLog.trim()"
+                >
+                  <template #icon>
+                    <n-icon size="20">
+                      <svg v-if="!isPreviewMode" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                      <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </n-icon>
+                  </template>
+                  {{ isPreviewMode ? '编辑' : '预览' }}
+                </n-button>
+                <n-date-picker
+                  v-model:value="selectedDate"
+                  type="date"
+                  clearable
+                  class="date-picker"
+                />
+                <n-button
+                  text
+                  @click="handleSave"
+                  :loading="saving"
+                  class="save-button"
+                >
+                  <template #icon>
+                    <n-icon size="20">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
+                      </svg>
+                    </n-icon>
+                  </template>
+                </n-button>
               </div>
             </div>
-            <n-date-picker
-              v-model:value="selectedDate"
-              type="date"
-              clearable
-              class="date-picker"
-            />
-            <n-button
-              text
-              @click="handleSave"
-              :loading="saving"
-              class="save-button"
-            >
-              <template #icon>
-                <n-icon size="20">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                    <polyline points="17 21 17 13 7 13 7 21" />
-                    <polyline points="7 3 7 8 15 8" />
-                  </svg>
-                </n-icon>
-              </template>
-            </n-button>
-          </div>
 
-          <!-- 中间：可扩展的textarea -->
-          <n-spin :show="workLogStore.loading">
-            <textarea
-              v-model="currentLog"
-              class="editor-textarea"
-              placeholder="今天做了什么？无论是写代码、开会还是摸鱼，记录下来吧..."
-            />
-          </n-spin>
+            <!-- 中间：可扩展的textarea或预览区域 -->
+            <n-spin :show="workLogStore.loading">
+              <textarea
+                v-if="!isPreviewMode"
+                v-model="currentLog"
+                class="editor-textarea"
+                placeholder="今天做了什么？无论是写代码、开会还是摸鱼，记录下来吧..."
+              />
+              <div
+                v-else
+                class="markdown-preview"
+                v-html="renderedContent"
+              />
+            </n-spin>
 
-          <!-- 底部：标签列表 -->
-          <div class="editor-footer">
-            <div class="tags-container">
-              <n-tag
-                v-for="tag in currentTags"
-                :key="tag"
-                :bordered="false"
-                class="log-tag"
-                closable
-                @close="handleRemoveTag(tag)"
-              >
-                {{ tag }}
-              </n-tag>
-              <n-button
-                text
-                size="small"
-                @click="showAddTag = true"
-                class="add-tag-btn"
-              >
-                + 添加标签
-              </n-button>
+            <!-- 底部：标签列表 -->
+            <div class="editor-footer">
+              <div class="footer-label">标签</div>
+              <div class="tags-container">
+                <n-tag
+                  v-for="tag in currentTags"
+                  :key="tag"
+                  :bordered="false"
+                  class="log-tag"
+                  closable
+                  @close="handleRemoveTag(tag)"
+                >
+                  {{ tag }}
+                </n-tag>
+                <n-button
+                  text
+                  size="small"
+                  @click="showAddTag = true"
+                  class="add-tag-btn"
+                >
+                  + 添加标签
+                </n-button>
+              </div>
             </div>
-          </div>
+          </template>
+
+          <!-- 周报模式 -->
+          <template v-else>
+            <!-- 顶部：周选择器 -->
+            <div class="editor-header">
+              <div class="date-info">
+                <div class="icon-box">
+                  <n-icon size="20" color="#10b981">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                  </n-icon>
+                </div>
+                <div class="date-content">
+                  <div class="current-date">{{ weekRangeText }}</div>
+                  <div class="date-subtitle">周报视图 · 任务汇总</div>
+                </div>
+              </div>
+              <div class="header-right-actions">
+                <n-button
+                  text
+                  @click="isPreviewMode = !isPreviewMode"
+                  class="preview-toggle-button"
+                  :disabled="!currentLog.trim()"
+                >
+                  <template #icon>
+                    <n-icon size="20">
+                      <svg v-if="!isPreviewMode" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                      <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </n-icon>
+                  </template>
+                  {{ isPreviewMode ? '编辑' : '预览' }}
+                </n-button>
+                <n-select
+                  v-model:value="selectedWeekType"
+                  :options="weekOptions"
+                  class="week-selector"
+                  @update:value="handleWeekChange"
+                />
+                <n-button
+                  text
+                  @click="handleSave"
+                  :loading="saving"
+                  class="save-button"
+                >
+                  <template #icon>
+                    <n-icon size="20">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
+                      </svg>
+                    </n-icon>
+                  </template>
+                </n-button>
+              </div>
+            </div>
+
+            <!-- 中间：周任务列表和编辑区 -->
+            <n-spin :show="workLogStore.loading || loadingWeeklyTasks">
+              <div v-if="!isPreviewMode" class="weekly-content">
+                <!-- 左侧：完成的任务列表 -->
+                <div class="weekly-tasks">
+                  <h3 class="section-title">本周完成的任务</h3>
+                  <div v-if="weeklyTasks.length > 0" class="task-list">
+                    <div
+                      v-for="task in weeklyTasks"
+                      :key="task.id"
+                      class="task-item"
+                    >
+                      <div class="task-header">
+                        <n-icon size="16" color="#10b981" class="task-icon">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </n-icon>
+                        <span class="task-title">{{ task.title }}</span>
+                        <n-tag
+                          v-if="task.category"
+                          size="small"
+                          :bordered="false"
+                          class="task-category"
+                        >
+                          {{ getCategoryLabel(task.category) }}
+                        </n-tag>
+                      </div>
+                      <div v-if="task.description" class="task-description">
+                        {{ task.description }}
+                      </div>
+                      <div class="task-meta">
+                        <span class="task-time">{{ formatTaskTime(task.completedAt!) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <n-empty
+                    v-else
+                    description="本周暂无完成的任务"
+                    size="small"
+                    class="empty-tasks"
+                  />
+                </div>
+
+                <!-- 右侧：周报编辑器 -->
+                <div class="weekly-editor">
+                  <h3 class="section-title">周报内容</h3>
+                  <textarea
+                    v-model="currentLog"
+                    class="editor-textarea weekly-textarea"
+                    placeholder="点击'AI生成周报'按钮，基于本周完成的任务自动生成周报总结..."
+                  />
+                </div>
+              </div>
+              <div
+                v-else
+                class="markdown-preview"
+                v-html="renderedContent"
+              />
+            </n-spin>
+
+            <!-- 底部：统计信息 -->
+            <div class="editor-footer">
+              <div class="footer-label">统计</div>
+              <div class="stats-container">
+                <div class="stat-item">
+                  <span class="stat-label">完成任务:</span>
+                  <span class="stat-value">{{ weeklyTasks.length }} 个</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">时间范围:</span>
+                  <span class="stat-value">{{ weekRangeText }}</span>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -197,7 +384,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onBeforeUnmount } from 'vue';
+import { ref, onMounted, watch, onBeforeUnmount, computed } from 'vue';
 import {
   NButton,
   NDatePicker,
@@ -207,18 +394,30 @@ import {
   NModal,
   NInput,
   NIcon,
+  NTabs,
+  NTabPane,
+  NSelect,
   useMessage,
   useDialog
 } from 'naive-ui';
 import dayjs from 'dayjs';
+import { marked } from 'marked';
 import { useWorkLogStore } from '@/stores/workLogStore';
+import { useTaskStore } from '@/stores/taskStore';
 import { aiApi } from '@/api/aiApi';
 import type { WorkLog } from '@/types/workLog';
+import type { Task } from '@/types/task';
+import { CATEGORY_LABELS } from '@/types/task';
 
 const message = useMessage();
 const dialog = useDialog();
 const workLogStore = useWorkLogStore();
+const taskStore = useTaskStore();
 
+// 日志模式：日报 / 周报
+const logMode = ref<'daily' | 'weekly'>('daily');
+
+// 日报相关状态
 const selectedDate = ref<number>(Date.now());
 const currentLog = ref('');
 const currentTags = ref<string[]>(['#Rust', '#Frontend', '#Bugfix']);
@@ -228,6 +427,42 @@ const aiPolishing = ref(false);
 const generatingWeekly = ref(false);
 const showAddTag = ref(false);
 const newTag = ref('');
+const isPreviewMode = ref(false);
+
+// 周报相关状态
+const selectedWeekType = ref<string>('this_week');
+const weekRange = ref<[number, number]>([0, 0]);
+const weeklyTasks = ref<Task[]>([]);
+const loadingWeeklyTasks = ref(false);
+
+// 周选择选项
+const weekOptions = [
+  { label: '本周', value: 'this_week' },
+  { label: '上周', value: 'last_week' },
+  { label: '前两周', value: 'two_weeks_ago' },
+  { label: '前三周', value: 'three_weeks_ago' }
+];
+
+// 将 markdown 转换为 HTML
+const renderedContent = computed(() => {
+  if (!currentLog.value) return '';
+  try {
+    return marked(currentLog.value);
+  } catch (error) {
+    console.error('Markdown 渲染失败:', error);
+    return currentLog.value;
+  }
+});
+
+// 周范围文本显示
+const weekRangeText = computed(() => {
+  if (!weekRange.value || weekRange.value[0] === 0) {
+    return '选择周范围';
+  }
+  const start = dayjs(weekRange.value[0]).format('MM月DD日');
+  const end = dayjs(weekRange.value[1]).format('MM月DD日');
+  return `${start} - ${end}`;
+});
 
 // LocalStorage 键名
 const DRAFT_STORAGE_KEY = 'worklog_draft';
@@ -274,15 +509,116 @@ function clearDraft() {
   localStorage.removeItem(DRAFT_STORAGE_KEY);
 }
 
+// 计算周范围
+function calculateWeekRange(weekType: string): [number, number] {
+  const now = dayjs();
+  let startOfWeek: dayjs.Dayjs;
+  let endOfWeek: dayjs.Dayjs;
+
+  switch (weekType) {
+    case 'this_week':
+      startOfWeek = now.startOf('week');
+      endOfWeek = now.endOf('week');
+      break;
+    case 'last_week':
+      startOfWeek = now.subtract(1, 'week').startOf('week');
+      endOfWeek = now.subtract(1, 'week').endOf('week');
+      break;
+    case 'two_weeks_ago':
+      startOfWeek = now.subtract(2, 'week').startOf('week');
+      endOfWeek = now.subtract(2, 'week').endOf('week');
+      break;
+    case 'three_weeks_ago':
+      startOfWeek = now.subtract(3, 'week').startOf('week');
+      endOfWeek = now.subtract(3, 'week').endOf('week');
+      break;
+    default:
+      startOfWeek = now.startOf('week');
+      endOfWeek = now.endOf('week');
+  }
+
+  return [startOfWeek.valueOf(), endOfWeek.valueOf()];
+}
+
+// 加载周任务
+async function loadWeeklyTasks() {
+  if (!weekRange.value || weekRange.value[0] === 0) return;
+
+  loadingWeeklyTasks.value = true;
+  try {
+    // 加载已完成的任务
+    await taskStore.loadCompletedTasks(30); // 加载最近30天的完成任务
+
+    // 筛选周范围内的任务
+    weeklyTasks.value = taskStore.completedTasks.filter(task => {
+      if (!task.completedAt) return false;
+      const completedTime = new Date(task.completedAt).getTime();
+      return completedTime >= weekRange.value[0] && completedTime <= weekRange.value[1];
+    });
+  } catch (error) {
+    console.error('加载周任务失败:', error);
+    message.error('加载周任务失败');
+  } finally {
+    loadingWeeklyTasks.value = false;
+  }
+}
+
+// 处理周选择变化
+async function handleWeekChange(value: string) {
+  weekRange.value = calculateWeekRange(value);
+  await loadWeeklyTasks();
+
+  // 尝试加载已保存的周报
+  const weekKey = dayjs(weekRange.value[0]).format('YYYY-WW');
+  await workLogStore.loadWorkLog(weekKey);
+  currentLog.value = workLogStore.currentLog?.content || '';
+}
+
+// 获取分类标签
+function getCategoryLabel(category: Task['category']): string {
+  return CATEGORY_LABELS[category] || category;
+}
+
+// 格式化任务完成时间
+function formatTaskTime(time: string): string {
+  return dayjs(time).format('YYYY-MM-DD HH:mm');
+}
+
 onMounted(async () => {
   await loadLogs();
   // 加载草稿
   loadDraft();
+
+  // 初始化周范围
+  weekRange.value = calculateWeekRange('this_week');
+  await loadWeeklyTasks();
 });
 
-// 监听日期变化,自动加载对应日志
+// 监听日志模式变化
+watch(logMode, async (newMode) => {
+  // 清空当前内容
+  currentLog.value = '';
+  isPreviewMode.value = false;
+
+  if (newMode === 'weekly') {
+    // 切换到周报模式，加载周任务
+    await loadWeeklyTasks();
+    // 尝试加载已保存的周报
+    const weekKey = dayjs(weekRange.value[0]).format('YYYY-WW');
+    await workLogStore.loadWorkLog(weekKey);
+    currentLog.value = workLogStore.currentLog?.content || '';
+  } else {
+    // 切换到日报模式，加载当前日期的日志
+    const dateStr = dayjs(selectedDate.value).format('YYYY-MM-DD');
+    await workLogStore.loadWorkLog(dateStr);
+    currentLog.value = workLogStore.currentLog?.content || '';
+    loadDraft();
+  }
+});
+
+// 监听日期变化,自动加载对应日志 (仅在日报模式下)
 watch(selectedDate, async (newDate) => {
-  if (newDate) {
+  if (newDate && logMode.value === 'daily') {
     const dateStr = dayjs(newDate).format('YYYY-MM-DD');
     await workLogStore.loadWorkLog(dateStr);
     currentLog.value = workLogStore.currentLog?.content || '';
@@ -291,21 +627,23 @@ watch(selectedDate, async (newDate) => {
   }
 });
 
-// 监听内容变化,自动保存草稿
+// 监听内容变化,自动保存草稿 (仅日报模式)
 watch(currentLog, () => {
-  if (currentLog.value) {
+  if (currentLog.value && logMode.value === 'daily') {
     saveDraft();
   }
 });
 
-// 监听标签变化,自动保存草稿
+// 监听标签变化,自动保存草稿 (仅日报模式)
 watch(currentTags, () => {
-  saveDraft();
+  if (logMode.value === 'daily') {
+    saveDraft();
+  }
 }, { deep: true });
 
-// 页面卸载前保存草稿
+// 页面卸载前保存草稿 (仅日报模式)
 onBeforeUnmount(() => {
-  if (currentLog.value) {
+  if (currentLog.value && logMode.value === 'daily') {
     saveDraft();
   }
 });
@@ -333,11 +671,26 @@ async function handleSave() {
 
   saving.value = true;
   try {
-    const dateStr = dayjs(selectedDate.value).format('YYYY-MM-DD');
-    await workLogStore.saveWorkLog(dateStr, 'daily', currentLog.value, false);
-    message.success('日志已保存');
+    let dateStr: string;
+    let logType: string;
+
+    if (logMode.value === 'daily') {
+      dateStr = dayjs(selectedDate.value).format('YYYY-MM-DD');
+      logType = 'daily';
+    } else {
+      // 周报使用周的起始日期作为key
+      dateStr = dayjs(weekRange.value[0]).format('YYYY-WW');
+      logType = 'weekly';
+    }
+
+    await workLogStore.saveWorkLog(dateStr, logType, currentLog.value, false);
+    message.success(`${logMode.value === 'daily' ? '日报' : '周报'}已保存`);
+
     // 清除草稿
-    clearDraft();
+    if (logMode.value === 'daily') {
+      clearDraft();
+    }
+
     // 重新加载最近日志
     await workLogStore.loadRecentLogs(7);
   } catch (error) {
@@ -431,31 +784,27 @@ async function handleGenerateWeekly() {
       return;
     }
 
-    // 获取最近7天的日志
-    const logs = workLogStore.recentLogs
-      .filter(log => log.content && log.content.trim())
-      .map(log => `## ${log.date}\n${log.content}`);
-
-    if (logs.length === 0) {
-      message.warning('没有足够的日志数据生成周报');
+    // 检查是否有完成的任务
+    if (weeklyTasks.value.length === 0) {
+      message.warning('本周没有完成的任务，无法生成周报');
       return;
     }
 
-    message.loading('AI 正在生成周报...', { duration: 0 });
+    message.loading('AI 正在基于任务生成周报...', { duration: 0 });
 
-    const result = await aiApi.generateWeeklyReport(logs);
+    // 构建任务摘要
+    const taskSummaries = weeklyTasks.value.map(task => {
+      const category = getCategoryLabel(task.category);
+      const time = dayjs(task.completedAt).format('MM-DD');
+      return `[${time}] [${category}] ${task.title}${task.description ? `: ${task.description}` : ''}`;
+    });
+
+    // 调用AI生成周报
+    const result = await aiApi.generateWeeklyReport(taskSummaries);
 
     message.destroyAll();
-
-    // 将周报保存到新的日期
-    const weeklyDate = dayjs().format('YYYY-MM-DD');
-    await workLogStore.saveWorkLog(weeklyDate, 'weekly', result, false);
-
-    // 切换到周报日期
-    selectedDate.value = Date.now();
     currentLog.value = result;
-
-    message.success('周报已生成并保存');
+    message.success('周报已生成');
   } catch (error: any) {
     message.destroyAll();
     message.error(error?.message || '周报生成失败');
@@ -556,6 +905,7 @@ function truncate(text: string, length: number) {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  gap: 16px;
 }
 
 .page-title {
@@ -564,6 +914,11 @@ function truncate(text: string, length: number) {
   color: #f1f5f9;
   letter-spacing: -0.01em;
   margin: 0;
+}
+
+.log-mode-tabs {
+  flex: 1;
+  max-width: 300px;
 }
 
 .action-buttons {
@@ -653,8 +1008,29 @@ function truncate(text: string, length: number) {
   margin-top: 2px;
 }
 
+.header-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .date-picker {
   width: 200px;
+}
+
+.preview-toggle-button {
+  color: #94a3b8;
+  transition: color 0.2s;
+  font-size: 13px;
+}
+
+.preview-toggle-button:hover {
+  color: #a78bfa;
+}
+
+.preview-toggle-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .save-button {
@@ -704,10 +1080,160 @@ function truncate(text: string, length: number) {
   background: #475569;
 }
 
+.markdown-preview {
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+  color: #cbd5e1;
+  font-size: 14px;
+  line-height: 1.7;
+  padding: 12px;
+  min-height: 300px;
+  overflow-y: auto;
+}
+
+.markdown-preview::-webkit-scrollbar {
+  width: 6px;
+}
+
+.markdown-preview::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.markdown-preview::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+.markdown-preview::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Markdown 内容样式 */
+.markdown-preview :deep(h1),
+.markdown-preview :deep(h2),
+.markdown-preview :deep(h3),
+.markdown-preview :deep(h4),
+.markdown-preview :deep(h5),
+.markdown-preview :deep(h6) {
+  color: #e2e8f0;
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
+
+.markdown-preview :deep(h1) {
+  font-size: 1.8em;
+  border-bottom: 2px solid rgba(148, 163, 184, 0.2);
+  padding-bottom: 0.3em;
+}
+
+.markdown-preview :deep(h2) {
+  font-size: 1.5em;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  padding-bottom: 0.3em;
+}
+
+.markdown-preview :deep(h3) {
+  font-size: 1.3em;
+}
+
+.markdown-preview :deep(h4) {
+  font-size: 1.1em;
+}
+
+.markdown-preview :deep(p) {
+  margin-top: 0.8em;
+  margin-bottom: 0.8em;
+}
+
+.markdown-preview :deep(ul),
+.markdown-preview :deep(ol) {
+  margin-top: 0.8em;
+  margin-bottom: 0.8em;
+  padding-left: 2em;
+}
+
+.markdown-preview :deep(li) {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+}
+
+.markdown-preview :deep(code) {
+  background: rgba(51, 65, 85, 0.5);
+  color: #fbbf24;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.markdown-preview :deep(pre) {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 8px;
+  padding: 1em;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.markdown-preview :deep(pre code) {
+  background: transparent;
+  color: #cbd5e1;
+  padding: 0;
+}
+
+.markdown-preview :deep(blockquote) {
+  border-left: 4px solid #6366f1;
+  margin: 1em 0;
+  padding-left: 1em;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.markdown-preview :deep(a) {
+  color: #6366f1;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.markdown-preview :deep(a:hover) {
+  color: #818cf8;
+  text-decoration: underline;
+}
+
+.markdown-preview :deep(strong) {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.markdown-preview :deep(em) {
+  color: #cbd5e1;
+}
+
+.markdown-preview :deep(hr) {
+  border: none;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  margin: 2em 0;
+}
+
 .editor-footer {
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: auto;
+  padding-top: 12px;
   border-top: 1px solid rgba(148, 163, 184, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
 }
 
 .tags-container {
@@ -715,6 +1241,7 @@ function truncate(text: string, length: number) {
   gap: 8px;
   flex-wrap: wrap;
   align-items: center;
+  flex: 1;
 }
 
 .log-tag {
@@ -924,5 +1451,158 @@ function truncate(text: string, length: number) {
 :deep(.primary-button:active) {
   background-color: #4338ca !important;
   border-color: #4338ca !important;
+}
+
+/* 周报模式样式 */
+.week-selector {
+  width: 150px;
+}
+
+.weekly-content {
+  flex: 1;
+  display: flex;
+  gap: 24px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.weekly-tasks {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.weekly-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.task-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.task-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.task-list::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+.task-list::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+.task-item {
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  transition: all 0.2s;
+}
+
+.task-item:hover {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.task-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.task-icon {
+  flex-shrink: 0;
+}
+
+.task-title {
+  flex: 1;
+  color: #e2e8f0;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.task-category {
+  flex-shrink: 0;
+  background: rgba(99, 102, 241, 0.15) !important;
+  color: #a5b4fc !important;
+  font-size: 11px;
+}
+
+.task-description {
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 8px;
+  padding-left: 24px;
+}
+
+.task-meta {
+  padding-left: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.task-time {
+  color: #64748b;
+  font-size: 11px;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.empty-tasks {
+  padding: 40px 0;
+}
+
+.weekly-textarea {
+  flex: 1;
+  min-height: 400px;
+}
+
+.stats-container {
+  display: flex;
+  gap: 24px;
+  flex: 1;
+}
+
+.stat-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.stat-label {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.stat-value {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 600;
 }
 </style>

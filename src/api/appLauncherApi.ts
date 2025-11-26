@@ -93,9 +93,9 @@ export const appLauncherApi = {
     return await invoke('get_workflows');
   },
 
-  // 保存工作流
-  async saveWorkflow(workflow: Omit<Workflow, 'createdAt' | 'updatedAt'>): Promise<string> {
-    return await invoke('save_workflow', { workflow });
+  // 保存工作流（自动判断是添加还是更新）
+  async saveWorkflow(workflow: Workflow): Promise<void> {
+    await invoke('save_workflow', { workflow });
   },
 
   // 删除工作流

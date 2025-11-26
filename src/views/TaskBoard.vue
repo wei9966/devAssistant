@@ -214,13 +214,39 @@
                 show-count
               />
               <n-space>
-                <n-button size="small" @click="handleAiClassify" :loading="aiClassifying">
+                <n-button
+                  size="small"
+                  @click="handleAiClassify"
+                  :loading="aiClassifying"
+                  :disabled="!formData.title"
+                >
+                  <template #icon v-if="!aiClassifying">
+                    <n-icon><GridOutline /></n-icon>
+                  </template>
                   AI 智能分类
                 </n-button>
-                <n-button size="small" @click="handleAiEnhance" :loading="aiEnhancing">
-                  AI 增强描述
+                <n-button
+                  size="small"
+                  @click="handleAiEnhance"
+                  :loading="aiEnhancing"
+                  :disabled="!formData.title"
+                  type="primary"
+                  ghost
+                >
+                  <template #icon v-if="!aiEnhancing">
+                    <n-icon>✨</n-icon>
+                  </template>
+                  {{ aiEnhancing ? 'AI 正在思考中...' : 'AI 增强描述' }}
                 </n-button>
-                <n-button size="small" @click="handleAiGenerateSubtasks" :loading="aiGeneratingSubtasks">
+                <n-button
+                  size="small"
+                  @click="handleAiGenerateSubtasks"
+                  :loading="aiGeneratingSubtasks"
+                  :disabled="!formData.title"
+                >
+                  <template #icon v-if="!aiGeneratingSubtasks">
+                    <n-icon><AddOutline /></n-icon>
+                  </template>
                   AI 生成子任务
                 </n-button>
               </n-space>
@@ -317,6 +343,24 @@ const editingTaskId = ref<number | null>(null);
 const aiClassifying = ref(false);
 const aiEnhancing = ref(false);
 const aiGeneratingSubtasks = ref(false);
+
+// AI 增强描述缓存（基于标题和描述内容）
+const enhanceCache = new Map<string, string>();
+const MAX_CACHE_SIZE = 50; // 最大缓存数量
+
+// 防抖定时器
+let aiEnhanceDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+// 清理缓存（当缓存超过限制时）
+function cleanupCache() {
+  if (enhanceCache.size > MAX_CACHE_SIZE) {
+    // 保留最近的一半缓存，删除旧的
+    const entries = Array.from(enhanceCache.entries());
+    const toKeep = entries.slice(-Math.floor(MAX_CACHE_SIZE / 2));
+    enhanceCache.clear();
+    toKeep.forEach(([key, value]) => enhanceCache.set(key, value));
+  }
+}
 
 // 标签数据
 const availableTags = ref<Tag[]>([]);
@@ -577,6 +621,12 @@ function handleCancelEdit() {
   formData.priority = 2;
   formData.quadrant = 'urgent_not_important';
   formData.tagIds = [];
+
+  // 清理防抖定时器
+  if (aiEnhanceDebounceTimer) {
+    clearTimeout(aiEnhanceDebounceTimer);
+    aiEnhanceDebounceTimer = null;
+  }
 }
 
 async function handleDefer(taskId: number) {
@@ -672,8 +722,23 @@ async function handleAiClassify() {
   }
 
   aiClassifying.value = true;
+
+  // 显示loading提示
+  message.loading('AI 正在分析任务...', {
+    duration: 0,
+    key: 'ai-classify-loading'
+  });
+
   try {
-    const result = await aiApi.classifyTask(formData.title, formData.description || undefined);
+    // 获取现有标签名称列表
+    const existingTagNames = availableTags.value.map(t => t.name);
+
+    // 调用AI分类，传入现有标签
+    const result = await aiApi.classifyTask(
+      formData.title,
+      formData.description || undefined,
+      existingTagNames
+    );
 
     // 应用分类结果
     if (result.category) {
@@ -686,16 +751,61 @@ async function handleAiClassify() {
       formData.quadrant = result.quadrant as TaskQuadrant;
     }
 
-    // 显示置信度
-    const confidencePercent = (result.confidence * 100).toFixed(0);
-    message.success(`AI 分类成功（置信度: ${confidencePercent}%）`);
-
-    // 建议的标签
+    // 处理建议的标签：匹配现有标签
     if (result.suggestedTags && result.suggestedTags.length > 0) {
-      message.info(`建议标签: ${result.suggestedTags.join(', ')}`);
+      const matchedTagIds: number[] = [];
+      const newTags: string[] = [];
+
+      // 遍历AI建议的标签，找到匹配的现有标签
+      for (const suggestedTag of result.suggestedTags) {
+        const matchedTag = availableTags.value.find(
+          t => t.name.toLowerCase() === suggestedTag.toLowerCase()
+        );
+
+        if (matchedTag && matchedTag.id) {
+          matchedTagIds.push(matchedTag.id);
+        } else {
+          newTags.push(suggestedTag);
+        }
+      }
+
+      // 应用匹配到的标签
+      if (matchedTagIds.length > 0) {
+        formData.tagIds = matchedTagIds;
+      }
+
+      // 移除loading消息
+      message.destroy('ai-classify-loading');
+
+      // 显示置信度
+      const confidencePercent = (result.confidence * 100).toFixed(0);
+      message.success(`AI 分类成功（置信度: ${confidencePercent}%）`);
+
+      // 如果有新标签建议，提示用户
+      if (newTags.length > 0) {
+        message.info(`建议新标签: ${newTags.join(', ')}。可在标签管理中创建。`);
+      }
+
+      // 显示已应用的标签
+      if (matchedTagIds.length > 0) {
+        const appliedTagNames = availableTags.value
+          .filter(t => t.id && matchedTagIds.includes(t.id))
+          .map(t => t.name);
+        message.success(`已应用标签: ${appliedTagNames.join(', ')}`);
+      }
+    } else {
+      // 移除loading消息
+      message.destroy('ai-classify-loading');
+
+      // 没有标签建议时只显示置信度
+      const confidencePercent = (result.confidence * 100).toFixed(0);
+      message.success(`AI 分类成功（置信度: ${confidencePercent}%）`);
     }
   } catch (error: any) {
     console.error('AI 分类失败:', error);
+
+    // 移除loading消息
+    message.destroy('ai-classify-loading');
     message.error(error?.message || 'AI 分类失败，请检查 AI 配置');
   } finally {
     aiClassifying.value = false;
@@ -709,20 +819,59 @@ async function handleAiEnhance() {
     return;
   }
 
-  aiEnhancing.value = true;
-  try {
-    const enhancedDesc = await aiApi.enhanceTaskDescription(
-      formData.title,
-      formData.description || undefined
-    );
-    formData.description = enhancedDesc;
-    message.success('任务描述已优化');
-  } catch (error: any) {
-    console.error('AI 增强描述失败:', error);
-    message.error(error?.message || 'AI 增强描述失败，请检查 AI 配置');
-  } finally {
-    aiEnhancing.value = false;
+  // 生成缓存键
+  const cacheKey = `${formData.title}_${formData.description || ''}`;
+
+  // 检查缓存
+  if (enhanceCache.has(cacheKey)) {
+    formData.description = enhanceCache.get(cacheKey)!;
+    message.success('已使用缓存的增强描述');
+    return;
   }
+
+  // 防抖处理：如果有正在进行的请求，先清除
+  if (aiEnhanceDebounceTimer) {
+    clearTimeout(aiEnhanceDebounceTimer);
+  }
+
+  // 延迟300ms执行，避免重复点击
+  aiEnhanceDebounceTimer = setTimeout(async () => {
+    aiEnhancing.value = true;
+
+    // 显示带key的loading消息，避免重复显示
+    const loadingMsg = message.loading('AI 正在优化描述，请稍候...', {
+      duration: 0,
+      key: 'ai-enhance-loading'
+    });
+
+    try {
+      const enhancedDesc = await aiApi.enhanceTaskDescription(
+        formData.title,
+        formData.description || undefined
+      );
+
+      formData.description = enhancedDesc;
+
+      // 缓存结果
+      enhanceCache.set(cacheKey, enhancedDesc);
+
+      // 清理缓存（如果超过限制）
+      cleanupCache();
+
+      // 移除loading消息
+      message.destroy('ai-enhance-loading');
+      message.success('任务描述已优化');
+    } catch (error: any) {
+      console.error('AI 增强描述失败:', error);
+
+      // 移除loading消息
+      message.destroy('ai-enhance-loading');
+      message.error(error?.message || 'AI 增强描述失败，请检查 AI 配置');
+    } finally {
+      aiEnhancing.value = false;
+      aiEnhanceDebounceTimer = null;
+    }
+  }, 300);
 }
 
 // AI 生成子任务
@@ -733,27 +882,36 @@ async function handleAiGenerateSubtasks() {
   }
 
   aiGeneratingSubtasks.value = true;
+
+  // 显示loading提示
+  message.loading('AI 正在生成子任务...', {
+    duration: 0,
+    key: 'ai-subtasks-loading'
+  });
+
   try {
     const subtasks = await aiApi.generateSubtasks(
       formData.title,
       formData.description || undefined
     );
 
-    if (subtasks.length > 0) {
-      // 显示子任务列表
-      const subtasksText = subtasks.map((task, index) => `${index + 1}. ${task}`).join('\n');
-      message.info(`AI 建议的子任务:\n${subtasksText}`, { duration: 10000 });
+    // 移除loading消息
+    message.destroy('ai-subtasks-loading');
 
-      // 可选：将子任务添加到描述中
-      if (confirm('是否将子任务添加到任务描述中？')) {
-        const subtasksSection = '\n\n## 子任务\n' + subtasks.map((task, index) => `${index + 1}. ${task}`).join('\n');
-        formData.description = (formData.description || '') + subtasksSection;
-      }
+    if (subtasks.length > 0) {
+      // 直接将子任务添加到描述中
+      const subtasksSection = '\n\n## 子任务\n' + subtasks.map((task, index) => `${index + 1}. ${task}`).join('\n');
+      formData.description = (formData.description || '') + subtasksSection;
+
+      message.success(`已生成 ${subtasks.length} 个子任务并添加到描述中`);
     } else {
       message.warning('AI 未生成子任务');
     }
   } catch (error: any) {
     console.error('AI 生成子任务失败:', error);
+
+    // 移除loading消息
+    message.destroy('ai-subtasks-loading');
     message.error(error?.message || 'AI 生成子任务失败，请检查 AI 配置');
   } finally {
     aiGeneratingSubtasks.value = false;
@@ -1082,5 +1240,40 @@ async function handleAiGenerateSubtasks() {
 :deep(.primary-button:active) {
   background-color: #4338ca !important;
   border-color: #4338ca !important;
+}
+
+/* AI 按钮样式优化 */
+:deep(.n-button.n-button--ghost-type.n-button--primary-type) {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:deep(.n-button.n-button--ghost-type.n-button--primary-type:hover:not(:disabled)) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+:deep(.n-button.n-button--ghost-type.n-button--primary-type:active:not(:disabled)) {
+  transform: translateY(0);
+}
+
+:deep(.n-button.n-button--loading) {
+  opacity: 0.8;
+  cursor: wait;
+}
+
+/* AI 增强按钮特殊效果 */
+:deep(.n-button.n-button--ghost-type.n-button--primary-type .n-icon) {
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
 }
 </style>

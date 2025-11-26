@@ -126,6 +126,7 @@ const message = useMessage();
 
 const showModal = ref(false);
 const loading = ref(false);
+// 初始值会在对话框打开时被后端数据覆盖
 const settings = ref<AppLauncherSettings>({
   allowedExtensions: ['exe', 'lnk'],
 });
@@ -150,10 +151,10 @@ watch(
   async (newVal) => {
     showModal.value = newVal;
     if (newVal) {
+      // 每次打开对话框时都重新加载设置
       await loadSettings();
     }
-  },
-  { immediate: true }
+  }
 );
 
 watch(showModal, (newVal) => {

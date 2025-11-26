@@ -2,11 +2,59 @@
   <n-modal
     v-model:show="dialogVisible"
     preset="card"
-    :title="isEdit ? '编辑工作流' : '创建工作流'"
+    :title="isEdit ? '编辑工作流' : '工作流管理'"
     class="workflow-edit-dialog"
     style="width: 700px"
     :mask-closable="false"
   >
+    <!-- 已保存的工作流列表 -->
+    <div v-if="!isEdit && workflows.length > 0" class="saved-workflows-section">
+      <div class="section-title">
+        <n-icon size="18" color="#6366f1"><RocketOutline /></n-icon>
+        <span>已保存的工作流</span>
+        <n-tag size="small" :bordered="false">{{ workflows.length }}</n-tag>
+      </div>
+      <div class="workflows-list">
+        <div
+          v-for="workflow in workflows"
+          :key="workflow.id"
+          class="workflow-item"
+        >
+          <div class="workflow-info">
+            <div class="workflow-name">{{ workflow.name }}</div>
+            <div class="workflow-meta">
+              <span>{{ workflow.appIds.length }} 个应用</span>
+              <span v-if="workflow.launchDelay">间隔 {{ workflow.launchDelay }}ms</span>
+            </div>
+          </div>
+          <div class="workflow-actions">
+            <n-button size="small" @click="handleLaunchWorkflow(workflow.id)">
+              <template #icon>
+                <n-icon><PlayOutline /></n-icon>
+              </template>
+              启动
+            </n-button>
+            <n-button size="small" @click="handleEditWorkflow(workflow)">
+              <template #icon>
+                <n-icon><CreateOutline /></n-icon>
+              </template>
+              编辑
+            </n-button>
+            <n-button size="small" @click="handleDeleteWorkflow(workflow.id)">
+              <template #icon>
+                <n-icon><TrashOutline /></n-icon>
+              </template>
+            </n-button>
+          </div>
+        </div>
+      </div>
+      <n-divider style="margin: 16px 0" />
+      <div class="section-title" style="margin-bottom: 16px">
+        <n-icon size="18" color="#6366f1"><AddOutline /></n-icon>
+        <span>创建新工作流</span>
+      </div>
+    </div>
+
     <n-form ref="formRef" :model="formData" :rules="rules" label-placement="left" label-width="100">
       <!-- 工作流名称 -->
       <n-form-item label="工作流名称" path="name">
@@ -169,7 +217,10 @@ import {
   NInputNumber,
   NButton,
   NIcon,
+  NTag,
+  NDivider,
   useMessage,
+  useDialog,
   type FormInst,
   type FormRules,
 } from 'naive-ui';
@@ -181,6 +232,10 @@ import {
   ChevronDown,
   SearchOutline,
   CheckmarkCircle,
+  RocketOutline,
+  PlayOutline,
+  CreateOutline,
+  TrashOutline,
 } from '@vicons/ionicons5';
 import type { AppItem, Workflow, Category } from '@/types/appLauncher';
 
@@ -196,9 +251,11 @@ const props = withDefaults(
     workflow?: Workflow | null;
     apps: AppItem[];
     categories: Category[];
+    workflows?: Workflow[];
   }>(),
   {
     workflow: null,
+    workflows: () => [],
   }
 );
 
@@ -206,9 +263,13 @@ const emit = defineEmits<{
   'update:show': [value: boolean];
   submit: [data: WorkflowFormData];
   cancel: [];
+  edit: [workflow: Workflow];
+  delete: [workflowId: string];
+  launch: [workflowId: string];
 }>();
 
 const message = useMessage();
+const dialog = useDialog();
 const formRef = ref<FormInst>();
 const saving = ref(false);
 const showAppPicker = ref(false);
@@ -344,6 +405,32 @@ const handleCancel = () => {
   formData.value = { ...defaultFormData };
   dialogVisible.value = false;
   emit('cancel');
+};
+
+// 启动工作流
+const handleLaunchWorkflow = (workflowId: string) => {
+  emit('launch', workflowId);
+};
+
+// 编辑工作流
+const handleEditWorkflow = (workflow: Workflow) => {
+  emit('edit', workflow);
+};
+
+// 删除工作流
+const handleDeleteWorkflow = (workflowId: string) => {
+  const workflow = props.workflows.find(w => w.id === workflowId);
+  if (!workflow) return;
+
+  dialog.warning({
+    title: '删除工作流',
+    content: `确定要删除工作流"${workflow.name}"吗？`,
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      emit('delete', workflowId);
+    },
+  });
 };
 </script>
 
@@ -550,5 +637,70 @@ const handleCancel = () => {
 
 .list-move {
   transition: transform 0.3s ease;
+}
+
+/* 已保存的工作流列表 */
+.saved-workflows-section {
+  margin-bottom: 20px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin-bottom: 12px;
+}
+
+.workflows-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.workflow-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.workflow-item:hover {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.workflow-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.workflow-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #e2e8f0;
+  margin-bottom: 4px;
+}
+
+.workflow-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.workflow-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }
 </style>

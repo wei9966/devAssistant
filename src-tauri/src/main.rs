@@ -15,7 +15,65 @@ use services::clipboard_service::ClipboardService;
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
 use tauri::Manager;
+use tauri::PhysicalPosition;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+#[cfg(windows)]
+use winapi::um::winuser::{GetCursorPos, GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST};
+#[cfg(windows)]
+use winapi::shared::windef::POINT;
+
+/// 获取鼠标当前所在屏幕的中心位置
+#[cfg(windows)]
+fn get_mouse_monitor_center(window_width: i32, window_height: i32) -> Option<(i32, i32)> {
+    unsafe {
+        let mut cursor_pos = POINT { x: 0, y: 0 };
+        if GetCursorPos(&mut cursor_pos) == 0 {
+            return None;
+        }
+
+        let monitor = MonitorFromPoint(cursor_pos, MONITOR_DEFAULTTONEAREST);
+        if monitor.is_null() {
+            return None;
+        }
+
+        let mut monitor_info: MONITORINFO = std::mem::zeroed();
+        monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+        if GetMonitorInfoW(monitor, &mut monitor_info) == 0 {
+            return None;
+        }
+
+        let work_area = monitor_info.rcWork;
+        let monitor_width = work_area.right - work_area.left;
+        let monitor_height = work_area.bottom - work_area.top;
+
+        let x = work_area.left + (monitor_width - window_width) / 2;
+        let y = work_area.top + (monitor_height - window_height) / 2;
+
+        Some((x, y))
+    }
+}
+
+#[cfg(not(windows))]
+fn get_mouse_monitor_center(_window_width: i32, _window_height: i32) -> Option<(i32, i32)> {
+    None
+}
+
+/// 将窗口移动到鼠标所在屏幕的中央
+fn center_window_on_mouse_screen<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
+    if let Ok(size) = window.outer_size() {
+        let width = size.width as i32;
+        let height = size.height as i32;
+
+        if let Some((x, y)) = get_mouse_monitor_center(width, height) {
+            let _ = window.set_position(PhysicalPosition::new(x, y));
+        } else {
+            let _ = window.center();
+        }
+    } else {
+        let _ = window.center();
+    }
+}
 
 fn main() {
     // 初始化环境日志
@@ -113,8 +171,8 @@ fn main() {
                                 // 如果已显示，则隐藏
                                 let _ = sql_window.hide();
                             } else {
-                                // 显示并居中
-                                let _ = sql_window.center();
+                                // 显示并移动到鼠标所在屏幕中央
+                                center_window_on_mouse_screen(&sql_window);
                                 let _ = sql_window.show();
                                 let _ = sql_window.set_focus();
                             }
@@ -140,8 +198,8 @@ fn main() {
                                 // 如果已显示，则隐藏
                                 let _ = launcher_window.hide();
                             } else {
-                                // 显示并居中
-                                let _ = launcher_window.center();
+                                // 显示并移动到鼠标所在屏幕中央
+                                center_window_on_mouse_screen(&launcher_window);
                                 let _ = launcher_window.show();
                                 let _ = launcher_window.set_focus();
                             }
@@ -167,8 +225,8 @@ fn main() {
                                 // 如果已显示，则隐藏
                                 let _ = task_window.hide();
                             } else {
-                                // 显示并居中
-                                let _ = task_window.center();
+                                // 显示并移动到鼠标所在屏幕中央
+                                center_window_on_mouse_screen(&task_window);
                                 let _ = task_window.show();
                                 let _ = task_window.set_focus();
                             }
@@ -283,6 +341,7 @@ fn main() {
             commands::app_launcher_commands::get_workflow_by_id,
             commands::app_launcher_commands::add_workflow,
             commands::app_launcher_commands::update_workflow,
+            commands::app_launcher_commands::save_workflow,
             commands::app_launcher_commands::delete_workflow,
             commands::app_launcher_commands::get_launch_history,
             commands::app_launcher_commands::clear_launch_history,

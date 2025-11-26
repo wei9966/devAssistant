@@ -217,6 +217,19 @@ pub async fn update_workflow(
     service.update_workflow(workflow).await
 }
 
+/// 保存工作流（自动判断是添加还是更新）
+#[tauri::command]
+pub async fn save_workflow(db: State<'_, DbConnection>, workflow: Workflow) -> Result<(), String> {
+    let conn = db.0.clone();
+    let service = AppLauncherService::new(conn);
+
+    // 尝试获取现有工作流，如果存在则更新，否则添加
+    match service.get_workflow_by_id(&workflow.id).await {
+        Ok(_) => service.update_workflow(workflow).await,
+        Err(_) => service.add_workflow(workflow).await,
+    }
+}
+
 /// 删除工作流
 #[tauri::command]
 pub async fn delete_workflow(
@@ -409,7 +422,9 @@ pub async fn update_launcher_settings(
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().timestamp();
 
-    let extensions_json = settings.to_json()?;
+    // 只序列化数组部分，保持与数据库初始化格式一致
+    let extensions_json = serde_json::to_string(&settings.allowed_extensions)
+        .map_err(|e| e.to_string())?;
 
     conn.execute(
         "UPDATE app_launcher_settings SET allowed_extensions = ?1, updated_at = ?2 WHERE id = 1",

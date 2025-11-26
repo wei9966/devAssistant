@@ -366,6 +366,7 @@ pub async fn ai_classify_task(
     db: State<'_, DbConnection>,
     title: String,
     description: Option<String>,
+    existing_tags: Option<Vec<String>>,
 ) -> Result<TaskClassifyResult, String> {
     let (config, provider_str, model_str) = {
         let conn = db.0.lock().map_err(|e| e.to_string())?;
@@ -383,7 +384,7 @@ pub async fn ai_classify_task(
     let prompt = format!("分类任务: {}", title);
 
     let start = std::time::Instant::now();
-    let result = service.classify_task(&title, description.as_deref()).await;
+    let result = service.classify_task(&title, description.as_deref(), existing_tags.as_deref()).await;
     let duration_ms = start.elapsed().as_millis() as i64;
 
     // 记录日志

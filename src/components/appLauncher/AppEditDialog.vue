@@ -262,6 +262,16 @@ watch(
   { immediate: true }
 );
 
+// 监听对话框显示状态，每次打开时重新加载设置（确保新添加的后缀生效）
+watch(
+  () => props.show,
+  async (visible) => {
+    if (visible) {
+      await loadLauncherSettings();
+    }
+  }
+);
+
 // 确定item type
 const determineItemType = (path: string, isFolder: boolean): ItemType => {
   if (isFolder) {

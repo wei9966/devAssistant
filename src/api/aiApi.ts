@@ -75,8 +75,8 @@ export const aiApi = {
   },
 
   // AI 任务分类
-  async classifyTask(title: string, description?: string): Promise<TaskClassifyResult> {
-    return await invoke('ai_classify_task', { title, description });
+  async classifyTask(title: string, description?: string, existingTags?: string[]): Promise<TaskClassifyResult> {
+    return await invoke('ai_classify_task', { title, description, existingTags });
   },
 
   // AI 增强任务描述

@@ -19,8 +19,10 @@
     "@vicons/ionicons5": "^0.13.0",
     "dayjs": "^1.11.0",
     "lodash-es": "^4.17.21",
+    "marked": "^15.0.12",
     "naive-ui": "^2.43.2",
     "pinia": "^2.1.0",
+    "pinyin-pro": "^3.24.2",
     "vue": "^3.4.0",
     "vue-router": "^4.2.0",
     "xlsx": "^0.18.5"

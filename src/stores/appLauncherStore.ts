@@ -400,7 +400,7 @@ export const useAppLauncherStore = defineStore('appLauncher', () => {
   }
 
   // 保存工作流
-  async function saveWorkflow(workflow: Omit<Workflow, 'createdAt' | 'updatedAt'>) {
+  async function saveWorkflow(workflow: Workflow) {
     try {
       await appLauncherApi.saveWorkflow(workflow);
       await loadWorkflows();

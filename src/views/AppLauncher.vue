@@ -169,8 +169,12 @@
       :workflow="currentWorkflow"
       :apps="allApps"
       :categories="categories"
+      :workflows="workflows"
       @submit="handleSaveWorkflow"
       @cancel="handleCancelWorkflow"
+      @edit="handleEditWorkflow"
+      @delete="handleDeleteWorkflow"
+      @launch="handleLaunchWorkflow"
     />
 
     <!-- 全局快速启动弹窗 -->
@@ -313,11 +317,25 @@ const loadCategoriesFromDatabase = async () => {
   }
 };
 
+// 从数据库加载工作流
+const loadWorkflowsFromDatabase = async () => {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const dbWorkflows = await invoke('get_workflows');
+    if (Array.isArray(dbWorkflows)) {
+      workflows.value = dbWorkflows;
+    }
+  } catch (error) {
+    console.error('加载工作流失败:', error);
+  }
+};
+
 // 组件挂载时加载数据
 onMounted(async () => {
   await Promise.all([
     loadAppsFromDatabase(),
     loadCategoriesFromDatabase(),
+    loadWorkflowsFromDatabase(),
     aiStore.loadConfig(),
   ]);
 
@@ -965,15 +983,61 @@ const handleClearAllApps = () => {
   });
 };
 
-const handleSaveWorkflow = (data: any) => {
-  // TODO: 保存工作流到数据库
-  message.success('工作流保存成功');
-  showWorkflowDialog.value = false;
-  currentWorkflow.value = null;
+const handleSaveWorkflow = async (data: any) => {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const now = Date.now();
+    const workflow: Workflow = {
+      id: currentWorkflow.value?.id || `workflow_${now}`,
+      name: data.name,
+      appIds: data.appIds,
+      launchDelay: data.launchDelay || 500,
+      createdAt: currentWorkflow.value?.createdAt || now,
+      updatedAt: now,
+    };
+
+    await invoke('save_workflow', { workflow });
+    await loadWorkflowsFromDatabase();
+    message.success('工作流保存成功');
+    showWorkflowDialog.value = false;
+    currentWorkflow.value = null;
+  } catch (error) {
+    message.error('保存工作流失败: ' + error);
+    console.error('保存工作流失败:', error);
+  }
 };
 
 const handleCancelWorkflow = () => {
   currentWorkflow.value = null;
+};
+
+const handleEditWorkflow = (workflow: Workflow) => {
+  currentWorkflow.value = workflow;
+};
+
+const handleDeleteWorkflow = async (workflowId: string) => {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('delete_workflow', { workflowId });
+    await loadWorkflowsFromDatabase();
+    message.success('工作流已删除');
+  } catch (error) {
+    message.error('删除工作流失败: ' + error);
+    console.error('删除工作流失败:', error);
+  }
+};
+
+const handleLaunchWorkflow = async (workflowId: string) => {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('launch_workflow', { workflowId });
+    message.success('工作流启动成功');
+    // 重新加载应用列表以更新启动次数
+    await loadAppsFromDatabase();
+  } catch (error) {
+    message.error('启动工作流失败: ' + error);
+    console.error('启动工作流失败:', error);
+  }
 };
 
 const handleSaveCategories = async (newCategories: Category[]) => {

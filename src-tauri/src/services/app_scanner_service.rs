@@ -816,7 +816,7 @@ mod tests {
     #[tokio::test]
     async fn test_add_manual_app_invalid_path() {
         let result =
-            AppScannerService::add_manual_app("C:\\nonexistent\\app.exe".to_string(), None).await;
+            AppScannerService::add_manual_app("C:\\nonexistent\\app.exe".to_string(), None, None).await;
         assert!(result.is_err());
     }
 }
