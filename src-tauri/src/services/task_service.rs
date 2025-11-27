@@ -14,7 +14,8 @@ impl TaskService {
         let mut stmt = conn.prepare(
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
-                    estimated_hours, actual_hours, context_json, notes, quadrant
+                    estimated_hours, actual_hours, context_json, notes, quadrant,
+                    due_date, registered_at
              FROM tasks
              WHERE status != 'done'
              ORDER BY priority ASC, last_active_at DESC",
@@ -39,7 +40,8 @@ impl TaskService {
         let mut stmt = conn.prepare(
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
-                    estimated_hours, actual_hours, context_json, notes, quadrant
+                    estimated_hours, actual_hours, context_json, notes, quadrant,
+                    due_date, registered_at
              FROM tasks
              WHERE status = 'done'
                AND completed_at >= datetime('now', 'localtime', ? || ' days')
@@ -171,6 +173,8 @@ impl TaskService {
         git_branch: Option<&str>,
         notes: Option<&str>,
         quadrant: Option<TaskQuadrant>,
+        due_date: Option<&str>,
+        registered_at: Option<&str>,
     ) -> Result<()> {
         // 验证标题
         if let Some(t) = title {
@@ -237,6 +241,24 @@ impl TaskService {
             updates.push("quadrant = ?");
             params_vec.push(Box::new(q.as_str().to_string()));
         }
+        if let Some(dd) = due_date {
+            updates.push("due_date = ?");
+            let trimmed = dd.trim();
+            params_vec.push(Box::new(if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }));
+        }
+        if let Some(ra) = registered_at {
+            updates.push("registered_at = ?");
+            let trimmed = ra.trim();
+            params_vec.push(Box::new(if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }));
+        }
 
         if updates.is_empty() {
             return Ok(());
@@ -270,7 +292,8 @@ impl TaskService {
         let mut stmt = conn.prepare(
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
-                    estimated_hours, actual_hours, context_json, notes, quadrant
+                    estimated_hours, actual_hours, context_json, notes, quadrant,
+                    due_date, registered_at
              FROM tasks
              WHERE status = 'todo'
                AND created_at < datetime('now', 'localtime', ? || ' days')
@@ -436,7 +459,8 @@ impl TaskService {
         let mut stmt = conn.prepare(
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
-                    estimated_hours, actual_hours, context_json, notes, quadrant
+                    estimated_hours, actual_hours, context_json, notes, quadrant,
+                    due_date, registered_at
              FROM tasks
              WHERE status != 'done' AND quadrant = ?
              ORDER BY priority ASC, last_active_at DESC",
@@ -510,6 +534,10 @@ impl TaskService {
         let quadrant_str: Option<String> = row.get(15)?;
         let quadrant = quadrant_str.map(|s| TaskQuadrant::from_str(&s));
 
+        // 读取日期字段
+        let due_date: Option<String> = row.get(16)?;
+        let registered_at: Option<String> = row.get(17)?;
+
         Ok(Task {
             id: Some(row.get(0)?),
             title: row.get(1)?,
@@ -522,6 +550,8 @@ impl TaskService {
             started_at: row.get(8)?,
             last_active_at: row.get(9)?,
             completed_at: row.get(10)?,
+            due_date,
+            registered_at,
             estimated_hours: row.get(11)?,
             actual_hours: row.get(12)?,
             context,

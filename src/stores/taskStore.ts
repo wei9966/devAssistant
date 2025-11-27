@@ -50,12 +50,14 @@ export const useTaskStore = defineStore('task', () => {
     description?: string,
     category: string = 'other',
     priority: number = 2,
-    quadrant?: string
+    quadrant?: string,
+    dueDate?: string,
+    registeredAt?: string
   ) {
     loading.value = true;
     error.value = null;
     try {
-      const taskId = await taskApi.createTask(title, description, category, priority, quadrant);
+      const taskId = await taskApi.createTask(title, description, category, priority, quadrant, dueDate, registeredAt);
       await loadTasks();
       return taskId;
     } catch (e) {
@@ -118,6 +120,8 @@ export const useTaskStore = defineStore('task', () => {
       gitBranch?: string;
       notes?: string;
       quadrant?: string;
+      dueDate?: string;
+      registeredAt?: string;
     }
   ) {
     try {

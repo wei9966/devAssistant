@@ -22,6 +22,12 @@
           </template>
           刷新
         </n-button>
+        <n-button @click="toggleTaskFloat" :type="isTaskFloatVisible ? 'primary' : 'default'">
+          <template #icon>
+            <n-icon><LayersOutline /></n-icon>
+          </template>
+          {{ isTaskFloatVisible ? '关闭悬浮窗' : '悬浮窗' }}
+        </n-button>
       </n-space>
     </div>
 
@@ -275,6 +281,28 @@
               />
             </n-form-item>
           </div>
+
+          <!-- 日期选择在同一行 -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <n-form-item label="登记日期" path="registeredAt">
+              <n-date-picker
+                v-model:value="formData.registeredAt"
+                type="date"
+                clearable
+                placeholder="选择登记日期"
+                style="width: 100%;"
+              />
+            </n-form-item>
+            <n-form-item label="截止日期" path="dueDate">
+              <n-date-picker
+                v-model:value="formData.dueDate"
+                type="date"
+                clearable
+                placeholder="选择截止日期（可选）"
+                style="width: 100%;"
+              />
+            </n-form-item>
+          </div>
         </n-form>
       </div>
       <template #footer>
@@ -324,8 +352,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue';
-import { NCard, NSpace, NButton, NIcon, NEmpty, NCollapse, NCollapseItem, NModal, NForm, NFormItem, NInput, NSelect, useMessage } from 'naive-ui';
-import { AddOutline, RefreshOutline, CloudUploadOutline, GridOutline, PricetagsOutline, CloseCircleOutline } from '@vicons/ionicons5';
+import { Window } from '@tauri-apps/api/window';
+import { NCard, NSpace, NButton, NIcon, NEmpty, NCollapse, NCollapseItem, NModal, NForm, NFormItem, NInput, NSelect, NDatePicker, useMessage } from 'naive-ui';
+import dayjs from 'dayjs';
+import { AddOutline, RefreshOutline, CloudUploadOutline, GridOutline, PricetagsOutline, CloseCircleOutline, LayersOutline } from '@vicons/ionicons5';
 import { useTaskStore } from '@/stores/taskStore';
 import { tagApi } from '@/api/tagApi';
 import { aiApi } from '@/api/aiApi';
@@ -357,6 +387,30 @@ const aiEnhancing = ref(false);
 const aiGeneratingSubtasks = ref(false);
 const isAiEnabled = ref(false);
 const isCreating = ref(false); // 创建任务中状态
+
+// 悬浮窗状态
+const isTaskFloatVisible = ref(false);
+
+// 切换悬浮窗显示
+async function toggleTaskFloat() {
+  try {
+    const floatWindow = await Window.getByLabel('task-float');
+    if (floatWindow) {
+      if (isTaskFloatVisible.value) {
+        await floatWindow.hide();
+        isTaskFloatVisible.value = false;
+      } else {
+        await floatWindow.show();
+        isTaskFloatVisible.value = true;
+      }
+    } else {
+      message.error('悬浮窗未初始化');
+    }
+  } catch (error) {
+    console.error('切换悬浮窗失败:', error);
+    message.error('切换悬浮窗失败');
+  }
+}
 
 // AI 增强描述缓存（基于标题和描述内容）
 const enhanceCache = new Map<string, string>();
@@ -390,6 +444,8 @@ const formData = reactive({
   priority: 2 as Task['priority'],
   quadrant: 'urgent_not_important' as TaskQuadrant,
   tagIds: [] as number[],
+  dueDate: null as number | null,        // 截止日期
+  registeredAt: Date.now() as number,    // 登记日期，默认为今天
 });
 
 const formRules = {
@@ -574,13 +630,19 @@ async function handleCreate() {
       }
     }
 
+    // 格式化日期
+    const dueDateStr = formData.dueDate ? dayjs(formData.dueDate).format('YYYY-MM-DD') : undefined;
+    const registeredAtStr = formData.registeredAt ? dayjs(formData.registeredAt).format('YYYY-MM-DD') : undefined;
+
     // 创建任务
     const taskId = await taskStore.createTask(
       formData.title,
       formData.description || undefined,
       finalCategory,
       finalPriority,
-      finalQuadrant
+      finalQuadrant,
+      dueDateStr,
+      registeredAtStr
     );
 
     // 合并用户选择的标签和 AI 推荐的标签（去重）
@@ -637,6 +699,8 @@ async function handleEdit(task: Task) {
   formData.priority = task.priority;
   formData.quadrant = task.quadrant || 'urgent_not_important';
   formData.tagIds = task.tags?.map(t => t.id!).filter(id => id !== undefined) || [];
+  formData.dueDate = task.dueDate ? new Date(task.dueDate).getTime() : null;
+  formData.registeredAt = task.registeredAt ? new Date(task.registeredAt).getTime() : Date.now();
   showCreateModal.value = true;
 }
 
@@ -658,6 +722,10 @@ async function handleUpdate() {
       return;
     }
 
+    // 格式化日期
+    const dueDateStr = formData.dueDate ? dayjs(formData.dueDate).format('YYYY-MM-DD') : undefined;
+    const registeredAtStr = formData.registeredAt ? dayjs(formData.registeredAt).format('YYYY-MM-DD') : undefined;
+
     // 更新任务基本信息
     await taskStore.updateTask(editingTaskId.value!, {
       title: formData.title,
@@ -665,6 +733,8 @@ async function handleUpdate() {
       category: formData.category,
       priority: formData.priority,
       quadrant: formData.quadrant,
+      dueDate: dueDateStr,
+      registeredAt: registeredAtStr,
     });
 
     // 处理标签更新:先移除所有标签,再添加选中的标签
@@ -699,6 +769,8 @@ function handleCancelEdit() {
   formData.priority = 2;
   formData.quadrant = 'urgent_not_important';
   formData.tagIds = [];
+  formData.dueDate = null;
+  formData.registeredAt = Date.now();
 
   // 清理防抖定时器
   if (aiEnhanceDebounceTimer) {

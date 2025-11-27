@@ -124,6 +124,23 @@
                   class="date-picker"
                 />
                 <n-button
+                  v-if="!isToday(dayjs(selectedDate).format('YYYY-MM-DD'))"
+                  text
+                  @click="goToToday"
+                  class="today-button"
+                  title="回到今天"
+                >
+                  <template #icon>
+                    <n-icon size="18">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
+                    </n-icon>
+                  </template>
+                  今天
+                </n-button>
+                <n-button
                   text
                   @click="handleSave"
                   :loading="saving"
@@ -254,34 +271,33 @@
               <div v-if="!isPreviewMode" class="weekly-content">
                 <!-- 左侧：完成的任务列表 -->
                 <div class="weekly-tasks">
-                  <h3 class="section-title">本周完成的任务</h3>
+                  <h3 class="section-title">本周完成的任务 ({{ weeklyTasks.length }})</h3>
                   <div v-if="weeklyTasks.length > 0" class="task-list">
                     <div
                       v-for="task in weeklyTasks"
                       :key="task.id"
-                      class="task-item"
+                      class="task-item-simple"
                     >
-                      <div class="task-header">
-                        <n-icon size="16" color="#10b981" class="task-icon">
+                      <div class="task-row">
+                        <n-icon size="14" color="#10b981" class="task-check-icon">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
                         </n-icon>
-                        <span class="task-title">{{ task.title }}</span>
-                        <n-tag
-                          v-if="task.category"
-                          size="small"
-                          :bordered="false"
-                          class="task-category"
-                        >
-                          {{ getCategoryLabel(task.category) }}
-                        </n-tag>
-                      </div>
-                      <div v-if="task.description" class="task-description">
-                        {{ task.description }}
-                      </div>
-                      <div class="task-meta">
-                        <span class="task-time">{{ formatTaskTime(task.completedAt!) }}</span>
+                        <span class="task-title-simple">{{ task.title }}</span>
+                        <div class="task-tags-simple" v-if="task.tags && task.tags.length > 0">
+                          <n-tag
+                            v-for="tag in task.tags.slice(0, 2)"
+                            :key="tag.id"
+                            size="tiny"
+                            :bordered="false"
+                            :style="{ background: tag.color + '20', color: tag.color }"
+                            class="task-tag-simple"
+                          >
+                            {{ tag.name }}
+                          </n-tag>
+                        </div>
+                        <span class="task-time-simple">{{ formatTaskTime(task.completedAt!) }}</span>
                       </div>
                     </div>
                   </div>
@@ -510,6 +526,7 @@ const weeklyLogs = computed(() => {
 // LocalStorage 键名
 const DRAFT_STORAGE_KEY = 'worklog_draft';
 const TAGS_STORAGE_KEY = 'worklog_tags';
+const PREVIEW_MODE_KEY = 'worklog_preview_mode';
 
 // 保存草稿到 LocalStorage
 function saveDraft() {
@@ -624,7 +641,7 @@ function getCategoryLabel(category: Task['category']): string {
 
 // 格式化任务完成时间
 function formatTaskTime(time: string): string {
-  return dayjs(time).format('YYYY-MM-DD HH:mm');
+  return dayjs(time).format('MM-DD HH:mm');
 }
 
 onMounted(async () => {
@@ -635,6 +652,15 @@ onMounted(async () => {
   // 初始化周范围
   weekRange.value = calculateWeekRange('this_week');
   await loadWeeklyTasks();
+
+  // 加载缓存的预览模式状态，如果没有缓存且有内容则默认预览模式
+  const cachedPreviewMode = localStorage.getItem(PREVIEW_MODE_KEY);
+  if (cachedPreviewMode !== null) {
+    isPreviewMode.value = cachedPreviewMode === 'true';
+  } else if (currentLog.value.trim()) {
+    // 如果没有缓存但有内容，默认进入预览模式
+    isPreviewMode.value = true;
+  }
 });
 
 // 监听日志模式变化
@@ -667,6 +693,11 @@ watch(selectedDate, async (newDate) => {
     currentLog.value = workLogStore.currentLog?.content || '';
     // 加载草稿
     loadDraft();
+    // 如果有内容，默认进入预览模式（除非用户已有缓存设置）
+    const cachedPreviewMode = localStorage.getItem(PREVIEW_MODE_KEY);
+    if (cachedPreviewMode === null && currentLog.value.trim()) {
+      isPreviewMode.value = true;
+    }
   }
 });
 
@@ -683,6 +714,11 @@ watch(currentTags, () => {
     saveDraft();
   }
 }, { deep: true });
+
+// 监听预览模式变化，保存到缓存
+watch(isPreviewMode, (newValue) => {
+  localStorage.setItem(PREVIEW_MODE_KEY, String(newValue));
+});
 
 // 页面卸载前保存草稿 (仅日报模式)
 onBeforeUnmount(() => {
@@ -757,9 +793,27 @@ async function handleAiGenerate() {
 
     const dateStr = dayjs(selectedDate.value).format('YYYY-MM-DD');
 
-    // TODO: 获取当天完成的任务、执行的SQL、Git提交
-    // 这里使用示例数据，实际应从数据库获取
-    const completedTasks: string[] = [];
+    // 获取已完成任务（包括今天完成的和最近完成的）
+    await taskStore.loadCompletedTasks(7);
+    const todayStart = dayjs(selectedDate.value).startOf('day');
+    const todayEnd = dayjs(selectedDate.value).endOf('day');
+
+    // 只筛选当天完成的任务
+    const todayCompletedTasks = taskStore.completedTasks.filter(task => {
+      if (task.completedAt) {
+        const completedTime = dayjs(task.completedAt);
+        return completedTime.isAfter(todayStart) && completedTime.isBefore(todayEnd);
+      }
+      return false;
+    });
+
+    // 构建任务列表（只包含已完成的任务，简洁格式）
+    const completedTasks: string[] = todayCompletedTasks.map(task => {
+      // 只用任务标题，如果有标签也加上
+      const tags = task.tags?.map(t => t.name).join('、') || '';
+      return tags ? `${task.title}（${tags}）` : task.title;
+    });
+
     const executedSqls: string[] = [];
     const gitCommits: string[] = [];
 
@@ -959,6 +1013,11 @@ function isToday(date: string) {
   return dayjs(date).isSame(dayjs(), 'day');
 }
 
+// 跳转到今天
+function goToToday() {
+  selectedDate.value = Date.now();
+}
+
 function truncate(text: string, length: number) {
   if (!text) return '';
   return text.length > length ? text.substring(0, length) + '...' : text;
@@ -989,6 +1048,8 @@ function truncate(text: string, length: number) {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .header-actions {
@@ -1049,6 +1110,7 @@ function truncate(text: string, length: number) {
   flex-direction: column;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   min-height: 0;
+  overflow: hidden;
   position: relative;
   transition: all 0.3s ease;
 }
@@ -1056,6 +1118,16 @@ function truncate(text: string, length: number) {
 .editor-card:focus-within {
   border-color: rgba(99, 102, 241, 0.3);
   box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(99, 102, 241, 0.1);
+}
+
+/* n-spin 容器样式 - 让它填满剩余空间 */
+.editor-card :deep(.n-spin-container),
+.editor-card :deep(.n-spin-content) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .editor-header {
@@ -1133,6 +1205,16 @@ function truncate(text: string, length: number) {
   color: #10b981;
 }
 
+.today-button {
+  color: #6366f1;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.today-button:hover {
+  color: #818cf8;
+}
+
 .editor-textarea {
   flex: 1;
   width: 100%;
@@ -1146,7 +1228,6 @@ function truncate(text: string, length: number) {
   line-height: 1.7;
   font-family: inherit;
   padding: 12px;
-  min-height: 300px;
   overflow-y: auto;
 }
 
@@ -1179,7 +1260,6 @@ function truncate(text: string, length: number) {
   font-size: 14px;
   line-height: 1.7;
   padding: 12px;
-  min-height: 300px;
   overflow-y: auto;
 }
 
@@ -1553,7 +1633,8 @@ function truncate(text: string, length: number) {
   flex: 1;
   display: flex;
   gap: 24px;
-  min-height: 0;
+  min-height: 300px;
+  max-height: calc(100vh - 350px);
   overflow: hidden;
 }
 
@@ -1562,6 +1643,7 @@ function truncate(text: string, length: number) {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  max-height: 100%;
   overflow: hidden;
 }
 
@@ -1570,6 +1652,8 @@ function truncate(text: string, length: number) {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .section-title {
@@ -1583,10 +1667,11 @@ function truncate(text: string, length: number) {
 
 .task-list {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: overlay;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
+  padding-right: 4px;
 }
 
 .task-list::-webkit-scrollbar {
@@ -1669,9 +1754,64 @@ function truncate(text: string, length: number) {
   padding: 40px 0;
 }
 
+/* 简化的任务项样式 */
+.task-item-simple {
+  background: rgba(30, 41, 59, 0.3);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 8px;
+  padding: 8px 12px;
+  transition: all 0.2s;
+}
+
+.task-item-simple:hover {
+  background: rgba(30, 41, 59, 0.5);
+  border-color: rgba(148, 163, 184, 0.15);
+}
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-check-icon {
+  flex-shrink: 0;
+}
+
+.task-title-simple {
+  flex: 1;
+  color: #e2e8f0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-tags-simple {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.task-tag-simple {
+  font-size: 10px !important;
+  padding: 0 6px !important;
+  height: 18px !important;
+  line-height: 18px !important;
+}
+
+.task-time-simple {
+  color: #64748b;
+  font-size: 11px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .weekly-textarea {
   flex: 1;
-  min-height: 400px;
+  min-height: 300px;
+  overflow-y: overlay;
 }
 
 .stats-container {

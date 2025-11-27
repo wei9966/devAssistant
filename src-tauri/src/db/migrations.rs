@@ -69,6 +69,9 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     // 创建应用启动器设置表
     create_app_launcher_settings_table(conn)?;
 
+    // 迁移 tasks 表：添加 due_date 和 registered_at 字段
+    migrate_tasks_add_date_fields(conn)?;
+
     Ok(())
 }
 
@@ -1229,6 +1232,39 @@ fn create_app_launcher_settings_table(conn: &Connection) -> Result<()> {
          VALUES (1, '[\"exe\",\"lnk\"]', strftime('%s', 'now'), strftime('%s', 'now'))",
         [],
     )?;
+
+    Ok(())
+}
+
+/// 迁移 tasks 表：添加 due_date 和 registered_at 字段
+fn migrate_tasks_add_date_fields(conn: &Connection) -> Result<()> {
+    // 检查 due_date 列是否存在
+    let has_due_date: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name='due_date'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_due_date == 0 {
+        conn.execute("ALTER TABLE tasks ADD COLUMN due_date TEXT", [])?;
+        println!("✓ 已添加 due_date 列到 tasks 表");
+    }
+
+    // 检查 registered_at 列是否存在
+    let has_registered_at: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name='registered_at'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_registered_at == 0 {
+        conn.execute("ALTER TABLE tasks ADD COLUMN registered_at TEXT", [])?;
+        println!("✓ 已添加 registered_at 列到 tasks 表");
+    }
 
     Ok(())
 }

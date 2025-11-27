@@ -72,6 +72,8 @@ pub fn update_task(
     git_branch: Option<String>,
     notes: Option<String>,
     quadrant: Option<String>,
+    due_date: Option<String>,
+    registered_at: Option<String>,
 ) -> Result<(), String> {
     // 添加调试日志
     eprintln!("=== update_task called ===");
@@ -83,6 +85,8 @@ pub fn update_task(
     eprintln!("git_branch: {:?}", git_branch);
     eprintln!("notes: {:?}", notes);
     eprintln!("quadrant: {:?}", quadrant);
+    eprintln!("due_date: {:?}", due_date);
+    eprintln!("registered_at: {:?}", registered_at);
 
     let conn = db.0.lock().map_err(|e| e.to_string())?;
 
@@ -104,6 +108,8 @@ pub fn update_task(
         git_branch.as_deref(),
         notes.as_deref(),
         quad,
+        due_date.as_deref(),
+        registered_at.as_deref(),
     )
     .map_err(|e| e.to_string())
 }

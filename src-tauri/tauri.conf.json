@@ -69,6 +69,24 @@
         "visible": false,
         "skipTaskbar": true,
         "focus": true
+      },
+      {
+        "label": "task-float",
+        "title": "Task Float",
+        "url": "task-float.html",
+        "width": 300,
+        "height": 400,
+        "x": 100,
+        "y": 100,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "focus": false,
+        "shadow": false
       }
     ],
     "security": {
@@ -77,10 +95,16 @@
         {
           "identifier": "main-capability",
           "description": "Main application capabilities",
-          "windows": ["main"],
+          "windows": [
+            "main"
+          ],
           "permissions": [
             "core:default",
             "core:window:allow-start-dragging",
+            "core:window:allow-show",
+            "core:window:allow-hide",
+            "core:window:allow-close",
+            "core:window:allow-set-focus",
             "shell:allow-open",
             "dialog:allow-open",
             "dialog:allow-save",
@@ -99,7 +123,9 @@
         {
           "identifier": "launcher-capability",
           "description": "Launcher window capabilities",
-          "windows": ["launcher"],
+          "windows": [
+            "launcher"
+          ],
           "permissions": [
             "core:default",
             "core:window:allow-close",
@@ -112,7 +138,9 @@
         {
           "identifier": "sql-panel-capability",
           "description": "SQL Panel window capabilities",
-          "windows": ["sql-panel"],
+          "windows": [
+            "sql-panel"
+          ],
           "permissions": [
             "core:default",
             "core:window:allow-close",
@@ -124,7 +152,9 @@
         {
           "identifier": "quick-task-capability",
           "description": "Quick Task window capabilities",
-          "windows": ["quick-task"],
+          "windows": [
+            "quick-task"
+          ],
           "permissions": [
             "core:default",
             "core:window:allow-close",
@@ -133,6 +163,21 @@
             "core:window:allow-set-focus",
             "core:window:allow-set-size",
             "core:window:allow-center"
+          ]
+        },
+        {
+          "identifier": "task-float-capability",
+          "description": "Task Float window capabilities",
+          "windows": [
+            "task-float"
+          ],
+          "permissions": [
+            "core:default",
+            "core:window:allow-close",
+            "core:window:allow-hide",
+            "core:window:allow-show",
+            "core:window:allow-set-focus",
+            "core:window:allow-start-dragging"
           ]
         }
       ]

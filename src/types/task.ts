@@ -12,6 +12,8 @@ export interface Task {
   startedAt?: string;
   lastActiveAt?: string;
   completedAt?: string;
+  dueDate?: string;      // 截止日期
+  registeredAt?: string; // 登记日期（用户选择的任务日期）
   estimatedHours?: number;
   actualHours?: number;
   context?: WorkContext;

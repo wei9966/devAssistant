@@ -598,59 +598,62 @@ impl AiService {
 
     /// 自动生成工作日志
     pub async fn generate_work_log(&self, input: WorkLogInput) -> Result<String> {
+        // 检查是否有任务
+        let has_tasks = !input.completed_tasks.is_empty();
+        let has_sqls = !input.executed_sqls.is_empty();
+        let has_commits = !input.git_commits.is_empty();
+
+        // 如果没有任何内容，返回简单模板
+        if !has_tasks && !has_sqls && !has_commits {
+            return Ok(format!("## {} 工作日志\n\n今日暂无记录的工作内容。", input.date));
+        }
+
+        // 构建任务列表
+        let tasks_section = if has_tasks {
+            format!("已完成任务：\n{}", input.completed_tasks.iter()
+                .map(|t| format!("- {}", t))
+                .collect::<Vec<_>>()
+                .join("\n"))
+        } else {
+            String::new()
+        };
+
+        // 构建 SQL 操作列表（限制数量）
+        let sqls_section = if has_sqls {
+            let sqls: Vec<_> = input.executed_sqls.iter().take(5).cloned().collect();
+            format!("\n\nSQL 操作：\n{}", sqls.iter()
+                .map(|s| format!("- {}", s))
+                .collect::<Vec<_>>()
+                .join("\n"))
+        } else {
+            String::new()
+        };
+
+        // 构建 Git 提交列表
+        let commits_section = if has_commits {
+            format!("\n\nGit 提交：\n{}", input.git_commits.iter()
+                .map(|c| format!("- {}", c))
+                .collect::<Vec<_>>()
+                .join("\n"))
+        } else {
+            String::new()
+        };
+
         let prompt = format!(
-            r#"请根据以下信息生成今日工作日志：
-
-日期：{}
-
-完成的任务：
-{}
-
-执行的 SQL 操作：
-{}
-
-Git 提交记录：
-{}
-
-要求：
-1. 使用简洁的语言描述工作内容
-2. 按工作类型分组（开发、数据库、文档等）
-3. 突出重要的成果和进展
-4. 使用 Markdown 格式
-
-生成格式：
-## {} 工作日志
-
-### 开发工作
-- ...
-
-### 数据库工作
-- ...
-
-### 其他
-- ..."#,
+            "请将以下工作内容整理成专业的 Markdown 格式工作日志。\n\n\
+            日期：{}\n\
+            {}{}{}\n\n\
+            要求：\n\
+            1. 直接输出 Markdown 格式，以 \"## {} 工作日志\" 开头\n\
+            2. 根据任务内容智能分组，使用 ### 作为分组标题（如：功能开发、Bug修复、代码优化等）\n\
+            3. 每个任务用 \"- \" 开头的列表项展示\n\
+            4. 如果任务带有标签（括号内容），保留标签信息\n\
+            5. 语言简洁专业，不要添加额外的总结或评价\n\
+            6. 只输出日志内容，不要输出其他说明文字",
             input.date,
-            if input.completed_tasks.is_empty() {
-                "无".to_string()
-            } else {
-                input.completed_tasks.join("\n")
-            },
-            if input.executed_sqls.is_empty() {
-                "无".to_string()
-            } else {
-                input
-                    .executed_sqls
-                    .iter()
-                    .take(10)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            },
-            if input.git_commits.is_empty() {
-                "无".to_string()
-            } else {
-                input.git_commits.join("\n")
-            },
+            tasks_section,
+            sqls_section,
+            commits_section,
             input.date
         );
 

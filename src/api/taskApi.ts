@@ -18,7 +18,9 @@ export const taskApi = {
     description?: string,
     category: string = 'other',
     priority: number = 2,
-    quadrant?: string
+    quadrant?: string,
+    dueDate?: string,
+    registeredAt?: string
   ): Promise<number> {
     const taskId = await invoke<number>('create_task', {
       title,
@@ -27,8 +29,8 @@ export const taskApi = {
       priority
     });
 
-    // 如果指定了四象限,更新任务
-    if (quadrant && taskId) {
+    // 如果指定了四象限或日期字段,更新任务
+    if ((quadrant || dueDate || registeredAt) && taskId) {
       await invoke('update_task', {
         taskId,
         title: null,
@@ -37,7 +39,9 @@ export const taskApi = {
         priority: null,
         gitBranch: null,
         notes: null,
-        quadrant
+        quadrant: quadrant || null,
+        dueDate: dueDate || null,
+        registeredAt: registeredAt || null
       });
     }
 
@@ -75,6 +79,8 @@ export const taskApi = {
       gitBranch?: string;
       notes?: string;
       quadrant?: string;
+      dueDate?: string;
+      registeredAt?: string;
     }
   ): Promise<void> {
     await invoke('update_task', {
@@ -86,6 +92,8 @@ export const taskApi = {
       gitBranch: updates.gitBranch !== undefined ? updates.gitBranch : null,
       notes: updates.notes !== undefined ? updates.notes : null,
       quadrant: updates.quadrant !== undefined ? updates.quadrant : null,
+      dueDate: updates.dueDate !== undefined ? updates.dueDate : null,
+      registeredAt: updates.registeredAt !== undefined ? updates.registeredAt : null,
     });
   },
 

@@ -14,6 +14,8 @@ pub struct Task {
     pub started_at: Option<String>,
     pub last_active_at: Option<String>,
     pub completed_at: Option<String>,
+    pub due_date: Option<String>,       // 截止日期
+    pub registered_at: Option<String>,  // 登记日期
     pub estimated_hours: Option<f32>,
     pub actual_hours: Option<f32>,
     pub context: Option<WorkContext>,
