@@ -48,6 +48,11 @@ export const aiApi = {
     return await invoke('ai_polish_work_log', { content });
   },
 
+  // 通用 AI 聊天
+  async chat(prompt: string, module?: string): Promise<string> {
+    return await invoke('ai_chat', { prompt, module });
+  },
+
   // 生成周报
   async generateWeeklyReport(logs: string[]): Promise<string> {
     return await invoke('ai_generate_weekly_report', { logs });

@@ -28,6 +28,12 @@
           </template>
           {{ isTaskFloatVisible ? '关闭悬浮窗' : '悬浮窗' }}
         </n-button>
+        <n-button @click="toggleCalendarFloat" :type="isCalendarFloatVisible ? 'primary' : 'default'">
+          <template #icon>
+            <n-icon><CalendarOutline /></n-icon>
+          </template>
+          {{ isCalendarFloatVisible ? '关闭日历' : '日历' }}
+        </n-button>
       </n-space>
     </div>
 
@@ -356,7 +362,7 @@ import { Window } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import { NCard, NSpace, NButton, NIcon, NEmpty, NCollapse, NCollapseItem, NModal, NForm, NFormItem, NInput, NSelect, NDatePicker, useMessage } from 'naive-ui';
 import dayjs from 'dayjs';
-import { AddOutline, RefreshOutline, CloudUploadOutline, GridOutline, PricetagsOutline, CloseCircleOutline, LayersOutline } from '@vicons/ionicons5';
+import { AddOutline, RefreshOutline, CloudUploadOutline, GridOutline, PricetagsOutline, CloseCircleOutline, LayersOutline, CalendarOutline } from '@vicons/ionicons5';
 import { useTaskStore } from '@/stores/taskStore';
 import { tagApi } from '@/api/tagApi';
 import { aiApi } from '@/api/aiApi';
@@ -391,6 +397,7 @@ const isCreating = ref(false); // 创建任务中状态
 
 // 悬浮窗状态
 const isTaskFloatVisible = ref(false);
+const isCalendarFloatVisible = ref(false);
 
 // 切换悬浮窗显示
 async function toggleTaskFloat() {
@@ -410,6 +417,27 @@ async function toggleTaskFloat() {
   } catch (error) {
     console.error('切换悬浮窗失败:', error);
     message.error('切换悬浮窗失败');
+  }
+}
+
+// 切换日历悬浮窗显示
+async function toggleCalendarFloat() {
+  try {
+    const calendarWindow = await Window.getByLabel('task-calendar');
+    if (calendarWindow) {
+      if (isCalendarFloatVisible.value) {
+        await calendarWindow.hide();
+        isCalendarFloatVisible.value = false;
+      } else {
+        await calendarWindow.show();
+        isCalendarFloatVisible.value = true;
+      }
+    } else {
+      message.error('日历悬浮窗未初始化');
+    }
+  } catch (error) {
+    console.error('切换日历悬浮窗失败:', error);
+    message.error('切换日历悬浮窗失败');
   }
 }
 
@@ -557,13 +585,22 @@ onMounted(async () => {
   unlistenFloatHidden = await listen('task-float-hidden', () => {
     isTaskFloatVisible.value = false;
   });
+
+  // 监听日历悬浮窗关闭事件
+  unlistenCalendarHidden = await listen('task-calendar-hidden', () => {
+    isCalendarFloatVisible.value = false;
+  });
 });
 
 let unlistenFloatHidden: (() => void) | null = null;
+let unlistenCalendarHidden: (() => void) | null = null;
 
 onUnmounted(() => {
   if (unlistenFloatHidden) {
     unlistenFloatHidden();
+  }
+  if (unlistenCalendarHidden) {
+    unlistenCalendarHidden();
   }
 });
 

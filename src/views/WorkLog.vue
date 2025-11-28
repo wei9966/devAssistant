@@ -10,6 +10,7 @@
           <n-tabs v-model:value="logMode" type="segment" animated class="log-mode-tabs">
             <n-tab-pane name="daily" tab="日报" />
             <n-tab-pane name="weekly" tab="周报" />
+            <n-tab-pane name="plan" tab="周计划" />
           </n-tabs>
           <div class="action-buttons">
             <!-- 日报模式的按钮 -->
@@ -50,7 +51,7 @@
             </template>
 
             <!-- 周报模式的按钮 -->
-            <template v-else>
+            <template v-else-if="logMode === 'weekly'">
               <n-button
                 type="success"
                 secondary
@@ -67,6 +68,45 @@
                   </n-icon>
                 </template>
                 AI 生成周报
+              </n-button>
+            </template>
+
+            <!-- 周计划模式的按钮 -->
+            <template v-else-if="logMode === 'plan'">
+              <n-button
+                type="info"
+                secondary
+                @click="handleGeneratePlan"
+                :loading="generatingPlan"
+                class="ai-button-plan"
+              >
+                <template #icon>
+                  <n-icon>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                      <rect x="9" y="3" width="6" height="4" rx="1" />
+                      <path d="M9 12h6M9 16h6" />
+                    </svg>
+                  </n-icon>
+                </template>
+                AI 生成计划
+              </n-button>
+              <n-button
+                type="warning"
+                secondary
+                @click="handlePolishPlan"
+                :loading="generatingPlan"
+                :disabled="!currentPlanContent.trim()"
+                class="ai-button-polish"
+              >
+                <template #icon>
+                  <n-icon>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                  </n-icon>
+                </template>
+                AI 润色
               </n-button>
             </template>
 
@@ -201,7 +241,7 @@
           </template>
 
           <!-- 周报模式 -->
-          <template v-else>
+          <template v-else-if="logMode === 'weekly'">
             <!-- 顶部：周选择器 -->
             <div class="editor-header">
               <div class="date-info">
@@ -268,15 +308,35 @@
 
             <!-- 中间：周任务列表和编辑区 -->
             <n-spin :show="workLogStore.loading || loadingWeeklyTasks">
-              <div v-if="!isPreviewMode" class="weekly-content">
-                <!-- 左侧：完成的任务列表 -->
+              <div class="weekly-content">
+                <!-- 左侧：完成的任务列表 - 始终显示 -->
                 <div class="weekly-tasks">
-                  <h3 class="section-title">本周完成的任务 ({{ weeklyTasks.length }})</h3>
+                  <h3 class="section-title">
+                    本周完成的任务 ({{ weeklyTasks.length }})
+                    <n-tag v-if="newCompletedCount > 0 && weeklyPlanForReport" size="tiny" type="info" :bordered="false" class="new-tag">
+                      +{{ newCompletedCount }} 新增
+                    </n-tag>
+                  </h3>
+                  <!-- 计划完成率提示 -->
+                  <div v-if="planCompletionRate" class="plan-progress">
+                    <div class="progress-info">
+                      <span>计划完成: {{ planCompletionRate.completed }}/{{ planCompletionRate.total }}</span>
+                      <span class="progress-percent">{{ planCompletionRate.percent }}%</span>
+                    </div>
+                    <n-progress
+                      type="line"
+                      :percentage="planCompletionRate.percent"
+                      :height="4"
+                      :show-indicator="false"
+                      :color="planCompletionRate.percent >= 80 ? '#10b981' : planCompletionRate.percent >= 50 ? '#f59e0b' : '#ef4444'"
+                    />
+                  </div>
                   <div v-if="weeklyTasks.length > 0" class="task-list">
                     <div
                       v-for="task in weeklyTasks"
                       :key="task.id"
                       class="task-item-simple"
+                      :class="{ 'task-new': isNewTask(task.id) && weeklyPlanForReport }"
                     >
                       <div class="task-row">
                         <n-icon size="14" color="#10b981" class="task-check-icon">
@@ -285,6 +345,7 @@
                           </svg>
                         </n-icon>
                         <span class="task-title-simple">{{ task.title }}</span>
+                        <n-tag v-if="isNewTask(task.id) && weeklyPlanForReport" size="tiny" type="info" :bordered="false" class="new-badge">新增</n-tag>
                         <div class="task-tags-simple" v-if="task.tags && task.tags.length > 0">
                           <n-tag
                             v-for="tag in task.tags.slice(0, 2)"
@@ -309,21 +370,22 @@
                   />
                 </div>
 
-                <!-- 右侧：周报编辑器 -->
+                <!-- 右侧：周报编辑器/预览 -->
                 <div class="weekly-editor">
                   <h3 class="section-title">周报内容</h3>
                   <textarea
+                    v-if="!isPreviewMode"
                     v-model="currentLog"
                     class="editor-textarea weekly-textarea"
                     placeholder="点击'AI生成周报'按钮，基于本周完成的任务自动生成周报总结..."
                   />
+                  <div
+                    v-else
+                    class="markdown-preview weekly-preview"
+                    v-html="renderedContent"
+                  />
                 </div>
               </div>
-              <div
-                v-else
-                class="markdown-preview"
-                v-html="renderedContent"
-              />
             </n-spin>
 
             <!-- 底部：统计信息 -->
@@ -341,13 +403,160 @@
               </div>
             </div>
           </template>
+
+          <!-- 周计划模式 -->
+          <template v-else-if="logMode === 'plan'">
+            <!-- 顶部：周范围选择和操作 -->
+            <div class="editor-header">
+              <div class="date-info">
+                <div class="icon-box plan-icon-box">
+                  <n-icon size="20" color="#3b82f6">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                      <rect x="9" y="3" width="6" height="4" rx="1" />
+                      <path d="M9 12h6M9 16h6" />
+                    </svg>
+                  </n-icon>
+                </div>
+                <div class="date-content">
+                  <div class="current-date">{{ planWeekRangeText }}</div>
+                  <div class="date-subtitle">周计划 · 工作安排</div>
+                </div>
+              </div>
+              <div class="header-right-actions">
+                <n-button
+                  text
+                  @click="isPreviewMode = !isPreviewMode"
+                  class="preview-toggle-button"
+                  :disabled="!currentPlanContent.trim()"
+                >
+                  <template #icon>
+                    <n-icon size="20">
+                      <svg v-if="!isPreviewMode" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                      <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </n-icon>
+                  </template>
+                  {{ isPreviewMode ? '编辑' : '预览' }}
+                </n-button>
+                <n-select
+                  v-model:value="selectedPlanWeekType"
+                  :options="planWeekOptions"
+                  class="week-selector"
+                  @update:value="handlePlanWeekChange"
+                />
+                <n-button
+                  text
+                  @click="handleSavePlan"
+                  :loading="savingPlan"
+                  class="save-button"
+                >
+                  <template #icon>
+                    <n-icon size="20">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
+                      </svg>
+                    </n-icon>
+                  </template>
+                </n-button>
+              </div>
+            </div>
+
+            <!-- 中间：任务列表和编辑区 -->
+            <n-spin :show="weeklyPlanStore.loading || loadingPlanTasks">
+              <div class="weekly-content">
+                <!-- 左侧：待办任务列表 -->
+                <div class="weekly-tasks">
+                  <h3 class="section-title">计划任务 ({{ planTasks.length }})</h3>
+                  <div v-if="planTasks.length > 0" class="task-list">
+                    <div
+                      v-for="task in planTasks"
+                      :key="task.id"
+                      class="task-item-simple"
+                    >
+                      <div class="task-row">
+                        <n-icon size="14" color="#3b82f6" class="task-check-icon">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 6v6l4 2" />
+                          </svg>
+                        </n-icon>
+                        <span class="task-title-simple">{{ task.title }}</span>
+                        <div class="task-tags-simple" v-if="task.tags && task.tags.length > 0">
+                          <n-tag
+                            v-for="tag in task.tags.slice(0, 2)"
+                            :key="tag.id"
+                            size="tiny"
+                            :bordered="false"
+                            :style="{ background: tag.color + '20', color: tag.color }"
+                            class="task-tag-simple"
+                          >
+                            {{ tag.name }}
+                          </n-tag>
+                        </div>
+                        <span class="task-time-simple" v-if="task.dueDate">截止: {{ dayjs(task.dueDate).format('MM-DD') }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <n-empty
+                    v-else
+                    description="该周暂无待办任务"
+                    size="small"
+                    class="empty-tasks"
+                  >
+                    <template #extra>
+                      <span class="empty-hint">请在任务看板中设置任务的截止日期</span>
+                    </template>
+                  </n-empty>
+                </div>
+
+                <!-- 右侧：周计划编辑器/预览 -->
+                <div class="weekly-editor">
+                  <h3 class="section-title">计划内容</h3>
+                  <textarea
+                    v-if="!isPreviewMode"
+                    v-model="currentPlanContent"
+                    class="editor-textarea weekly-textarea"
+                    placeholder="点击'AI生成计划'按钮，基于待办任务自动生成工作计划..."
+                  />
+                  <div
+                    v-else
+                    class="markdown-preview weekly-preview"
+                    v-html="renderedPlanContent"
+                  />
+                </div>
+              </div>
+            </n-spin>
+
+            <!-- 底部：统计信息 -->
+            <div class="editor-footer">
+              <div class="footer-label">统计</div>
+              <div class="stats-container">
+                <div class="stat-item">
+                  <span class="stat-label">计划任务:</span>
+                  <span class="stat-value">{{ planTasks.length }} 个</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">时间范围:</span>
+                  <span class="stat-value">{{ planWeekRangeText }}</span>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
 
       <!-- 右侧时间轴（大屏显示） -->
       <div class="timeline-section">
         <h3 class="timeline-title">
-          {{ logMode === 'daily' ? '日报记录' : '周报记录' }}
+          {{ logMode === 'daily' ? '日报记录' : (logMode === 'weekly' ? '周报记录' : '周计划记录') }}
         </h3>
         <div class="timeline-container">
           <!-- 垂直线 -->
@@ -382,7 +591,7 @@
           </template>
 
           <!-- 周报时间节点 -->
-          <template v-else>
+          <template v-else-if="logMode === 'weekly'">
             <div
               v-for="log in weeklyLogs"
               :key="log.date"
@@ -406,6 +615,37 @@
             </div>
             <div v-if="weeklyLogs.length === 0" class="timeline-empty">
               <n-empty description="暂无周报记录" size="small" />
+            </div>
+          </template>
+
+          <!-- 周计划时间节点 -->
+          <template v-else-if="logMode === 'plan'">
+            <div
+              v-for="plan in weeklyPlanStore.allPlans"
+              :key="plan.weekKey"
+              class="timeline-item"
+              :class="{ 'timeline-item-active': plan.weekKey === planWeekKey }"
+              @click="selectWeeklyPlan(plan)"
+            >
+              <div
+                class="timeline-dot"
+                :class="{
+                  'dot-active': plan.weekKey === planWeekKey,
+                  'dot-default': plan.weekKey !== planWeekKey
+                }"
+              />
+              <div class="timeline-content">
+                <div class="timeline-date">
+                  {{ formatPlanWeekDate(plan.weekKey) }}
+                  <n-tag v-if="plan.status === 'confirmed'" size="tiny" type="success" :bordered="false">已确认</n-tag>
+                </div>
+                <div class="timeline-text">
+                  {{ truncate(plan.content, 60) || '暂无内容' }}
+                </div>
+              </div>
+            </div>
+            <div v-if="weeklyPlanStore.allPlans.length === 0" class="timeline-empty">
+              <n-empty description="暂无周计划记录" size="small" />
             </div>
           </template>
         </div>
@@ -447,19 +687,21 @@ import {
 import dayjs from 'dayjs';
 import { marked } from 'marked';
 import { useWorkLogStore } from '@/stores/workLogStore';
+import { useWeeklyPlanStore } from '@/stores/weeklyPlanStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { aiApi } from '@/api/aiApi';
-import type { WorkLog } from '@/types/workLog';
+import type { WorkLog, WeeklyPlan } from '@/types/workLog';
 import type { Task } from '@/types/task';
 import { CATEGORY_LABELS } from '@/types/task';
 
 const message = useMessage();
 const dialog = useDialog();
 const workLogStore = useWorkLogStore();
+const weeklyPlanStore = useWeeklyPlanStore();
 const taskStore = useTaskStore();
 
-// 日志模式：日报 / 周报
-const logMode = ref<'daily' | 'weekly'>('daily');
+// 日志模式：日报 / 周报 / 周计划
+const logMode = ref<'daily' | 'weekly' | 'plan'>('daily');
 
 // 日报相关状态
 const selectedDate = ref<number>(Date.now());
@@ -478,6 +720,16 @@ const selectedWeekType = ref<string>('this_week');
 const weekRange = ref<[number, number]>([0, 0]);
 const weeklyTasks = ref<Task[]>([]);
 const loadingWeeklyTasks = ref(false);
+const weeklyPlanForReport = ref<WeeklyPlan | null>(null);  // 当前周的计划（用于对比）
+
+// 周计划相关状态
+const selectedPlanWeekType = ref<string>('next_week');
+const planWeekRange = ref<[number, number]>([0, 0]);
+const planTasks = ref<Task[]>([]);  // 下周截止的任务
+const loadingPlanTasks = ref(false);
+const currentPlanContent = ref('');  // 周计划内容
+const generatingPlan = ref(false);  // AI 生成周计划中
+const savingPlan = ref(false);  // 保存周计划中
 
 // 周选择选项
 const weekOptions = [
@@ -485,6 +737,13 @@ const weekOptions = [
   { label: '上周', value: 'last_week' },
   { label: '前两周', value: 'two_weeks_ago' },
   { label: '前三周', value: 'three_weeks_ago' }
+];
+
+// 周计划选择选项
+const planWeekOptions = [
+  { label: '下周', value: 'next_week' },
+  { label: '本周', value: 'this_week' },
+  { label: '下两周', value: 'two_weeks_later' }
 ];
 
 // 将 markdown 转换为 HTML
@@ -508,6 +767,33 @@ const weekRangeText = computed(() => {
   return `${start} - ${end}`;
 });
 
+// 周计划范围文本显示
+const planWeekRangeText = computed(() => {
+  if (!planWeekRange.value || planWeekRange.value[0] === 0) {
+    return '选择周范围';
+  }
+  const start = dayjs(planWeekRange.value[0]).format('MM月DD日');
+  const end = dayjs(planWeekRange.value[1]).format('MM月DD日');
+  return `${start} - ${end}`;
+});
+
+// 周计划内容渲染
+const renderedPlanContent = computed(() => {
+  if (!currentPlanContent.value) return '';
+  try {
+    return marked(currentPlanContent.value);
+  } catch (error) {
+    console.error('Markdown 渲染失败:', error);
+    return currentPlanContent.value;
+  }
+});
+
+// 获取周计划周的 key（格式：2025-W48）
+const planWeekKey = computed(() => {
+  if (!planWeekRange.value || planWeekRange.value[0] === 0) return '';
+  return dayjs(planWeekRange.value[0]).format('YYYY-[W]WW');
+});
+
 // 按类型过滤日志
 const dailyLogs = computed(() => {
   return workLogStore.recentLogs.filter(log => {
@@ -521,6 +807,45 @@ const weeklyLogs = computed(() => {
     // 周报日期格式: YYYY-WW
     return /^\d{4}-\d{2}$/.test(log.date) || /^\d{4}-W\d{2}$/.test(log.date);
   });
+});
+
+// 获取当前周报对应的周计划中的任务ID
+const plannedTaskIds = computed(() => {
+  if (!weeklyPlanForReport.value) return new Set<number>();
+  return new Set(weeklyPlanForReport.value.taskIds);
+});
+
+// 判断任务是否在计划中
+function isPlannedTask(taskId: number | undefined): boolean {
+  if (!taskId) return false;
+  return plannedTaskIds.value.has(taskId);
+}
+
+// 判断任务是否为新增（不在原始计划中）
+function isNewTask(taskId: number | undefined): boolean {
+  if (!taskId) return true;
+  return !plannedTaskIds.value.has(taskId);
+}
+
+// 计划完成率
+const planCompletionRate = computed(() => {
+  if (!weeklyPlanForReport.value || weeklyPlanForReport.value.taskIds.length === 0) {
+    return null;
+  }
+  const plannedIds = new Set(weeklyPlanForReport.value.taskIds);
+  const completedPlannedTasks = weeklyTasks.value.filter(task => task.id && plannedIds.has(task.id));
+  return {
+    completed: completedPlannedTasks.length,
+    total: weeklyPlanForReport.value.taskIds.length,
+    percent: Math.round((completedPlannedTasks.length / weeklyPlanForReport.value.taskIds.length) * 100)
+  };
+});
+
+// 新增完成的任务数量
+const newCompletedCount = computed(() => {
+  if (!weeklyPlanForReport.value) return weeklyTasks.value.length;
+  const plannedIds = new Set(weeklyPlanForReport.value.taskIds);
+  return weeklyTasks.value.filter(task => !task.id || !plannedIds.has(task.id)).length;
 });
 
 // LocalStorage 键名
@@ -615,6 +940,11 @@ async function loadWeeklyTasks() {
       const completedTime = new Date(task.completedAt).getTime();
       return completedTime >= weekRange.value[0] && completedTime <= weekRange.value[1];
     });
+
+    // 加载当前周的计划（用于周报对比）
+    const weekKey = dayjs(weekRange.value[0]).format('YYYY-[W]WW');
+    await weeklyPlanStore.loadWeeklyPlan(weekKey);
+    weeklyPlanForReport.value = weeklyPlanStore.currentPlan;
   } catch (error) {
     console.error('加载周任务失败:', error);
     message.error('加载周任务失败');
@@ -632,6 +962,162 @@ async function handleWeekChange(value: string) {
   const weekKey = dayjs(weekRange.value[0]).format('YYYY-WW');
   await workLogStore.loadWorkLog(weekKey);
   currentLog.value = workLogStore.currentLog?.content || '';
+}
+
+// 计算周计划的周范围（下周、本周、下两周）
+function calculatePlanWeekRange(weekType: string): [number, number] {
+  const now = dayjs();
+  let startOfWeek: dayjs.Dayjs;
+  let endOfWeek: dayjs.Dayjs;
+
+  switch (weekType) {
+    case 'next_week':
+      startOfWeek = now.add(1, 'week').startOf('week');
+      endOfWeek = now.add(1, 'week').endOf('week');
+      break;
+    case 'this_week':
+      startOfWeek = now.startOf('week');
+      endOfWeek = now.endOf('week');
+      break;
+    case 'two_weeks_later':
+      startOfWeek = now.add(2, 'week').startOf('week');
+      endOfWeek = now.add(2, 'week').endOf('week');
+      break;
+    default:
+      startOfWeek = now.add(1, 'week').startOf('week');
+      endOfWeek = now.add(1, 'week').endOf('week');
+  }
+
+  return [startOfWeek.valueOf(), endOfWeek.valueOf()];
+}
+
+// 加载周计划任务（截止日期在指定周范围内的待办任务）
+async function loadPlanTasks() {
+  if (!planWeekRange.value || planWeekRange.value[0] === 0) return;
+
+  loadingPlanTasks.value = true;
+  try {
+    // 加载所有待办和进行中的任务
+    await taskStore.loadTasks();
+
+    const startDate = dayjs(planWeekRange.value[0]).format('YYYY-MM-DD');
+    const endDate = dayjs(planWeekRange.value[1]).format('YYYY-MM-DD');
+
+    // 筛选截止日期在周范围内的任务（待办或进行中）
+    planTasks.value = taskStore.tasks.filter(task => {
+      if (task.status === 'done') return false;  // 排除已完成的
+      if (!task.dueDate) return false;  // 必须有截止日期
+      return task.dueDate >= startDate && task.dueDate <= endDate;
+    });
+  } catch (error) {
+    console.error('加载周计划任务失败:', error);
+    message.error('加载周计划任务失败');
+  } finally {
+    loadingPlanTasks.value = false;
+  }
+}
+
+// 处理周计划周选择变化
+async function handlePlanWeekChange(value: string) {
+  planWeekRange.value = calculatePlanWeekRange(value);
+  await loadPlanTasks();
+
+  // 尝试加载已保存的周计划
+  const weekKey = dayjs(planWeekRange.value[0]).format('YYYY-[W]WW');
+  await weeklyPlanStore.loadWeeklyPlan(weekKey);
+  currentPlanContent.value = weeklyPlanStore.currentPlan?.content || '';
+}
+
+// 保存周计划
+async function handleSavePlan() {
+  if (!currentPlanContent.value.trim()) {
+    message.warning('周计划内容不能为空');
+    return;
+  }
+
+  savingPlan.value = true;
+  try {
+    const taskIds = planTasks.value.map(t => t.id!).filter(id => id !== undefined);
+    await weeklyPlanStore.saveWeeklyPlan(
+      planWeekKey.value,
+      currentPlanContent.value,
+      taskIds,
+      'draft'
+    );
+    message.success('周计划已保存');
+  } catch (error) {
+    console.error('保存周计划失败:', error);
+    message.error('保存周计划失败');
+  } finally {
+    savingPlan.value = false;
+  }
+}
+
+// AI 生成周计划
+async function handleGeneratePlan() {
+  if (planTasks.value.length === 0) {
+    message.warning('没有找到截止日期在该周的任务，请先在任务看板中添加任务并设置截止日期');
+    return;
+  }
+
+  generatingPlan.value = true;
+  try {
+    // 构建任务摘要
+    const taskSummary = planTasks.value.map(task => {
+      const dueDate = task.dueDate ? dayjs(task.dueDate).format('MM-DD') : '未设置';
+      const category = getCategoryLabel(task.category);
+      return `[截止:${dueDate}] [${category}] ${task.title}${task.description ? ': ' + task.description : ''}`;
+    }).join('\n');
+
+    const prompt = `请根据以下任务列表生成一份简洁的工作计划，用于向领导汇报下周的工作安排：
+
+${taskSummary}
+
+要求：
+1. 按优先级或时间顺序整理任务
+2. 每个任务简要说明工作内容和预期目标
+3. 使用 Markdown 格式，条理清晰
+4. 语言简洁专业，适合汇报场景`;
+
+    const result = await aiApi.chat(prompt, 'weekly_plan');
+    currentPlanContent.value = result;
+    message.success('周计划已生成');
+  } catch (error) {
+    console.error('生成周计划失败:', error);
+    message.error('生成周计划失败，请检查 AI 配置');
+  } finally {
+    generatingPlan.value = false;
+  }
+}
+
+// AI 润色周计划
+async function handlePolishPlan() {
+  if (!currentPlanContent.value.trim()) {
+    message.warning('请先填写周计划内容');
+    return;
+  }
+
+  generatingPlan.value = true;
+  try {
+    const prompt = `请润色以下工作计划，使其更加专业、简洁，适合向领导汇报：
+
+${currentPlanContent.value}
+
+要求：
+1. 保持原有内容的核心信息
+2. 优化语言表达，使其更加专业
+3. 适当调整格式，使结构更清晰
+4. 使用 Markdown 格式`;
+
+    const result = await aiApi.chat(prompt, 'weekly_plan');
+    currentPlanContent.value = result;
+    message.success('周计划已润色');
+  } catch (error) {
+    console.error('润色周计划失败:', error);
+    message.error('润色周计划失败，请检查 AI 配置');
+  } finally {
+    generatingPlan.value = false;
+  }
 }
 
 // 获取分类标签
@@ -653,6 +1139,13 @@ onMounted(async () => {
   weekRange.value = calculateWeekRange('this_week');
   await loadWeeklyTasks();
 
+  // 初始化周计划范围
+  planWeekRange.value = calculatePlanWeekRange('next_week');
+  await loadPlanTasks();
+
+  // 加载周计划列表
+  await weeklyPlanStore.loadAllPlans();
+
   // 加载缓存的预览模式状态，如果没有缓存且有内容则默认预览模式
   const cachedPreviewMode = localStorage.getItem(PREVIEW_MODE_KEY);
   if (cachedPreviewMode !== null) {
@@ -667,6 +1160,7 @@ onMounted(async () => {
 watch(logMode, async (newMode) => {
   // 清空当前内容
   currentLog.value = '';
+  currentPlanContent.value = '';
   isPreviewMode.value = false;
 
   if (newMode === 'weekly') {
@@ -676,6 +1170,13 @@ watch(logMode, async (newMode) => {
     const weekKey = dayjs(weekRange.value[0]).format('YYYY-WW');
     await workLogStore.loadWorkLog(weekKey);
     currentLog.value = workLogStore.currentLog?.content || '';
+  } else if (newMode === 'plan') {
+    // 切换到周计划模式，加载下周任务
+    await loadPlanTasks();
+    // 尝试加载已保存的周计划
+    const weekKey = dayjs(planWeekRange.value[0]).format('YYYY-[W]WW');
+    await weeklyPlanStore.loadWeeklyPlan(weekKey);
+    currentPlanContent.value = weeklyPlanStore.currentPlan?.content || '';
   } else {
     // 切换到日报模式，加载当前日期的日志
     const dateStr = dayjs(selectedDate.value).format('YYYY-MM-DD');
@@ -968,6 +1469,33 @@ function formatWeekDate(date: string) {
   return date;
 }
 
+// 选择周计划记录
+function selectWeeklyPlan(plan: WeeklyPlan) {
+  currentPlanContent.value = plan.content;
+
+  // 尝试解析周数并设置周范围
+  const match = plan.weekKey.match(/^(\d{4})-W(\d{2})$/);
+  if (match) {
+    const year = parseInt(match[1]);
+    const week = parseInt(match[2]);
+    // 计算该周的起始日期
+    const startOfYear = dayjs(`${year}-01-01`);
+    const startOfWeek = startOfYear.add(week - 1, 'week').startOf('week');
+    const endOfWeek = startOfWeek.endOf('week');
+    planWeekRange.value = [startOfWeek.valueOf(), endOfWeek.valueOf()];
+  }
+}
+
+// 格式化周计划日期显示
+function formatPlanWeekDate(weekKey: string) {
+  // 周计划日期格式: YYYY-WXX
+  const match = weekKey.match(/^(\d{4})-W(\d{2})$/);
+  if (match) {
+    return `${match[1]}年 第${match[2]}周`;
+  }
+  return weekKey;
+}
+
 function handleAddTag() {
   if (!newTag.value.trim()) {
     return;
@@ -1152,6 +1680,10 @@ function truncate(text: string, length: number) {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.plan-icon-box {
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .date-content {
@@ -1656,6 +2188,32 @@ function truncate(text: string, length: number) {
   overflow: hidden;
 }
 
+.weekly-preview {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 12px;
+}
+
+.weekly-preview::-webkit-scrollbar {
+  width: 6px;
+}
+
+.weekly-preview::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.weekly-preview::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+.weekly-preview::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
 .section-title {
   font-size: 14px;
   font-weight: 600;
@@ -1754,6 +2312,12 @@ function truncate(text: string, length: number) {
   padding: 40px 0;
 }
 
+.empty-hint {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 8px;
+}
+
 /* 简化的任务项样式 */
 .task-item-simple {
   background: rgba(30, 41, 59, 0.3);
@@ -1835,5 +2399,59 @@ function truncate(text: string, length: number) {
   color: #10b981;
   font-size: 13px;
   font-weight: 600;
+}
+
+/* 周计划完成率进度条 */
+.plan-progress {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 8px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.progress-percent {
+  color: #10b981;
+  font-weight: 600;
+}
+
+/* 新增任务标记 */
+.task-new {
+  background: rgba(59, 130, 246, 0.1) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.new-badge {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #60a5fa !important;
+  font-size: 10px !important;
+  padding: 0 6px !important;
+  height: 16px !important;
+  line-height: 16px !important;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.new-tag {
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #60a5fa !important;
+  margin-left: 8px;
+}
+
+/* 周计划按钮样式 */
+.ai-button-plan {
+  --n-color: rgba(59, 130, 246, 0.1) !important;
+  --n-color-hover: rgba(59, 130, 246, 0.2) !important;
+  --n-text-color: #3b82f6 !important;
+  --n-border: 1px solid rgba(59, 130, 246, 0.2) !important;
 }
 </style>

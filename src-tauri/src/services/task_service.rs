@@ -15,7 +15,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at
+                    due_date, registered_at, display_date
              FROM tasks
              WHERE status != 'done'
              ORDER BY priority ASC, last_active_at DESC",
@@ -41,7 +41,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at
+                    due_date, registered_at, display_date
              FROM tasks
              WHERE status = 'done'
                AND completed_at >= datetime('now', 'localtime', ? || ' days')
@@ -175,6 +175,7 @@ impl TaskService {
         quadrant: Option<TaskQuadrant>,
         due_date: Option<&str>,
         registered_at: Option<&str>,
+        display_date: Option<&str>,
     ) -> Result<()> {
         // 验证标题
         if let Some(t) = title {
@@ -259,6 +260,15 @@ impl TaskService {
                 Some(trimmed.to_string())
             }));
         }
+        if let Some(dd) = display_date {
+            updates.push("display_date = ?");
+            let trimmed = dd.trim();
+            params_vec.push(Box::new(if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }));
+        }
 
         if updates.is_empty() {
             return Ok(());
@@ -293,7 +303,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at
+                    due_date, registered_at, display_date
              FROM tasks
              WHERE status = 'todo'
                AND created_at < datetime('now', 'localtime', ? || ' days')
@@ -460,7 +470,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at
+                    due_date, registered_at, display_date
              FROM tasks
              WHERE status != 'done' AND quadrant = ?
              ORDER BY priority ASC, last_active_at DESC",
@@ -471,6 +481,79 @@ impl TaskService {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(tasks)
+    }
+
+    /// 获取日期范围内的任务（用于日历显示）
+    /// 会根据任务状态选择合适的日期字段：
+    /// - 已完成任务：使用 completed_at
+    /// - 未完成任务：优先使用 current_date，其次 registered_at，最后 created_at
+    pub fn get_tasks_by_date_range(
+        conn: &Connection,
+        start_date: &str,
+        end_date: &str,
+    ) -> Result<Vec<Task>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, title, description, category, priority, status, git_branch,
+                    created_at, started_at, last_active_at, completed_at,
+                    estimated_hours, actual_hours, context_json, notes, quadrant,
+                    due_date, registered_at, display_date
+             FROM tasks
+             WHERE (
+                 -- 已完成任务：使用完成日期
+                 (status = 'done' AND date(completed_at) BETWEEN ? AND ?)
+                 OR
+                 -- 未完成任务：使用 display_date 或 registered_at 或 created_at
+                 (status != 'done' AND (
+                     (display_date IS NOT NULL AND display_date BETWEEN ? AND ?)
+                     OR (display_date IS NULL AND registered_at IS NOT NULL AND registered_at BETWEEN ? AND ?)
+                     OR (display_date IS NULL AND registered_at IS NULL AND date(created_at) BETWEEN ? AND ?)
+                 ))
+             )
+             ORDER BY priority ASC, created_at DESC",
+        )?;
+
+        let mut tasks = stmt
+            .query_map(
+                params![
+                    start_date, end_date,
+                    start_date, end_date,
+                    start_date, end_date,
+                    start_date, end_date
+                ],
+                |row| Self::map_row_to_task(row),
+            )?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // 为每个任务加载标签
+        for task in tasks.iter_mut() {
+            if let Some(task_id) = task.id {
+                task.tags = TagService::get_task_tags(conn, task_id).ok();
+            }
+        }
+
+        Ok(tasks)
+    }
+
+    /// 更新任务的日历显示日期
+    pub fn update_task_display_date(
+        conn: &Connection,
+        task_id: i64,
+        display_date: &str,
+    ) -> Result<()> {
+        conn.execute(
+            "UPDATE tasks SET display_date = ? WHERE id = ?",
+            params![display_date, task_id],
+        )?;
+        Ok(())
+    }
+
+    /// 将任务移至今天（更新 display_date 为今天日期）
+    pub fn move_task_to_today(conn: &Connection, task_id: i64) -> Result<()> {
+        conn.execute(
+            "UPDATE tasks SET display_date = date('now', 'localtime') WHERE id = ?",
+            params![task_id],
+        )?;
+        Ok(())
     }
 
     /// 统计各象限任务数量
@@ -537,6 +620,7 @@ impl TaskService {
         // 读取日期字段
         let due_date: Option<String> = row.get(16)?;
         let registered_at: Option<String> = row.get(17)?;
+        let display_date: Option<String> = row.get(18)?;
 
         Ok(Task {
             id: Some(row.get(0)?),
@@ -552,6 +636,7 @@ impl TaskService {
             completed_at: row.get(10)?,
             due_date,
             registered_at,
+            display_date,
             estimated_hours: row.get(11)?,
             actual_hours: row.get(12)?,
             context,

@@ -12,5 +12,6 @@ pub mod sql_commands;
 pub mod system_commands;
 pub mod tag_commands;
 pub mod task_commands;
+pub mod weekly_plan_commands;
 pub mod window_commands;
 pub mod work_log_commands;

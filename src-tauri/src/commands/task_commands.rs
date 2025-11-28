@@ -74,6 +74,7 @@ pub fn update_task(
     quadrant: Option<String>,
     due_date: Option<String>,
     registered_at: Option<String>,
+    display_date: Option<String>,
 ) -> Result<(), String> {
     // 添加调试日志
     eprintln!("=== update_task called ===");
@@ -87,6 +88,7 @@ pub fn update_task(
     eprintln!("quadrant: {:?}", quadrant);
     eprintln!("due_date: {:?}", due_date);
     eprintln!("registered_at: {:?}", registered_at);
+    eprintln!("display_date: {:?}", display_date);
 
     let conn = db.0.lock().map_err(|e| e.to_string())?;
 
@@ -110,6 +112,7 @@ pub fn update_task(
         quad,
         due_date.as_deref(),
         registered_at.as_deref(),
+        display_date.as_deref(),
     )
     .map_err(|e| e.to_string())
 }
@@ -183,4 +186,30 @@ pub fn get_quadrant_statistics(db: State<DbConnection>) -> Result<Vec<QuadrantSt
         .collect();
 
     Ok(result)
+}
+
+#[tauri::command]
+pub fn get_tasks_by_date_range(
+    db: State<DbConnection>,
+    start_date: String,
+    end_date: String,
+) -> Result<Vec<Task>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::get_tasks_by_date_range(&conn, &start_date, &end_date).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_task_display_date(
+    db: State<DbConnection>,
+    task_id: i64,
+    display_date: String,
+) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::update_task_display_date(&conn, task_id, &display_date).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn move_task_to_today(db: State<DbConnection>, task_id: i64) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::move_task_to_today(&conn, task_id).map_err(|e| e.to_string())
 }

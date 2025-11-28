@@ -2,6 +2,7 @@ pub mod app_launcher;
 pub mod app_launcher_settings;
 pub mod sql_record;
 pub mod task;
+pub mod weekly_plan;
 pub mod work_context;
 pub mod work_log;
 
@@ -15,4 +16,5 @@ pub use sql_record::SqlRecord;
 pub use task::{
     FileContext, Tag, Task, TaskCategory, TaskPriority, TaskQuadrant, TaskStatus, WorkContext,
 };
+pub use weekly_plan::{WeeklyPlan, WeeklyPlanStatus};
 pub use work_log::WorkLog;

@@ -176,6 +176,29 @@
         <QuadrantSelector v-model="editQuadrant" />
       </div>
 
+      <!-- 当前处理日期选择器 -->
+      <div v-if="!readonly && isEditing && task.status !== 'done'" class="detail-section">
+        <div class="section-header">
+          <n-icon size="18" class="section-icon">
+            <CalendarOutline />
+          </n-icon>
+          <span class="section-title">日历显示日期</span>
+        </div>
+        <div class="section-content">
+          <n-date-picker
+            v-model:formatted-value="editDisplayDate"
+            value-format="yyyy-MM-dd"
+            type="date"
+            clearable
+            placeholder="选择日期（在日历中显示此任务）"
+            style="width: 100%"
+          />
+          <div class="date-hint">
+            设置后，此任务将在日历的指定日期显示。留空则按登记日期或创建日期显示。
+          </div>
+        </div>
+      </div>
+
       <!-- 标签选择器 -->
       <div v-if="!readonly && isEditing" class="detail-section">
         <TagSelector
@@ -225,7 +248,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { NModal, NIcon, NSpace, NButton, useMessage } from 'naive-ui';
+import { NModal, NIcon, NSpace, NButton, NDatePicker, useMessage } from 'naive-ui';
 import {
   DocumentTextOutline,
   InformationCircleOutline,
@@ -234,6 +257,7 @@ import {
   CreateOutline,
   GridOutline,
   PricetagOutline,
+  CalendarOutline,
 } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -300,6 +324,7 @@ const renderedNotes = computed(() => {
 const isEditing = ref(false);
 const editQuadrant = ref<TaskQuadrant>('urgent_not_important');
 const editTagIds = ref<number[]>([]);
+const editDisplayDate = ref<string | null>(null);
 const showTagManager = ref(false);
 
 // 标签数据
@@ -328,6 +353,7 @@ const startEdit = () => {
     isEditing.value = true;
     editQuadrant.value = props.task.quadrant || 'urgent_not_important';
     editTagIds.value = props.task.tags?.map(t => t.id!).filter(id => id !== undefined) || [];
+    editDisplayDate.value = props.task.displayDate || null;
   }
 };
 
@@ -339,9 +365,10 @@ const handleSaveEdit = async () => {
   if (props.task) {
     const updates: Partial<Task> = {
       quadrant: editQuadrant.value,
+      displayDate: editDisplayDate.value || undefined,
     };
 
-    // 调用emit更新任务基本信息(包括四象限)
+    // 调用emit更新任务基本信息(包括四象限和日历显示日期)
     emit('update', props.task, updates);
 
     // 单独处理标签的更新
@@ -880,6 +907,14 @@ const getPriorityBadgeType = (priority: number) => {
   background: rgba(15, 23, 42, 0.5);
   border-radius: 8px;
   border-left: 3px solid #6366f1;
+}
+
+/* 日期提示 */
+.date-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.5;
 }
 
 /* 响应式 */

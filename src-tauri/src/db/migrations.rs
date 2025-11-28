@@ -72,6 +72,13 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     // 迁移 tasks 表：添加 due_date 和 registered_at 字段
     migrate_tasks_add_date_fields(conn)?;
 
+    // 迁移 tasks 表：添加 current_date 字段（日历显示日期）
+    migrate_tasks_add_current_date(conn)?;
+
+    // 创建周计划表
+    create_weekly_plans_table(conn)?;
+    create_weekly_plans_indexes(conn)?;
+
     Ok(())
 }
 
@@ -1265,6 +1272,69 @@ fn migrate_tasks_add_date_fields(conn: &Connection) -> Result<()> {
         conn.execute("ALTER TABLE tasks ADD COLUMN registered_at TEXT", [])?;
         println!("✓ 已添加 registered_at 列到 tasks 表");
     }
+
+    Ok(())
+}
+
+/// 迁移 tasks 表：添加 display_date 字段（日历显示日期）
+fn migrate_tasks_add_current_date(conn: &Connection) -> Result<()> {
+    // 检查 display_date 列是否存在
+    let has_display_date: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name='display_date'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_display_date == 0 {
+        conn.execute("ALTER TABLE tasks ADD COLUMN display_date TEXT", [])?;
+        println!("✓ 已添加 display_date 列到 tasks 表");
+
+        // 创建索引以优化日期查询
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tasks_display_date ON tasks(display_date)",
+            [],
+        )?;
+    }
+
+    Ok(())
+}
+
+/// 创建周计划表
+fn create_weekly_plans_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS weekly_plans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            week_key TEXT NOT NULL UNIQUE,
+            content TEXT NOT NULL DEFAULT '',
+            task_ids TEXT NOT NULL DEFAULT '[]',
+            original_task_ids TEXT NOT NULL DEFAULT '[]',
+            status TEXT NOT NULL DEFAULT 'draft',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建周计划表索引
+fn create_weekly_plans_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_weekly_plans_week_key ON weekly_plans(week_key)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_weekly_plans_status ON weekly_plans(status)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_weekly_plans_created_at ON weekly_plans(created_at DESC)",
+        [],
+    )?;
 
     Ok(())
 }

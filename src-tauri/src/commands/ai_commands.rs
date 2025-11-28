@@ -310,6 +310,60 @@ pub async fn ai_polish_work_log(
     result.map_err(|e| e.to_string())
 }
 
+/// 通用 AI 聊天接口
+#[tauri::command]
+pub async fn ai_chat(
+    db: State<'_, DbConnection>,
+    prompt: String,
+    module: Option<String>,
+) -> Result<String, String> {
+    use crate::services::ai_service::ChatMessage;
+
+    let (config, provider_str, model_str) = {
+        let conn = db.0.lock().map_err(|e| e.to_string())?;
+        let cfg = AiService::load_config(&conn).map_err(|e| e.to_string())?;
+        let provider = cfg.provider.to_string();
+        let model = cfg.get_model().to_string();
+        (cfg, provider, model)
+    };
+
+    if !config.enabled {
+        return Err("AI 功能未启用".to_string());
+    }
+
+    let service = AiService::new(config);
+    let messages = vec![ChatMessage::user(prompt.clone())];
+
+    let start = std::time::Instant::now();
+    let result = service.chat(messages).await;
+    let duration_ms = start.elapsed().as_millis() as i64;
+
+    // 记录日志
+    {
+        let conn = db.0.lock().map_err(|e| e.to_string())?;
+        let (status, response, error_msg) = match &result {
+            Ok(resp) => ("success", Some(resp.as_str()), None),
+            Err(e) => ("error", None, Some(e.to_string())),
+        };
+        let module_name = module.as_deref().unwrap_or("general");
+        let _ = AiService::save_log(
+            &conn,
+            module_name,
+            "chat",
+            &provider_str,
+            Some(&model_str),
+            &prompt,
+            response,
+            None,
+            Some(duration_ms),
+            status,
+            error_msg.as_deref(),
+        );
+    }
+
+    result.map_err(|e| e.to_string())
+}
+
 /// AI 生成周报
 #[tauri::command]
 pub async fn ai_generate_weekly_report(

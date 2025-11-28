@@ -256,6 +256,9 @@ fn main() {
             commands::task_commands::get_import_template,
             commands::task_commands::get_tasks_by_quadrant,
             commands::task_commands::get_quadrant_statistics,
+            commands::task_commands::get_tasks_by_date_range,
+            commands::task_commands::update_task_display_date,
+            commands::task_commands::move_task_to_today,
             // SQL 相关命令
             commands::sql_commands::save_sql,
             commands::sql_commands::get_recent_sqls,
@@ -290,6 +293,7 @@ fn main() {
             commands::ai_commands::is_ai_enabled,
             commands::ai_commands::ai_generate_work_log,
             commands::ai_commands::ai_polish_work_log,
+            commands::ai_commands::ai_chat,
             commands::ai_commands::ai_generate_weekly_report,
             commands::ai_commands::ai_classify_task,
             commands::ai_commands::ai_enhance_task_description,
@@ -317,6 +321,14 @@ fn main() {
             commands::work_log_commands::get_recent_work_logs,
             commands::work_log_commands::delete_work_log,
             commands::work_log_commands::get_all_work_logs,
+            // 周计划相关命令
+            commands::weekly_plan_commands::save_weekly_plan,
+            commands::weekly_plan_commands::get_weekly_plan,
+            commands::weekly_plan_commands::get_all_weekly_plans,
+            commands::weekly_plan_commands::get_recent_weekly_plans,
+            commands::weekly_plan_commands::update_weekly_plan_tasks,
+            commands::weekly_plan_commands::update_weekly_plan_status,
+            commands::weekly_plan_commands::delete_weekly_plan,
             // 数据库修复命令
             commands::db_repair_commands::repair_database,
             commands::db_repair_commands::get_database_stats,

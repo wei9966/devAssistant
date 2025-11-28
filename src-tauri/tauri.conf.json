@@ -87,6 +87,26 @@
         "skipTaskbar": true,
         "focus": false,
         "shadow": false
+      },
+      {
+        "label": "task-calendar",
+        "title": "Task Calendar",
+        "url": "task-calendar.html",
+        "width": 420,
+        "height": 560,
+        "x": 150,
+        "y": 100,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "focus": false,
+        "shadow": false,
+        "minWidth": 380,
+        "minHeight": 450
       }
     ],
     "security": {
@@ -178,6 +198,25 @@
             "core:window:allow-show",
             "core:window:allow-set-focus",
             "core:window:allow-start-dragging"
+          ]
+        },
+        {
+          "identifier": "task-calendar-capability",
+          "description": "Task Calendar window capabilities",
+          "windows": [
+            "task-calendar"
+          ],
+          "permissions": [
+            "core:default",
+            "core:window:allow-close",
+            "core:window:allow-hide",
+            "core:window:allow-show",
+            "core:window:allow-set-focus",
+            "core:window:allow-start-dragging",
+            "core:window:allow-set-size",
+            "core:window:allow-set-position",
+            "core:window:allow-inner-size",
+            "core:window:allow-outer-position"
           ]
         }
       ]

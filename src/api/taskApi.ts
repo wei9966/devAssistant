@@ -81,6 +81,7 @@ export const taskApi = {
       quadrant?: string;
       dueDate?: string;
       registeredAt?: string;
+      displayDate?: string;
     }
   ): Promise<void> {
     await invoke('update_task', {
@@ -94,6 +95,7 @@ export const taskApi = {
       quadrant: updates.quadrant !== undefined ? updates.quadrant : null,
       dueDate: updates.dueDate !== undefined ? updates.dueDate : null,
       registeredAt: updates.registeredAt !== undefined ? updates.registeredAt : null,
+      displayDate: updates.displayDate !== undefined ? updates.displayDate : null,
     });
   },
 
@@ -124,6 +126,21 @@ export const taskApi = {
   // 获取导入模板
   async getImportTemplate(): Promise<string> {
     return await invoke('get_import_template');
+  },
+
+  // 获取日期范围内的任务（用于日历显示）
+  async getTasksByDateRange(startDate: string, endDate: string): Promise<Task[]> {
+    return await invoke('get_tasks_by_date_range', { startDate, endDate });
+  },
+
+  // 更新任务的日历显示日期
+  async updateTaskDisplayDate(taskId: number, displayDate: string): Promise<void> {
+    await invoke('update_task_display_date', { taskId, displayDate });
+  },
+
+  // 将任务移至今天
+  async moveTaskToToday(taskId: number): Promise<void> {
+    await invoke('move_task_to_today', { taskId });
   },
 };
 
