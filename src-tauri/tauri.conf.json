@@ -75,7 +75,7 @@
         "title": "Task Float",
         "url": "task-float.html",
         "width": 300,
-        "height": 400,
+        "height": 550,
         "x": 100,
         "y": 100,
         "resizable": false,

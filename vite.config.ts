@@ -41,7 +41,8 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         launcher: resolve(__dirname, 'launcher.html'),
         'sql-panel': resolve(__dirname, 'sql-panel.html'),
-        'quick-task': resolve(__dirname, 'quick-task.html')
+        'quick-task': resolve(__dirname, 'quick-task.html'),
+        'task-float': resolve(__dirname, 'task-float.html')
       }
     }
   }

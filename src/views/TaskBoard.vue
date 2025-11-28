@@ -351,8 +351,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, onUnmounted } from 'vue';
 import { Window } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
 import { NCard, NSpace, NButton, NIcon, NEmpty, NCollapse, NCollapseItem, NModal, NForm, NFormItem, NInput, NSelect, NDatePicker, useMessage } from 'naive-ui';
 import dayjs from 'dayjs';
 import { AddOutline, RefreshOutline, CloudUploadOutline, GridOutline, PricetagsOutline, CloseCircleOutline, LayersOutline } from '@vicons/ionicons5';
@@ -550,6 +551,19 @@ onMounted(async () => {
   const staleTasks = await taskStore.checkStaleTasks(3);
   if (staleTasks.length > 0) {
     message.warning(`发现 ${staleTasks.length} 个任务超过 3 天未处理`);
+  }
+
+  // 监听悬浮窗关闭事件
+  unlistenFloatHidden = await listen('task-float-hidden', () => {
+    isTaskFloatVisible.value = false;
+  });
+});
+
+let unlistenFloatHidden: (() => void) | null = null;
+
+onUnmounted(() => {
+  if (unlistenFloatHidden) {
+    unlistenFloatHidden();
   }
 });
 
