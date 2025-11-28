@@ -62,6 +62,7 @@
             :key="task.id"
             class="task-item"
             :class="[task.status, `priority-${task.priority}`]"
+            @click="showTaskDetail(task)"
             @contextmenu.prevent="showContextMenu($event, task)"
           >
             <div class="task-status-dot" :class="task.status"></div>
@@ -98,6 +99,58 @@
             <div class="size-hint">拖动边框可自定义尺寸</div>
           </div>
         </div>
+
+        <!-- 透明度调节按钮 -->
+        <div class="opacity-control">
+          <button class="action-btn opacity-btn" @click.stop="showOpacityMenu = !showOpacityMenu" title="调整透明度">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 2a10 10 0 0 1 0 20" fill="currentColor" opacity="0.3"></path>
+            </svg>
+          </button>
+          <div v-if="showOpacityMenu" class="opacity-menu" @click.stop>
+            <div class="opacity-menu-title">透明度</div>
+            <div class="opacity-slider">
+              <input
+                type="range"
+                min="30"
+                max="100"
+                :value="windowOpacity"
+                @input="setOpacity(Number(($event.target as HTMLInputElement).value))"
+              />
+              <span class="opacity-value">{{ windowOpacity }}%</span>
+            </div>
+            <div class="opacity-presets">
+              <button
+                v-for="preset in [100, 80, 60, 40]"
+                :key="preset"
+                class="opacity-preset-btn"
+                :class="{ active: windowOpacity === preset }"
+                @click="setOpacity(preset)"
+              >
+                {{ preset }}%
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 置顶按钮 -->
+        <button
+          class="action-btn"
+          :class="{ active: isAlwaysOnTop }"
+          @click="toggleAlwaysOnTop"
+          :title="isAlwaysOnTop ? '取消置顶' : '窗口置顶'"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <path d="M12 2l0 5"></path>
+            <path d="M12 22l0-5"></path>
+            <path d="M4.93 4.93l3.54 3.54"></path>
+            <path d="M15.54 15.54l3.53 3.53"></path>
+            <path d="M2 12l5 0"></path>
+            <path d="M17 12l5 0"></path>
+            <circle cx="12" cy="12" r="4" :fill="isAlwaysOnTop ? 'currentColor' : 'none'"></circle>
+          </svg>
+        </button>
 
         <button class="action-btn" @click="goToToday" title="回到今天">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
@@ -178,12 +231,24 @@
       <div class="resize-edge resize-left" @mousedown="(e) => startResize(e, 'West')"></div>
       <div class="resize-edge resize-top" @mousedown="(e) => startResize(e, 'North')"></div>
     </div>
+
+    <!-- 任务详情弹窗 -->
+    <n-message-provider>
+      <n-dialog-provider>
+        <TaskDetailModal
+          :task="detailTask"
+          :show="showDetailModal"
+          :readonly="true"
+          @update:show="showDetailModal = $event"
+        />
+      </n-dialog-provider>
+    </n-message-provider>
   </n-config-provider>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { NConfigProvider, darkTheme } from 'naive-ui';
+import { NConfigProvider, NMessageProvider, NDialogProvider, darkTheme } from 'naive-ui';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow, Window, LogicalSize, LogicalPosition } from '@tauri-apps/api/window';
 import { listen, emit } from '@tauri-apps/api/event';
@@ -191,6 +256,7 @@ import type { Task } from '@/types/task';
 import { CATEGORY_LABELS } from '@/types/task';
 import MonthView from './components/MonthView.vue';
 import WeekView from './components/WeekView.vue';
+import TaskDetailModal from '@/components/TaskDetailModal.vue';
 
 // 日历窗口尺寸配置key
 const CALENDAR_SIZE_KEY = 'task_calendar_size';
@@ -239,6 +305,21 @@ const currentSizePreset = ref<keyof typeof SIZE_PRESETS | 'custom'>('medium');
 // 显示尺寸选择菜单
 const showSizeMenu = ref(false);
 
+// 任务详情弹窗
+const showDetailModal = ref(false);
+const detailTask = ref<Task | null>(null);
+
+// 窗口置顶状态
+const isAlwaysOnTop = ref(false);
+
+// 透明度控制
+const showOpacityMenu = ref(false);
+const windowOpacity = ref(100); // 0-100
+
+// 本地存储 key
+const CALENDAR_ALWAYS_ON_TOP_KEY = 'task_calendar_always_on_top';
+const CALENDAR_OPACITY_KEY = 'task_calendar_opacity';
+
 // 计算显示文本
 const dateDisplayText = computed(() => {
   const year = currentDate.value.getFullYear();
@@ -284,10 +365,26 @@ const selectedDateTasks = computed(() => {
 });
 
 // 获取任务显示日期
+// 逻辑：已完成任务按完成日期显示，未完成任务显示在今天（提醒用户去完成）
 function getTaskDisplayDate(task: Task): string {
+  const today = formatDate(new Date());
+
+  // 已完成任务：按完成日期显示
   if (task.status === 'done' && task.completedAt) {
     return task.completedAt.split(' ')[0];
   }
+
+  // 未完成任务：如果有 displayDate 且是今天或未来，使用它；否则显示在今天
+  if (task.status !== 'done') {
+    // 如果设置了 displayDate 且是未来日期，使用它（用于计划性任务）
+    if (task.displayDate && task.displayDate >= today) {
+      return task.displayDate;
+    }
+    // 否则所有未完成任务都显示在今天
+    return today;
+  }
+
+  // 兜底逻辑（理论上不会走到这里）
   if (task.displayDate) {
     return task.displayDate;
   }
@@ -297,7 +394,7 @@ function getTaskDisplayDate(task: Task): string {
   if (task.createdAt) {
     return task.createdAt.split(' ')[0];
   }
-  return formatDate(new Date());
+  return today;
 }
 
 // 获取周的第一天（周一）
@@ -411,7 +508,16 @@ function handleTaskAction(action: string, task: Task) {
     case 'complete':
       handleComplete();
       break;
+    case 'detail':
+      showTaskDetail(task);
+      break;
   }
+}
+
+// 显示任务详情弹窗
+function showTaskDetail(task: Task) {
+  detailTask.value = task;
+  showDetailModal.value = true;
 }
 
 // 显示右键菜单
@@ -501,6 +607,57 @@ async function hideWindow() {
   const currentWindow = getCurrentWindow();
   await emit('task-calendar-hidden');
   await currentWindow.hide();
+}
+
+// 切换置顶状态
+async function toggleAlwaysOnTop() {
+  try {
+    const currentWindow = getCurrentWindow();
+    isAlwaysOnTop.value = !isAlwaysOnTop.value;
+    await currentWindow.setAlwaysOnTop(isAlwaysOnTop.value);
+    localStorage.setItem(CALENDAR_ALWAYS_ON_TOP_KEY, String(isAlwaysOnTop.value));
+  } catch (error) {
+    console.error('设置置顶失败:', error);
+  }
+}
+
+// 设置窗口透明度
+async function setOpacity(opacity: number) {
+  try {
+    windowOpacity.value = opacity;
+    // 应用透明度到 wrapper 元素
+    const wrapper = document.querySelector('.calendar-wrapper') as HTMLElement;
+    if (wrapper) {
+      wrapper.style.opacity = String(opacity / 100);
+    }
+    localStorage.setItem(CALENDAR_OPACITY_KEY, String(opacity));
+  } catch (error) {
+    console.error('设置透明度失败:', error);
+  }
+}
+
+// 恢复置顶和透明度设置
+async function restoreWindowSettings() {
+  try {
+    const currentWindow = getCurrentWindow();
+
+    // 恢复置顶状态（默认不置顶）
+    const savedOnTop = localStorage.getItem(CALENDAR_ALWAYS_ON_TOP_KEY);
+    isAlwaysOnTop.value = savedOnTop === 'true';
+    await currentWindow.setAlwaysOnTop(isAlwaysOnTop.value);
+
+    // 恢复透明度
+    const savedOpacity = localStorage.getItem(CALENDAR_OPACITY_KEY);
+    if (savedOpacity) {
+      windowOpacity.value = parseInt(savedOpacity);
+      const wrapper = document.querySelector('.calendar-wrapper') as HTMLElement;
+      if (wrapper) {
+        wrapper.style.opacity = String(windowOpacity.value / 100);
+      }
+    }
+  } catch (error) {
+    console.error('恢复窗口设置失败:', error);
+  }
 }
 
 // 开始调整窗口大小
@@ -666,6 +823,9 @@ onMounted(async () => {
   // 恢复窗口尺寸和位置
   await restoreWindowSize();
 
+  // 恢复置顶和透明度设置
+  await restoreWindowSettings();
+
   await loadTasks();
 
   // 监听任务更新事件
@@ -682,7 +842,7 @@ onMounted(async () => {
   // 定时刷新（每60秒）
   setInterval(loadTasks, 60000);
 
-  // 点击其他地方关闭右键菜单和尺寸菜单
+  // 点击其他地方关闭右键菜单和各种菜单
   document.addEventListener('click', (e) => {
     hideContextMenu();
     // 检查是否点击在尺寸菜单外
@@ -690,6 +850,12 @@ onMounted(async () => {
     const sizeBtn = document.querySelector('.size-btn');
     if (sizeMenu && !sizeMenu.contains(e.target as Node) && !sizeBtn?.contains(e.target as Node)) {
       showSizeMenu.value = false;
+    }
+    // 检查是否点击在透明度菜单外
+    const opacityMenu = document.querySelector('.opacity-menu');
+    const opacityBtn = document.querySelector('.opacity-btn');
+    if (opacityMenu && !opacityMenu.contains(e.target as Node) && !opacityBtn?.contains(e.target as Node)) {
+      showOpacityMenu.value = false;
     }
   });
 });
@@ -1138,6 +1304,118 @@ onUnmounted(() => {
   padding: 8px 4px 4px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   margin-top: 4px;
+}
+
+/* 透明度控制 */
+.opacity-control {
+  position: relative;
+}
+
+.opacity-btn.active {
+  background: rgba(99, 102, 241, 0.3);
+  color: #818cf8;
+}
+
+.opacity-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  background: rgba(30, 41, 59, 0.98);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 10px;
+  padding: 10px;
+  min-width: 180px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  animation: slideUp 0.15s ease-out;
+}
+
+.opacity-menu-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 4px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 8px;
+}
+
+.opacity-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.opacity-slider input[type="range"] {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: 2px;
+  outline: none;
+}
+
+.opacity-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #6366f1;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(99, 102, 241, 0.5);
+  transition: transform 0.15s;
+}
+
+.opacity-slider input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.opacity-value {
+  font-size: 11px;
+  color: #94a3b8;
+  min-width: 36px;
+  text-align: right;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.opacity-presets {
+  display: flex;
+  gap: 4px;
+}
+
+.opacity-preset-btn {
+  flex: 1;
+  padding: 5px 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.opacity-preset-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+  color: #e2e8f0;
+}
+
+.opacity-preset-btn.active {
+  background: rgba(99, 102, 241, 0.3);
+  color: #818cf8;
+}
+
+/* 置顶按钮激活状态 */
+.action-btn.active {
+  background: rgba(99, 102, 241, 0.3);
+  color: #818cf8;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
 }
 
 /* 调整大小的边缘区域 */

@@ -26,6 +26,11 @@
         width: 100%;
         height: 100%;
       }
+      /* 确保 Vue 组件根元素和 n-config-provider 填满高度 */
+      #task-calendar > div,
+      #task-calendar > div > div {
+        height: 100%;
+      }
     </style>
   </head>
   <body>

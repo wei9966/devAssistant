@@ -63,10 +63,24 @@ function formatDate(date: Date): string {
 }
 
 // 获取任务显示日期
+// 逻辑：已完成任务按完成日期显示，未完成任务显示在今天（提醒用户去完成）
 function getTaskDisplayDate(task: Task): string {
+  const today = formatDate(new Date());
+
+  // 已完成任务：按完成日期显示
   if (task.status === 'done' && task.completedAt) {
     return task.completedAt.split(' ')[0];
   }
+
+  // 未完成任务：如果有 displayDate 且是今天或未来，使用它；否则显示在今天
+  if (task.status !== 'done') {
+    if (task.displayDate && task.displayDate >= today) {
+      return task.displayDate;
+    }
+    return today;
+  }
+
+  // 兜底逻辑
   if (task.displayDate) {
     return task.displayDate;
   }
@@ -76,7 +90,7 @@ function getTaskDisplayDate(task: Task): string {
   if (task.createdAt) {
     return task.createdAt.split(' ')[0];
   }
-  return formatDate(new Date());
+  return today;
 }
 
 // 计算日历天数
@@ -210,6 +224,7 @@ const calendarDays = computed(() => {
   grid-template-rows: repeat(6, 1fr);
   gap: 2px;
   min-height: 0;
+  height: 100%;
 }
 
 .date-cell {
