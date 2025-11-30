@@ -6,9 +6,6 @@ use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
 use std::path::Path;
 
-#[cfg(target_os = "windows")]
-use std::os::windows::process::CommandExt;
-
 /// 应用启动器服务
 pub struct AppLauncherService {
     db: Arc<Mutex<Connection>>,
@@ -269,75 +266,80 @@ impl AppLauncherService {
 
     /// 执行应用启动
     async fn execute_launch(app: &AppItem) -> LaunchResult {
-        use std::process::Command;
-
         // 获取应用程序所在的目录作为工作目录
         let working_dir = Path::new(&app.path)
             .parent()
-            .map(|p| p.to_path_buf());
+            .map(|p| p.to_string_lossy().to_string());
 
         #[cfg(target_os = "windows")]
         {
+            use std::ffi::OsStr;
+            use std::os::windows::ffi::OsStrExt;
+            use std::ptr;
+            use winapi::um::shellapi::ShellExecuteW;
+            use winapi::um::winuser::SW_SHOWNORMAL;
+
+            // 将字符串转换为宽字符(UTF-16)
+            fn to_wide(s: &str) -> Vec<u16> {
+                OsStr::new(s).encode_wide().chain(std::iter::once(0)).collect()
+            }
+
             // 根据不同的item_type使用不同的启动方式
-            match app.item_type {
-                ItemType::Application | ItemType::Shortcut | ItemType::UrlLink | ItemType::RemoteDesktop => {
-                    // 应用程序、快捷方式、URL链接、远程桌面,使用标准启动方式
-                    let mut cmd = Command::new("cmd");
-                    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-                    cmd.arg("/C");
-                    cmd.arg("start");
-                    cmd.arg("");
-                    cmd.arg(&app.path);
-
-                    // 设置工作目录为应用程序所在目录
-                    if let Some(ref dir) = working_dir {
-                        if dir.exists() {
-                            cmd.current_dir(dir);
-                        }
-                    }
-
-                    // 添加启动参数
-                    if let Some(args) = &app.launch_args {
-                        cmd.arg(args);
-                    }
-
-                    match cmd.spawn() {
-                        Ok(_) => LaunchResult::success(app.id.clone(), app.name.clone()),
-                        Err(e) => LaunchResult::failure(app.id.clone(), app.name.clone(), e.to_string()),
-                    }
-                }
+            let (operation, file, parameters, directory) = match app.item_type {
                 ItemType::Folder => {
                     // 文件夹,使用explorer打开
-                    let mut cmd = Command::new("explorer");
-                    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-                    cmd.arg(&app.path);
-
-                    match cmd.spawn() {
-                        Ok(_) => LaunchResult::success(app.id.clone(), app.name.clone()),
-                        Err(e) => LaunchResult::failure(app.id.clone(), app.name.clone(), e.to_string()),
-                    }
+                    ("explore", app.path.as_str(), None, None)
                 }
-                ItemType::File => {
-                    // 普通文件,使用默认程序打开
-                    let mut cmd = Command::new("cmd");
-                    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-                    cmd.arg("/C");
-                    cmd.arg("start");
-                    cmd.arg("");
-                    cmd.arg(&app.path);
-
-                    // 设置工作目录为文件所在目录
-                    if let Some(ref dir) = working_dir {
-                        if dir.exists() {
-                            cmd.current_dir(dir);
-                        }
-                    }
-
-                    match cmd.spawn() {
-                        Ok(_) => LaunchResult::success(app.id.clone(), app.name.clone()),
-                        Err(e) => LaunchResult::failure(app.id.clone(), app.name.clone(), e.to_string()),
-                    }
+                _ => {
+                    // 应用程序、快捷方式、URL链接、远程桌面、普通文件
+                    // 都使用 "open" 操作
+                    ("open", app.path.as_str(), app.launch_args.as_deref(), working_dir.as_deref())
                 }
+            };
+
+            let operation_wide = to_wide(operation);
+            let file_wide = to_wide(file);
+            let parameters_wide = parameters.map(|p| to_wide(p));
+            let directory_wide = directory.map(|d| to_wide(d));
+
+            let result = unsafe {
+                ShellExecuteW(
+                    ptr::null_mut(),
+                    operation_wide.as_ptr(),
+                    file_wide.as_ptr(),
+                    parameters_wide.as_ref().map_or(ptr::null(), |p| p.as_ptr()),
+                    directory_wide.as_ref().map_or(ptr::null(), |d| d.as_ptr()),
+                    SW_SHOWNORMAL,
+                )
+            };
+
+            // ShellExecuteW 返回值大于32表示成功
+            let result_code = result as isize;
+            if result_code > 32 {
+                LaunchResult::success(app.id.clone(), app.name.clone())
+            } else {
+                // 错误码映射
+                let error_msg = match result_code {
+                    0 => "内存不足",
+                    2 => "文件未找到",
+                    3 => "路径未找到",
+                    5 => "访问被拒绝",
+                    8 => "内存不足",
+                    11 => "可执行文件无效",
+                    26 => "共享冲突",
+                    27 => "文件关联不完整",
+                    28 => "DDE操作超时",
+                    29 => "DDE操作失败",
+                    30 => "DDE操作繁忙",
+                    31 => "没有关联的应用程序",
+                    32 => "DLL未找到",
+                    _ => "未知错误",
+                };
+                LaunchResult::failure(
+                    app.id.clone(),
+                    app.name.clone(),
+                    format!("{} (错误码: {})", error_msg, result_code),
+                )
             }
         }
 
