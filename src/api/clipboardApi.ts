@@ -75,6 +75,20 @@ export const clipboardApi = {
    */
   async getHistoryCount(): Promise<number> {
     return await invoke('get_clipboard_history_count')
+  },
+
+  /**
+   * 复制图片路径到剪切板
+   */
+  async copyImagePath(id: number): Promise<string> {
+    return await invoke('copy_image_path', { id })
+  },
+
+  /**
+   * 复制最近一张图片的路径到剪切板
+   */
+  async copyLatestImagePath(): Promise<string> {
+    return await invoke('copy_latest_image_path')
   }
 }
 

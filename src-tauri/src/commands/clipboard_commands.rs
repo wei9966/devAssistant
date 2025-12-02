@@ -108,3 +108,48 @@ pub fn get_clipboard_history_count(
 
     Ok(count)
 }
+
+/// 复制图片路径到剪切板
+#[tauri::command]
+pub fn copy_image_path(
+    db: State<DbConnection>,
+    id: i64,
+) -> Result<String, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+
+    let path: String = conn
+        .query_row(
+            "SELECT COALESCE(image_path, content) FROM clipboard_history WHERE id = ? AND content_type = 'image'",
+            rusqlite::params![id],
+            |row| row.get(0),
+        )
+        .map_err(|_| "图片记录不存在".to_string())?;
+
+    // 复制路径到剪切板
+    let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
+    clipboard.set_text(&path).map_err(|e| e.to_string())?;
+
+    Ok(path)
+}
+
+/// 复制最近一张图片的路径到剪切板
+#[tauri::command]
+pub fn copy_latest_image_path(
+    db: State<DbConnection>,
+) -> Result<String, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+
+    let path: String = conn
+        .query_row(
+            "SELECT COALESCE(image_path, content) FROM clipboard_history WHERE content_type = 'image' ORDER BY created_at DESC LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|_| "没有图片记录".to_string())?;
+
+    // 复制路径到剪切板
+    let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
+    clipboard.set_text(&path).map_err(|e| e.to_string())?;
+
+    Ok(path)
+}

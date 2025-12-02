@@ -79,6 +79,12 @@ pub struct ShortcutConfig {
     pub app_launcher: String,
     pub quick_task: String,
     pub clipboard_history: String,
+    #[serde(default = "default_copy_image_path")]
+    pub copy_image_path: String,
+}
+
+fn default_copy_image_path() -> String {
+    "Ctrl+Shift+V".to_string()
 }
 
 impl Default for ShortcutConfig {
@@ -89,6 +95,7 @@ impl Default for ShortcutConfig {
             app_launcher: "Ctrl+Shift+Space".to_string(),
             quick_task: "Ctrl+Shift+T".to_string(),
             clipboard_history: "Ctrl+Shift+C".to_string(),
+            copy_image_path: "Ctrl+Shift+V".to_string(),
         }
     }
 }
@@ -148,6 +155,7 @@ pub fn update_shortcut_config(
         old_config.app_launcher.as_str(),
         old_config.quick_task.as_str(),
         old_config.clipboard_history.as_str(),
+        old_config.copy_image_path.as_str(),
     ];
 
     for shortcut in shortcuts {
@@ -290,6 +298,39 @@ pub fn update_shortcut_config(
         return Err(format!(
             "无法注册剪切板历史快捷键 {}: {}",
             clipboard_history_shortcut, e
+        ));
+    }
+
+    // 复制最近图片路径快捷键
+    let copy_image_path_shortcut = config.copy_image_path.clone();
+    if let Err(e) = app.global_shortcut().on_shortcut(
+        copy_image_path_shortcut.as_str(),
+        move |app, _shortcut, event| {
+            if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                // 直接调用复制最近图片路径的命令
+                if let Some(db) = app.try_state::<crate::db::connection::DbConnection>() {
+                    if let Ok(conn) = db.0.lock() {
+                        let result: Result<String, _> = conn.query_row(
+                            "SELECT COALESCE(image_path, content) FROM clipboard_history WHERE content_type = 'image' ORDER BY created_at DESC LIMIT 1",
+                            [],
+                            |row| row.get(0),
+                        );
+
+                        if let Ok(path) = result {
+                            if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                                if clipboard.set_text(&path).is_ok() {
+                                    println!("✓ 已复制最近图片路径: {}", path);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    ) {
+        return Err(format!(
+            "无法注册复制图片路径快捷键 {}: {}",
+            copy_image_path_shortcut, e
         ));
     }
 

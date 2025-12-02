@@ -38,6 +38,7 @@ reqwest = { version = "0.12", features = ["json"] }
 # Windows-specific dependencies for AppLauncher
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"
+clipboard-win = "5.4"
 mslnk = "0.1"
 winapi = { version = "0.3", features = ["shellapi", "winuser", "windef", "wingdi"] }
 base64 = "0.22"

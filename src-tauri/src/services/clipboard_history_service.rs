@@ -2,13 +2,19 @@ use crate::models::clipboard::{ClipboardConfig, ClipboardContentType, ClipboardH
 use crate::services::sql_service::SqlService;
 use arboard::Clipboard;
 use chrono::Local;
-use image::ImageFormat;
+use image::{GenericImageView, ImageFormat};
 use rusqlite::Connection;
 use std::fs;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+
+// 全局标记：跳过下一次图片检测（避免复制图片时监控线程干扰）
+static SKIP_NEXT_IMAGE: AtomicBool = AtomicBool::new(false);
+// 记录最后一次手动复制的图片哈希
+static LAST_MANUAL_COPY_HASH: AtomicU64 = AtomicU64::new(0);
 
 /// 剪切板历史服务
 pub struct ClipboardHistoryService {
@@ -130,6 +136,12 @@ impl ClipboardHistoryService {
 
                 // 检查图片内容
                 if let Ok(img) = clipboard.get_image() {
+                    // 检查是否需要跳过（手动复制图片时设置的标记）
+                    if SKIP_NEXT_IMAGE.swap(false, Ordering::SeqCst) {
+                        println!("跳过图片检测（手动复制触发）");
+                        continue;
+                    }
+
                     // 计算图片哈希（简单方式：使用图片尺寸和部分像素）
                     let hash = Self::calculate_image_hash(&img);
                     let mut last = last_image.lock().unwrap();
@@ -171,16 +183,8 @@ impl ClipboardHistoryService {
                                         println!("  ↳ 图片记录已保存, ID: {}", id);
                                     }
 
-                                    // 如果配置了自动复制路径，将路径写回剪切板
-                                    if current_config.auto_copy_image_path {
-                                        if let Ok(mut cb) = Clipboard::new() {
-                                            if cb.set_text(&file_path_str).is_ok() {
-                                                // 更新 last_text 以避免重复记录
-                                                *last_text.lock().unwrap() = file_path_str.clone();
-                                                println!("  ↳ 图片路径已复制到剪切板: {}", file_path_str);
-                                            }
-                                        }
-                                    }
+                                    // 不自动覆盖剪切板，保留原始图片可粘贴到微信等应用
+                                    // 用户可通过历史面板或 Ctrl+Shift+V 获取路径
 
                                     // 清理超出数量的旧记录
                                     let _ = Self::cleanup_old_records(&conn, current_config.max_history);
@@ -408,13 +412,30 @@ impl ClipboardHistoryService {
 
         match record.content_type.as_str() {
             "image" => {
-                // 如果是图片，复制图片路径
-                if let Some(path) = &record.image_path {
-                    clipboard.set_text(path).map_err(|e| e.to_string())?;
-                    Ok(path.clone())
-                } else {
-                    clipboard.set_text(&record.content).map_err(|e| e.to_string())?;
-                    Ok(record.content)
+                // 如果是图片，复制实际图片数据
+                let image_path = record.image_path.as_ref().unwrap_or(&record.content);
+                let path_str = image_path.clone();
+
+                println!("尝试复制图片: {}", image_path);
+
+                // 设置标记，让监控线程跳过这次
+                SKIP_NEXT_IMAGE.store(true, Ordering::SeqCst);
+
+                // 使用独立线程复制图片（Windows 剪切板 API 需要）
+                let result = std::thread::spawn(move || {
+                    Self::copy_image_to_clipboard_impl(&path_str)
+                }).join().map_err(|_| "线程执行失败".to_string())?;
+
+                match result {
+                    Ok(msg) => {
+                        println!("✓ {}", msg);
+                        Ok(format!("[图片已复制] {}", image_path))
+                    }
+                    Err(e) => {
+                        SKIP_NEXT_IMAGE.store(false, Ordering::SeqCst);
+                        println!("✗ {}", e);
+                        Err(e)
+                    }
                 }
             }
             _ => {
@@ -422,6 +443,101 @@ impl ClipboardHistoryService {
                 Ok(record.content)
             }
         }
+    }
+
+    /// 复制图片到剪切板的内部实现
+    #[cfg(windows)]
+    fn copy_image_to_clipboard_impl(image_path: &str) -> Result<String, String> {
+        use clipboard_win::{formats, Clipboard, Setter};
+        use std::io::Cursor;
+
+        let path = Path::new(image_path);
+        if !path.exists() {
+            return Err(format!("图片文件不存在: {}", image_path));
+        }
+
+        // 直接读取 PNG 文件的原始字节
+        let png_data = fs::read(path).map_err(|e| format!("无法读取图片文件: {}", e))?;
+
+        println!("PNG 文件大小: {} bytes", png_data.len());
+
+        // 打开剪切板
+        let _clip = Clipboard::new_attempts(10)
+            .map_err(|e| format!("无法打开剪切板: {}", e))?;
+
+        // 注册 PNG 格式并写入
+        // Windows 剪切板支持 "PNG" 格式
+        let png_format = clipboard_win::register_format("PNG")
+            .ok_or("无法注册 PNG 剪切板格式")?;
+
+        clipboard_win::raw::set(png_format.get(), &png_data)
+            .map_err(|e| format!("写入 PNG 到剪切板失败: {}", e))?;
+
+        // 同时写入 DIB 格式以提高兼容性
+        let img = image::open(path).map_err(|e| format!("无法打开图片: {}", e))?;
+        let rgb = img.to_rgb8();
+        let (width, height) = rgb.dimensions();
+
+        // 创建 DIB - 使用 RGB 格式，自下而上
+        let row_size = ((width * 3 + 3) / 4 * 4) as usize; // 4字节对齐
+        let mut dib_data = Vec::new();
+
+        // BITMAPINFOHEADER
+        dib_data.extend_from_slice(&40u32.to_le_bytes());  // biSize
+        dib_data.extend_from_slice(&(width as i32).to_le_bytes());  // biWidth
+        dib_data.extend_from_slice(&(height as i32).to_le_bytes()); // biHeight (正值=自下而上)
+        dib_data.extend_from_slice(&1u16.to_le_bytes());   // biPlanes
+        dib_data.extend_from_slice(&24u16.to_le_bytes());  // biBitCount (24位RGB)
+        dib_data.extend_from_slice(&0u32.to_le_bytes());   // biCompression
+        dib_data.extend_from_slice(&((row_size * height as usize) as u32).to_le_bytes()); // biSizeImage
+        dib_data.extend_from_slice(&0i32.to_le_bytes());   // biXPelsPerMeter
+        dib_data.extend_from_slice(&0i32.to_le_bytes());   // biYPelsPerMeter
+        dib_data.extend_from_slice(&0u32.to_le_bytes());   // biClrUsed
+        dib_data.extend_from_slice(&0u32.to_le_bytes());   // biClrImportant
+
+        // 像素数据 - 自下而上，BGR 格式
+        for y in (0..height).rev() {
+            for x in 0..width {
+                let pixel = rgb.get_pixel(x, y);
+                dib_data.push(pixel[2]); // B
+                dib_data.push(pixel[1]); // G
+                dib_data.push(pixel[0]); // R
+            }
+            // 行填充到 4 字节对齐
+            let padding = row_size - (width as usize * 3);
+            for _ in 0..padding {
+                dib_data.push(0);
+            }
+        }
+
+        formats::Bitmap.write_clipboard(&dib_data)
+            .map_err(|e| format!("写入 DIB 到剪切板失败: {}", e))?;
+
+        Ok("图片已成功复制到剪切板".to_string())
+    }
+
+    #[cfg(not(windows))]
+    fn copy_image_to_clipboard_impl(image_path: &str) -> Result<String, String> {
+        // 非 Windows 平台使用 arboard
+        let path = Path::new(image_path);
+        if !path.exists() {
+            return Err(format!("图片文件不存在: {}", image_path));
+        }
+
+        let img = image::open(path).map_err(|e| format!("无法打开图片: {}", e))?;
+        let rgba = img.to_rgba8();
+        let (width, height) = rgba.dimensions();
+
+        let img_data = arboard::ImageData {
+            width: width as usize,
+            height: height as usize,
+            bytes: std::borrow::Cow::Owned(rgba.into_raw()),
+        };
+
+        let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
+        clipboard.set_image(img_data).map_err(|e| e.to_string())?;
+
+        Ok("图片已成功复制到剪切板".to_string())
     }
 
     /// 删除记录

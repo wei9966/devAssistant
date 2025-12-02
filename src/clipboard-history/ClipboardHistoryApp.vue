@@ -176,14 +176,6 @@
             </div>
 
             <div class="setting-item">
-              <div class="setting-label">复制图片后自动将路径写入剪切板</div>
-              <label class="switch">
-                <input type="checkbox" v-model="config.auto_copy_image_path" @change="saveConfig">
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <div class="setting-item">
               <div class="setting-label">最大历史记录数</div>
               <input
                 type="number"
@@ -206,6 +198,14 @@
                 <span v-if="recordingShortcut" class="recording">按下快捷键...</span>
                 <span v-else>{{ config.shortcut }}</span>
               </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-label">复制最近图片路径</div>
+              <div class="shortcut-display">Ctrl+Shift+V</div>
+            </div>
+            <div class="setting-hint" style="padding: 0 0 12px 0; margin-top: -8px;">
+              复制图片后保留原图可粘贴到微信，按此快捷键获取路径用于CMD
             </div>
           </div>
 
@@ -254,6 +254,10 @@
       <div class="context-item" @click="handleContextCopy">
         <span>📋</span>
         <span>复制</span>
+      </div>
+      <div v-if="contextMenu.item?.content_type === 'image'" class="context-item" @click="handleCopyImagePath">
+        <span>📁</span>
+        <span>复制路径</span>
       </div>
       <div class="context-item" @click="handleContextPin">
         <span>{{ contextMenu.item?.is_pinned ? '📍' : '📌' }}</span>
@@ -629,6 +633,19 @@ function handleContextCopy() {
     handleCopyItem(contextMenu.value.item)
   }
   hideContextMenu()
+}
+
+async function handleCopyImagePath() {
+  if (contextMenu.value.item && contextMenu.value.item.content_type === 'image') {
+    try {
+      const path = await clipboardApi.copyImagePath(contextMenu.value.item.id)
+      console.log('已复制图片路径:', path)
+    } catch (e) {
+      console.error('复制图片路径失败:', e)
+    }
+  }
+  hideContextMenu()
+  closeWindow()
 }
 
 function handleContextPin() {
@@ -1223,6 +1240,15 @@ watch(searchQuery, () => {
 .shortcut-input .recording {
   color: rgba(236, 72, 153, 0.8);
   animation: pulse 1s infinite;
+}
+
+.shortcut-display {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 6px;
+  padding: 8px 16px;
+  color: rgba(148, 163, 184, 0.8);
+  font-size: 13px;
 }
 
 @keyframes pulse {

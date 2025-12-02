@@ -270,6 +270,37 @@ fn main() {
                 eprintln!("警告: 无法注册快捷键 {}: {}", clipboard_history_shortcut, e);
             }
 
+            // 注册全局快捷键: 复制最近图片路径
+            let copy_image_path_shortcut = loaded_config.copy_image_path.clone();
+            let db_path_for_shortcut = db_path.clone();
+            if let Err(e) = app.global_shortcut().on_shortcut(
+                copy_image_path_shortcut.as_str(),
+                move |_app, _shortcut, event| {
+                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        // 直接查询数据库获取最近图片路径
+                        if let Ok(conn) = rusqlite::Connection::open(&db_path_for_shortcut) {
+                            let result: Result<String, _> = conn.query_row(
+                                "SELECT COALESCE(image_path, content) FROM clipboard_history WHERE content_type = 'image' ORDER BY created_at DESC LIMIT 1",
+                                [],
+                                |row| row.get(0),
+                            );
+
+                            if let Ok(path) = result {
+                                if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                                    if clipboard.set_text(&path).is_ok() {
+                                        println!("✓ 已复制最近图片路径: {}", path);
+                                    }
+                                }
+                            } else {
+                                println!("没有找到图片记录");
+                            }
+                        }
+                    }
+                },
+            ) {
+                eprintln!("警告: 无法注册快捷键 {}: {}", copy_image_path_shortcut, e);
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -447,6 +478,8 @@ fn main() {
             commands::clipboard_commands::get_clipboard_config,
             commands::clipboard_commands::update_clipboard_config,
             commands::clipboard_commands::get_clipboard_history_count,
+            commands::clipboard_commands::copy_image_path,
+            commands::clipboard_commands::copy_latest_image_path,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");
