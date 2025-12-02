@@ -4,6 +4,7 @@
 pub mod ai_service;
 pub mod app_launcher_service;
 pub mod app_scanner_service;
+pub mod clipboard_history_service;
 pub mod clipboard_service;
 pub mod settings_service;
 pub mod sql_ai_service;
@@ -21,6 +22,7 @@ pub use ai_service::{AiConfig, AiService, ChatMessage};
 pub use app_launcher_service::AppLauncherService;
 pub use app_scanner_service::AppScannerService;
 pub use clipboard_service::ClipboardService;
+pub use clipboard_history_service::ClipboardHistoryService;
 pub use settings_service::{AppSettings, SettingsService};
 pub use sql_ai_service::{AiProvider, SqlAiConfig, SqlAiService, SqlClassifyResult};
 pub use sql_service::{SqlCategory, SqlRecord, SqlService};

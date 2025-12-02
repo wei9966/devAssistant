@@ -18,7 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.0", features = ["devtools"] }
+tauri = { version = "2.0", features = ["protocol-asset", "devtools"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
@@ -31,6 +31,7 @@ env_logger = "0.11"
 dirs = "5.0"
 regex = "1.10"
 clipboard = "0.5"
+arboard = "3.4"
 sysinfo = "0.30"
 reqwest = { version = "0.12", features = ["json"] }
 rayon = "1.10"  # 并行处理库，用于加速文件扫描
@@ -38,6 +39,7 @@ rayon = "1.10"  # 并行处理库，用于加速文件扫描
 # Windows-specific dependencies for AppLauncher
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"
+clipboard-win = "5.4"
 mslnk = "0.1"
 winapi = { version = "0.3", features = ["shellapi", "winuser", "windef", "wingdi"] }
 base64 = "0.22"

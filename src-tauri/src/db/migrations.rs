@@ -79,6 +79,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     create_weekly_plans_table(conn)?;
     create_weekly_plans_indexes(conn)?;
 
+    // 创建剪切板历史表
+    create_clipboard_history_table(conn)?;
+    create_clipboard_history_indexes(conn)?;
+
     Ok(())
 }
 
@@ -1333,6 +1337,44 @@ fn create_weekly_plans_indexes(conn: &Connection) -> Result<()> {
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_weekly_plans_created_at ON weekly_plans(created_at DESC)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建剪切板历史表
+fn create_clipboard_history_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS clipboard_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content_type TEXT NOT NULL,
+            content TEXT NOT NULL,
+            preview TEXT,
+            image_path TEXT,
+            source_app TEXT,
+            is_pinned INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建剪切板历史表索引
+fn create_clipboard_history_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_clipboard_history_created_at ON clipboard_history(created_at DESC)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_clipboard_history_pinned ON clipboard_history(is_pinned)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_clipboard_history_content_type ON clipboard_history(content_type)",
         [],
     )?;
 

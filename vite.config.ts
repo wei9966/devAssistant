@@ -43,7 +43,8 @@ export default defineConfig({
         'sql-panel': resolve(__dirname, 'sql-panel.html'),
         'quick-task': resolve(__dirname, 'quick-task.html'),
         'task-float': resolve(__dirname, 'task-float.html'),
-        'task-calendar': resolve(__dirname, 'task-calendar.html')
+        'task-calendar': resolve(__dirname, 'task-calendar.html'),
+        'clipboard-history': resolve(__dirname, 'clipboard-history.html')
       }
     }
   }

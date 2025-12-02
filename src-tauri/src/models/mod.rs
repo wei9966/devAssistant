@@ -1,5 +1,6 @@
 pub mod app_launcher;
 pub mod app_launcher_settings;
+pub mod clipboard;
 pub mod sql_record;
 pub mod task;
 pub mod weekly_plan;
@@ -18,3 +19,4 @@ pub use task::{
 };
 pub use weekly_plan::{WeeklyPlan, WeeklyPlanStatus};
 pub use work_log::WorkLog;
+pub use clipboard::{ClipboardConfig, ClipboardContentType, ClipboardHistory, ClipboardQueryParams, CreateClipboardRecord};
