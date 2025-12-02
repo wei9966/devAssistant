@@ -10,8 +10,26 @@ use tauri::State;
 
 /// 扫描已安装的应用
 #[tauri::command]
-pub async fn scan_installed_apps(path: Option<String>) -> Result<Vec<AppItem>, String> {
-    AppScannerService::scan_installed_apps(path).await
+pub async fn scan_installed_apps(
+    db: State<'_, DbConnection>,
+    path: Option<String>,
+) -> Result<Vec<AppItem>, String> {
+    // 从数据库读取用户配置的扩展名设置
+    let settings = {
+        let conn = db.0.lock().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT allowed_extensions FROM app_launcher_settings WHERE id = 1",
+            [],
+            |row| {
+                let extensions_json: String = row.get(0)?;
+                let allowed_extensions: Vec<String> =
+                    serde_json::from_str(&extensions_json).unwrap_or_else(|_| vec!["exe".to_string(), "lnk".to_string()]);
+                Ok(AppLauncherSettings { allowed_extensions })
+            },
+        ).unwrap_or_else(|_| AppLauncherSettings::default())
+    };
+
+    AppScannerService::scan_installed_apps_with_settings(path, settings).await
 }
 
 /// 手动添加应用
@@ -298,6 +316,57 @@ pub async fn toggle_app_hidden(
 pub fn validate_path(path: String) -> Result<bool, String> {
     use std::path::Path;
     Ok(Path::new(&path).exists())
+}
+
+/// 在文件管理器中显示文件
+#[tauri::command]
+pub fn show_in_folder(path: String) -> Result<(), String> {
+    use std::path::Path;
+    use std::process::Command;
+
+    let file_path = Path::new(&path);
+
+    if !file_path.exists() {
+        return Err(format!("路径不存在: {}", path));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Windows: 使用 explorer 命令并选中文件
+        let arg = if file_path.is_dir() {
+            // 如果是目录，直接打开该目录
+            path.clone()
+        } else {
+            // 如果是文件，打开所在目录并选中该文件
+            format!("/select,{}", path)
+        };
+
+        Command::new("explorer")
+            .arg(&arg)
+            .spawn()
+            .map_err(|e| format!("无法打开文件管理器: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg("-R")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("无法打开访达: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Linux: 尝试使用 xdg-open 打开父目录
+        let parent = file_path.parent().unwrap_or(file_path);
+        Command::new("xdg-open")
+            .arg(parent)
+            .spawn()
+            .map_err(|e| format!("无法打开文件管理器: {}", e))?;
+    }
+
+    Ok(())
 }
 
 /// 导出配置（JSON格式）

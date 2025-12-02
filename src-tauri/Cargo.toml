@@ -33,6 +33,7 @@ regex = "1.10"
 clipboard = "0.5"
 sysinfo = "0.30"
 reqwest = { version = "0.12", features = ["json"] }
+rayon = "1.10"  # 并行处理库，用于加速文件扫描
 
 # Windows-specific dependencies for AppLauncher
 [target.'cfg(windows)'.dependencies]

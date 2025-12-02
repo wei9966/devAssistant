@@ -2,6 +2,8 @@ use crate::models::{AppItem, AppLauncherSettings, ItemType};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use rayon::prelude::*;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -9,13 +11,27 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 use base64::{engine::general_purpose, Engine as _};
 
+/// 默认扫描深度限制
+const DEFAULT_MAX_DEPTH: usize = 5;
+/// 批量解析快捷方式的大小
+const SHORTCUT_BATCH_SIZE: usize = 50;
+
 /// 应用扫描服务
 pub struct AppScannerService;
 
 impl AppScannerService {
-    /// 扫描系统已安装的应用
+    /// 扫描系统已安装的应用（使用默认设置）
     /// 如果指定了path参数，则只扫描该目录；否则扫描整个系统
     pub async fn scan_installed_apps(path: Option<String>) -> Result<Vec<AppItem>, String> {
+        Self::scan_installed_apps_with_settings(path, AppLauncherSettings::default()).await
+    }
+
+    /// 扫描系统已安装的应用（使用指定设置）
+    /// 如果指定了path参数，则只扫描该目录；否则扫描整个系统
+    pub async fn scan_installed_apps_with_settings(
+        path: Option<String>,
+        settings: AppLauncherSettings,
+    ) -> Result<Vec<AppItem>, String> {
         let mut apps = Vec::new();
 
         // 如果指定了路径，只扫描该目录
@@ -28,8 +44,8 @@ impl AppScannerService {
                 return Err(format!("指定的路径不是目录: {}", dir_path));
             }
 
-            // 只扫描指定目录
-            apps = Self::scan_directory_for_executables(&path_buf)?;
+            // 使用用户配置的设置扫描指定目录
+            apps = Self::scan_directory_with_settings(&path_buf, &settings)?;
 
             // 按名称排序
             apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
@@ -80,47 +96,75 @@ impl AppScannerService {
         Self::scan_directory_with_settings(dir, &AppLauncherSettings::default())
     }
 
-    /// 使用指定设置扫描目录
+    /// 使用指定设置扫描目录 - 优化版：并行扫描 + 深度限制
     fn scan_directory_with_settings(
         dir: &Path,
         settings: &AppLauncherSettings,
     ) -> Result<Vec<AppItem>, String> {
-        let mut apps = Vec::new();
-
         if !dir.exists() {
-            return Ok(apps);
+            return Ok(Vec::new());
         }
 
-        // 递归扫描目录
-        if let Ok(entries) = fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
+        // 使用迭代 + 并行的方式扫描，避免深层递归
+        Self::scan_directory_parallel(dir, settings, DEFAULT_MAX_DEPTH)
+    }
 
-                if path.is_dir() {
-                    // 递归扫描子目录
-                    match Self::scan_directory_with_settings(&path, settings) {
-                        Ok(sub_apps) => apps.extend(sub_apps),
-                        Err(_) => continue, // 忽略无权限访问的目录
+    /// 并行扫描目录 - 迭代式广度优先遍历
+    fn scan_directory_parallel(
+        root: &Path,
+        settings: &AppLauncherSettings,
+        max_depth: usize,
+    ) -> Result<Vec<AppItem>, String> {
+        let apps = Arc::new(Mutex::new(Vec::new()));
+        let allowed_extensions: Vec<String> = settings.allowed_extensions.clone();
+
+        let mut dirs_to_scan = vec![(root.to_path_buf(), 0usize)];
+
+        while !dirs_to_scan.is_empty() {
+            let current_dirs: Vec<_> = dirs_to_scan.drain(..).collect();
+
+            // 并行处理当前层级的目录
+            let results: Vec<(Vec<AppItem>, Vec<(PathBuf, usize)>)> = current_dirs
+                .par_iter()
+                .filter_map(|(dir, depth)| {
+                    if *depth > max_depth {
+                        return None;
                     }
-                } else if path.is_file() {
-                    let extension = path.extension().and_then(|s| s.to_str());
 
-                    if let Some(ext) = extension {
-                        // 检查扩展名是否在允许列表中
-                        if !settings.is_extension_allowed(ext) {
-                            continue;
-                        }
+                    let mut found_apps = Vec::new();
+                    let mut subdirs = Vec::new();
 
-                        // 根据文件类型创建对应的AppItem
-                        if let Ok(app) = Self::create_app_from_file(&path, ext) {
-                            apps.push(app);
+                    if let Ok(entries) = fs::read_dir(dir) {
+                        for entry in entries.flatten() {
+                            let path = entry.path();
+
+                            if path.is_dir() {
+                                subdirs.push((path, depth + 1));
+                            } else if path.is_file() {
+                                if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                                    let ext_lower = ext.to_lowercase();
+                                    if allowed_extensions.iter().any(|e| e.to_lowercase() == ext_lower) {
+                                        if let Ok(app) = Self::create_app_from_file(&path, ext) {
+                                            found_apps.push(app);
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-                }
+
+                    Some((found_apps, subdirs))
+                })
+                .collect();
+
+            // 收集结果
+            for (found_apps, subdirs) in results {
+                apps.lock().unwrap().extend(found_apps);
+                dirs_to_scan.extend(subdirs);
             }
         }
 
-        Ok(apps)
+        Ok(Arc::try_unwrap(apps).unwrap().into_inner().unwrap())
     }
 
     /// 从文件创建AppItem,自动判断文件类型
@@ -259,33 +303,161 @@ impl AppScannerService {
         })
     }
 
-    /// 扫描目录查找快捷方式
+    /// 扫描目录查找快捷方式 - 优化版：使用并行扫描 + 批量解析
     fn scan_directory_for_shortcuts(dir: &Path) -> Result<Vec<AppItem>, String> {
-        let mut apps = Vec::new();
-
         if !dir.exists() {
-            return Ok(apps);
+            return Ok(Vec::new());
         }
 
-        // 递归扫描目录
-        if let Ok(entries) = fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
+        // 第一步：并行收集所有快捷方式路径（使用迭代而非递归）
+        let lnk_paths = Self::collect_shortcut_paths_parallel(dir, DEFAULT_MAX_DEPTH);
 
-                if path.is_dir() {
-                    // 递归扫描子目录
-                    let sub_apps = Self::scan_directory_for_shortcuts(&path)?;
-                    apps.extend(sub_apps);
-                } else if path.extension().and_then(|s| s.to_str()) == Some("lnk") {
-                    // 解析快捷方式
-                    if let Ok(app) = Self::parse_shortcut(&path) {
-                        apps.push(app);
+        // 第二步：批量解析快捷方式
+        let apps = Self::batch_parse_shortcuts(&lnk_paths);
+
+        Ok(apps)
+    }
+
+    /// 并行收集所有快捷方式路径
+    fn collect_shortcut_paths_parallel(root: &Path, max_depth: usize) -> Vec<PathBuf> {
+        let paths = Arc::new(Mutex::new(Vec::new()));
+        let mut dirs_to_scan = vec![(root.to_path_buf(), 0usize)];
+
+        while !dirs_to_scan.is_empty() {
+            // 获取当前层级的所有目录
+            let current_dirs: Vec<_> = dirs_to_scan.drain(..).collect();
+
+            // 并行处理当前层级的目录
+            let results: Vec<(Vec<PathBuf>, Vec<(PathBuf, usize)>)> = current_dirs
+                .par_iter()
+                .filter_map(|(dir, depth)| {
+                    if *depth > max_depth {
+                        return None;
                     }
-                }
+
+                    let mut lnk_files = Vec::new();
+                    let mut subdirs = Vec::new();
+
+                    if let Ok(entries) = fs::read_dir(dir) {
+                        for entry in entries.flatten() {
+                            let path = entry.path();
+                            if path.is_dir() {
+                                subdirs.push((path, depth + 1));
+                            } else if path.extension().and_then(|s| s.to_str()) == Some("lnk") {
+                                lnk_files.push(path);
+                            }
+                        }
+                    }
+
+                    Some((lnk_files, subdirs))
+                })
+                .collect();
+
+            // 收集结果
+            for (lnk_files, subdirs) in results {
+                paths.lock().unwrap().extend(lnk_files);
+                dirs_to_scan.extend(subdirs);
             }
         }
 
-        Ok(apps)
+        Arc::try_unwrap(paths).unwrap().into_inner().unwrap()
+    }
+
+    /// 批量解析快捷方式 - 一次 PowerShell 调用解析多个文件
+    #[cfg(target_os = "windows")]
+    fn batch_parse_shortcuts(lnk_paths: &[PathBuf]) -> Vec<AppItem> {
+        use std::process::Command;
+
+        if lnk_paths.is_empty() {
+            return Vec::new();
+        }
+
+        let apps = Arc::new(Mutex::new(Vec::new()));
+
+        // 分批处理
+        lnk_paths
+            .par_chunks(SHORTCUT_BATCH_SIZE)
+            .for_each(|batch| {
+                // 构建批量解析的 PowerShell 脚本
+                let paths_array: Vec<String> = batch
+                    .iter()
+                    .map(|p| format!("'{}'", p.display().to_string().replace("'", "''")))
+                    .collect();
+
+                let ps_script = format!(
+                    r#"
+                    $sh = New-Object -ComObject WScript.Shell
+                    $paths = @({})
+                    foreach ($path in $paths) {{
+                        try {{
+                            $lnk = $sh.CreateShortcut($path)
+                            Write-Output "$path|$($lnk.TargetPath)"
+                        }} catch {{
+                            Write-Output "$path|ERROR"
+                        }}
+                    }}
+                    "#,
+                    paths_array.join(",")
+                );
+
+                let output = Command::new("powershell")
+                    .creation_flags(0x08000000) // CREATE_NO_WINDOW
+                    .arg("-NoProfile")
+                    .arg("-NonInteractive")
+                    .arg("-Command")
+                    .arg(&ps_script)
+                    .output();
+
+                if let Ok(output) = output {
+                    if output.status.success() {
+                        let stdout = String::from_utf8_lossy(&output.stdout);
+                        let mut batch_apps = Vec::new();
+
+                        for line in stdout.lines() {
+                            if let Some((lnk_path_str, target_path)) = line.split_once('|') {
+                                if target_path == "ERROR" || target_path.is_empty() {
+                                    continue;
+                                }
+                                if !Path::new(target_path).exists() {
+                                    continue;
+                                }
+
+                                let lnk_path = Path::new(lnk_path_str);
+                                let app_name = lnk_path
+                                    .file_stem()
+                                    .and_then(|s| s.to_str())
+                                    .unwrap_or("Unknown")
+                                    .to_string();
+
+                                let lnk_path_string = lnk_path_str.to_string();
+                                let app_id = Self::generate_app_id(&app_name, &lnk_path_string);
+
+                                let mut app = AppItem::new_with_type(
+                                    app_id,
+                                    app_name,
+                                    lnk_path_string,
+                                    ItemType::Shortcut,
+                                );
+                                app.category = Some(Self::auto_categorize(&app.name, target_path));
+                                // 图标提取延迟到需要时再执行，提升扫描速度
+                                // app.icon = Self::extract_icon_base64(Path::new(target_path));
+
+                                batch_apps.push(app);
+                            }
+                        }
+
+                        apps.lock().unwrap().extend(batch_apps);
+                    }
+                }
+            });
+
+        Arc::try_unwrap(apps).unwrap().into_inner().unwrap()
+    }
+
+    /// 非Windows平台的批量解析（占位）
+    #[cfg(not(target_os = "windows"))]
+    fn batch_parse_shortcuts(_lnk_paths: &[PathBuf]) -> Vec<AppItem> {
+        Vec::new()
     }
 
     /// 解析Windows快捷方式(.lnk)
@@ -371,35 +543,61 @@ impl AppScannerService {
         Ok(apps)
     }
 
-    /// 浅扫描程序目录（只扫描一级子目录）
+    /// 浅扫描程序目录（只扫描一级子目录）- 优化版：并行扫描
     async fn scan_program_dir_shallow(dir: &Path) -> Result<Vec<AppItem>, String> {
-        let mut apps = Vec::new();
+        // 首先收集所有一级子目录
+        let subdirs: Vec<PathBuf> = match fs::read_dir(dir) {
+            Ok(entries) => entries
+                .flatten()
+                .filter_map(|e| {
+                    let path = e.path();
+                    if path.is_dir() { Some(path) } else { None }
+                })
+                .collect(),
+            Err(_) => return Ok(Vec::new()),
+        };
 
-        if let Ok(entries) = fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_dir() {
-                    // 只扫描一级子目录中的exe文件
-                    if let Ok(sub_entries) = fs::read_dir(&path) {
-                        for sub_entry in sub_entries.flatten() {
-                            let sub_path = sub_entry.path();
-                            if sub_path.is_file()
-                                && sub_path.extension().and_then(|s| s.to_str()) == Some("exe")
-                            {
-                                // 过滤掉明显的非应用程序
-                                if Self::is_likely_app_executable(&sub_path) {
-                                    if let Ok(app) = Self::create_app_from_exe(&sub_path).await {
-                                        apps.push(app);
-                                    }
+        // 并行扫描所有子目录
+        let apps: Vec<AppItem> = subdirs
+            .par_iter()
+            .flat_map(|subdir| {
+                let mut found_apps = Vec::new();
+                if let Ok(sub_entries) = fs::read_dir(subdir) {
+                    for sub_entry in sub_entries.flatten() {
+                        let sub_path = sub_entry.path();
+                        if sub_path.is_file()
+                            && sub_path.extension().and_then(|s| s.to_str()) == Some("exe")
+                        {
+                            if Self::is_likely_app_executable(&sub_path) {
+                                if let Ok(app) = Self::create_app_from_exe_sync(&sub_path) {
+                                    found_apps.push(app);
                                 }
                             }
                         }
                     }
                 }
-            }
-        }
+                found_apps
+            })
+            .collect();
 
         Ok(apps)
+    }
+
+    /// 同步版本的从exe文件创建AppItem（用于并行处理）
+    fn create_app_from_exe_sync(exe_path: &Path) -> Result<AppItem, String> {
+        let app_name = exe_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Unknown")
+            .to_string();
+
+        let target_path = exe_path.to_string_lossy().to_string();
+        let app_id = Self::generate_app_id(&app_name, &target_path);
+
+        let mut app = AppItem::new(app_id, app_name, target_path);
+        app.category = Some(Self::auto_categorize(&app.name, &app.path));
+
+        Ok(app)
     }
 
     /// 判断exe文件是否可能是应用程序
@@ -536,12 +734,13 @@ impl AppScannerService {
     }
 
     /// 自动分类应用
+    /// 返回的分类ID需要与前端DEFAULT_CATEGORIES中的id匹配
     fn auto_categorize(name: &str, path: &str) -> String {
         let name_lower = name.to_lowercase();
         let path_lower = path.to_lowercase();
         let combined = format!("{} {}", name_lower, path_lower);
 
-        // 开发工具
+        // 开发工具 - 返回 "dev" 与前端分类ID匹配
         if combined.contains("visual studio")
             || combined.contains("vscode")
             || combined.contains("intellij")
@@ -554,11 +753,16 @@ impl AppScannerService {
             || combined.contains("postman")
             || combined.contains("sublime")
             || combined.contains("atom")
+            || combined.contains("node")
+            || combined.contains("python")
+            || combined.contains("java")
+            || combined.contains("cursor")
+            || combined.contains("notepad++")
         {
-            return "development".to_string();
+            return "dev".to_string();
         }
 
-        // 浏览器
+        // 浏览器 - 返回 "browser"
         if combined.contains("chrome")
             || combined.contains("firefox")
             || combined.contains("edge")
@@ -569,7 +773,7 @@ impl AppScannerService {
             return "browser".to_string();
         }
 
-        // 办公软件
+        // 办公软件 - 返回 "office"
         if combined.contains("word")
             || combined.contains("excel")
             || combined.contains("powerpoint")
@@ -579,11 +783,14 @@ impl AppScannerService {
             || combined.contains("wps")
             || combined.contains("foxit")
             || combined.contains("adobe acrobat")
+            || combined.contains("pdf")
+            || combined.contains("typora")
+            || combined.contains("notion")
         {
             return "office".to_string();
         }
 
-        // 设计工具
+        // 设计工具 - 返回 "design"
         if combined.contains("photoshop")
             || combined.contains("illustrator")
             || combined.contains("figma")
@@ -591,32 +798,42 @@ impl AppScannerService {
             || combined.contains("blender")
             || combined.contains("gimp")
             || combined.contains("inkscape")
+            || combined.contains("xd")
+            || combined.contains("axure")
         {
             return "design".to_string();
         }
 
-        // 通讯工具
-        if combined.contains("wechat")
-            || combined.contains("qq")
-            || combined.contains("dingtalk")
-            || combined.contains("slack")
-            || combined.contains("discord")
-            || combined.contains("telegram")
-            || combined.contains("zoom")
-        {
-            return "communication".to_string();
-        }
-
-        // 媒体播放
+        // 影音娱乐 - 返回 "media"
         if combined.contains("vlc")
             || combined.contains("potplayer")
             || combined.contains("spotify")
             || combined.contains("itunes")
+            || combined.contains("music")
+            || combined.contains("video")
+            || combined.contains("player")
+            || combined.contains("网易云")
+            || combined.contains("qq音乐")
+            || combined.contains("bilibili")
         {
             return "media".to_string();
         }
 
-        // 默认分类
+        // 游戏 - 返回 "game"
+        if combined.contains("steam")
+            || combined.contains("epic")
+            || combined.contains("origin")
+            || combined.contains("uplay")
+            || combined.contains("game")
+            || combined.contains("wegame")
+        {
+            return "game".to_string();
+        }
+
+        // 通讯工具 - 归入 "other"（前端没有单独的通讯分类）
+        // 如果用户需要可以手动调整
+
+        // 默认分类 - 返回 "other"
         "other".to_string()
     }
 

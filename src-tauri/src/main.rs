@@ -360,6 +360,7 @@ fn main() {
             commands::app_launcher_commands::toggle_app_pin,
             commands::app_launcher_commands::toggle_app_hidden,
             commands::app_launcher_commands::validate_path,
+            commands::app_launcher_commands::show_in_folder,
             commands::app_launcher_commands::export_config,
             commands::app_launcher_commands::import_config,
             commands::app_launcher_commands::refresh_all_icons,
