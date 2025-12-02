@@ -18,7 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.0", features = ["devtools"] }
+tauri = { version = "2.0", features = ["protocol-asset", "devtools"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
@@ -31,6 +31,7 @@ env_logger = "0.11"
 dirs = "5.0"
 regex = "1.10"
 clipboard = "0.5"
+arboard = "3.4"
 sysinfo = "0.30"
 reqwest = { version = "0.12", features = ["json"] }
 

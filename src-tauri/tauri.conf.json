@@ -107,10 +107,31 @@
         "shadow": false,
         "minWidth": 380,
         "minHeight": 450
+      },
+      {
+        "label": "clipboard-history",
+        "title": "Clipboard History",
+        "url": "clipboard-history.html",
+        "width": 480,
+        "height": 680,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "center": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "focus": true,
+        "shadow": false
       }
     ],
     "security": {
       "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      },
       "capabilities": [
         {
           "identifier": "main-capability",
@@ -217,6 +238,21 @@
             "core:window:allow-set-position",
             "core:window:allow-inner-size",
             "core:window:allow-outer-position"
+          ]
+        },
+        {
+          "identifier": "clipboard-history-capability",
+          "description": "Clipboard History window capabilities",
+          "windows": [
+            "clipboard-history"
+          ],
+          "permissions": [
+            "core:default",
+            "core:window:allow-close",
+            "core:window:allow-hide",
+            "core:window:allow-show",
+            "core:window:allow-set-focus",
+            "dialog:allow-open"
           ]
         }
       ]

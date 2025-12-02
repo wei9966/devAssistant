@@ -12,6 +12,7 @@ use commands::shortcut_commands::ShortcutState;
 use commands::sql_ai_commands::SqlAiState;
 use db::connection::{init_database, DbConnection};
 use services::clipboard_service::ClipboardService;
+use services::clipboard_history_service::ClipboardHistoryService;
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
 use tauri::Manager;
@@ -123,10 +124,15 @@ fn main() {
         .join("dev-assistant")
         .join("dev_assistant.db");
 
-    // 启动剪贴板监控服务
+    // 启动剪贴板监控服务（SQL 历史）
     let clipboard_service = ClipboardService::new();
     clipboard_service.start_monitoring(db_path.to_str().expect("无法转换数据库路径").to_string());
-    println!("剪贴板监控服务已启动");
+    println!("剪贴板SQL监控服务已启动");
+
+    // 启动剪切板历史监控服务
+    let clipboard_history_service = ClipboardHistoryService::new();
+    clipboard_history_service.start_monitoring(db_path.to_str().expect("无法转换数据库路径").to_string());
+    println!("剪贴板历史监控服务已启动");
 
     tauri::Builder::default()
         .manage(db_state)
@@ -235,6 +241,33 @@ fn main() {
                 },
             ) {
                 eprintln!("警告: 无法注册快捷键 {}: {}", quick_task_shortcut, e);
+            }
+
+            // 注册全局快捷键: 剪切板历史
+            // 使用独立透明窗口
+            let clipboard_history_shortcut = loaded_config.clipboard_history.clone();
+            if let Err(e) = app.global_shortcut().on_shortcut(
+                clipboard_history_shortcut.as_str(),
+                move |app, _shortcut, event| {
+                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        // 获取剪切板历史窗口
+                        if let Some(clipboard_window) = app.get_webview_window("clipboard-history") {
+                            let is_visible = clipboard_window.is_visible().unwrap_or(false);
+
+                            if is_visible {
+                                // 如果已显示，则隐藏
+                                let _ = clipboard_window.hide();
+                            } else {
+                                // 显示并移动到鼠标所在屏幕中央
+                                center_window_on_mouse_screen(&clipboard_window);
+                                let _ = clipboard_window.show();
+                                let _ = clipboard_window.set_focus();
+                            }
+                        }
+                    }
+                },
+            ) {
+                eprintln!("警告: 无法注册快捷键 {}: {}", clipboard_history_shortcut, e);
             }
 
             Ok(())
@@ -404,6 +437,16 @@ fn main() {
             commands::tag_commands::get_tag_usage_count,
             commands::tag_commands::get_tags_with_usage_count,
             commands::tag_commands::search_tags,
+            // 剪切板历史相关命令
+            commands::clipboard_commands::get_clipboard_history,
+            commands::clipboard_commands::copy_from_clipboard_history,
+            commands::clipboard_commands::delete_clipboard_history_item,
+            commands::clipboard_commands::clear_clipboard_history,
+            commands::clipboard_commands::toggle_clipboard_pin,
+            commands::clipboard_commands::search_clipboard_history,
+            commands::clipboard_commands::get_clipboard_config,
+            commands::clipboard_commands::update_clipboard_config,
+            commands::clipboard_commands::get_clipboard_history_count,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");

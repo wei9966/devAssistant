@@ -78,6 +78,7 @@ pub struct ShortcutConfig {
     pub sql_history: String,
     pub app_launcher: String,
     pub quick_task: String,
+    pub clipboard_history: String,
 }
 
 impl Default for ShortcutConfig {
@@ -87,6 +88,7 @@ impl Default for ShortcutConfig {
             sql_history: "Ctrl+Shift+S".to_string(),
             app_launcher: "Ctrl+Shift+Space".to_string(),
             quick_task: "Ctrl+Shift+T".to_string(),
+            clipboard_history: "Ctrl+Shift+C".to_string(),
         }
     }
 }
@@ -145,6 +147,7 @@ pub fn update_shortcut_config(
         old_config.sql_history.as_str(),
         old_config.app_launcher.as_str(),
         old_config.quick_task.as_str(),
+        old_config.clipboard_history.as_str(),
     ];
 
     for shortcut in shortcuts {
@@ -258,6 +261,35 @@ pub fn update_shortcut_config(
         return Err(format!(
             "无法注册快速任务快捷键 {}: {}",
             quick_task_shortcut, e
+        ));
+    }
+
+    // 剪切板历史使用独立透明窗口
+    let clipboard_history_shortcut = config.clipboard_history.clone();
+    if let Err(e) = app.global_shortcut().on_shortcut(
+        clipboard_history_shortcut.as_str(),
+        move |app, _shortcut, event| {
+            if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                // 获取剪切板历史窗口
+                if let Some(clipboard_window) = app.get_webview_window("clipboard-history") {
+                    let is_visible = clipboard_window.is_visible().unwrap_or(false);
+
+                    if is_visible {
+                        // 如果已显示，则隐藏
+                        let _ = clipboard_window.hide();
+                    } else {
+                        // 显示并移动到鼠标所在屏幕中央
+                        center_window_on_mouse_screen(&clipboard_window);
+                        let _ = clipboard_window.show();
+                        let _ = clipboard_window.set_focus();
+                    }
+                }
+            }
+        },
+    ) {
+        return Err(format!(
+            "无法注册剪切板历史快捷键 {}: {}",
+            clipboard_history_shortcut, e
         ));
     }
 

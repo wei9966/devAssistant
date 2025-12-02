@@ -4,6 +4,7 @@
 pub mod ai_commands;
 pub mod app_launcher_commands;
 pub mod autostart_commands;
+pub mod clipboard_commands;
 pub mod db_repair_commands;
 pub mod settings_commands;
 pub mod shortcut_commands;
