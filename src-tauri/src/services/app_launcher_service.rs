@@ -275,8 +275,9 @@ impl AppLauncherService {
         {
             use std::ffi::OsStr;
             use std::os::windows::ffi::OsStrExt;
+            use std::mem;
             use std::ptr;
-            use winapi::um::shellapi::ShellExecuteW;
+            use winapi::um::shellapi::{ShellExecuteExW, SHELLEXECUTEINFOW, SEE_MASK_FLAG_NO_UI, SEE_MASK_NOCLOSEPROCESS};
             use winapi::um::winuser::SW_SHOWNORMAL;
 
             // 将字符串转换为宽字符(UTF-16)
@@ -302,30 +303,38 @@ impl AppLauncherService {
             let parameters_wide = parameters.map(|p| to_wide(p));
             let directory_wide = directory.map(|d| to_wide(d));
 
-            let result = unsafe {
-                ShellExecuteW(
-                    ptr::null_mut(),
-                    operation_wide.as_ptr(),
-                    file_wide.as_ptr(),
-                    parameters_wide.as_ref().map_or(ptr::null(), |p| p.as_ptr()),
-                    directory_wide.as_ref().map_or(ptr::null(), |d| d.as_ptr()),
-                    SW_SHOWNORMAL,
-                )
-            };
+            // 使用 ShellExecuteExW 并设置 SEE_MASK_FLAG_NO_UI 来禁止系统错误弹窗
+            let mut sei: SHELLEXECUTEINFOW = unsafe { mem::zeroed() };
+            sei.cbSize = mem::size_of::<SHELLEXECUTEINFOW>() as u32;
+            // SEE_MASK_FLAG_NO_UI: 禁止显示错误对话框（如 DLL 加载失败等系统错误）
+            sei.fMask = SEE_MASK_FLAG_NO_UI | SEE_MASK_NOCLOSEPROCESS;
+            sei.hwnd = ptr::null_mut();
+            sei.lpVerb = operation_wide.as_ptr();
+            sei.lpFile = file_wide.as_ptr();
+            sei.lpParameters = parameters_wide.as_ref().map_or(ptr::null(), |p| p.as_ptr());
+            sei.lpDirectory = directory_wide.as_ref().map_or(ptr::null(), |d| d.as_ptr());
+            sei.nShow = SW_SHOWNORMAL;
 
-            // ShellExecuteW 返回值大于32表示成功
-            let result_code = result as isize;
-            if result_code > 32 {
+            let success = unsafe { ShellExecuteExW(&mut sei) };
+
+            if success != 0 {
+                // 关闭进程句柄（如果有的话）
+                if !sei.hProcess.is_null() {
+                    unsafe {
+                        winapi::um::handleapi::CloseHandle(sei.hProcess);
+                    }
+                }
                 LaunchResult::success(app.id.clone(), app.name.clone())
             } else {
-                // 错误码映射
-                let error_msg = match result_code {
-                    0 => "内存不足",
+                // 获取最后一个错误码
+                let error_code = unsafe { winapi::um::errhandlingapi::GetLastError() };
+                let error_msg = match error_code {
+                    0 => "操作成功",
                     2 => "文件未找到",
                     3 => "路径未找到",
                     5 => "访问被拒绝",
                     8 => "内存不足",
-                    11 => "可执行文件无效",
+                    11 => "可执行文件格式无效",
                     26 => "共享冲突",
                     27 => "文件关联不完整",
                     28 => "DDE操作超时",
@@ -333,12 +342,13 @@ impl AppLauncherService {
                     30 => "DDE操作繁忙",
                     31 => "没有关联的应用程序",
                     32 => "DLL未找到",
+                    1155 => "没有关联的应用程序打开此文件类型",
                     _ => "未知错误",
                 };
                 LaunchResult::failure(
                     app.id.clone(),
                     app.name.clone(),
-                    format!("{} (错误码: {})", error_msg, result_code),
+                    format!("{} (错误码: {})", error_msg, error_code),
                 )
             }
         }

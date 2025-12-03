@@ -2,9 +2,12 @@ use crate::models::clipboard::{ClipboardConfig, ClipboardContentType, ClipboardH
 use crate::services::sql_service::SqlService;
 use arboard::Clipboard;
 use chrono::Local;
-use image::{GenericImageView, ImageFormat};
+use image::ImageFormat;
+use log::{error, warn, info, debug};
 use rusqlite::Connection;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::panic;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -15,6 +18,38 @@ use std::time::Duration;
 static SKIP_NEXT_IMAGE: AtomicBool = AtomicBool::new(false);
 // 记录最后一次手动复制的图片哈希
 static LAST_MANUAL_COPY_HASH: AtomicU64 = AtomicU64::new(0);
+
+/// 记录剪切板错误到日志文件
+fn log_clipboard_error(error_msg: &str) {
+    let log_dir = dirs::data_local_dir()
+        .map(|p| p.join("dev-assistant").join("logs"))
+        .unwrap_or_else(|| std::path::PathBuf::from("./logs"));
+
+    if let Err(e) = fs::create_dir_all(&log_dir) {
+        eprintln!("无法创建日志目录: {}", e);
+        return;
+    }
+
+    let log_file = log_dir.join("clipboard_errors.log");
+    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+    let log_entry = format!("[{}] {}\n", timestamp, error_msg);
+
+    match OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_file)
+    {
+        Ok(mut file) => {
+            let _ = file.write_all(log_entry.as_bytes());
+        }
+        Err(e) => {
+            eprintln!("无法写入日志文件: {}", e);
+        }
+    }
+
+    // 同时使用 log crate 记录
+    error!("[Clipboard] {}", error_msg);
+}
 
 /// 剪切板历史服务
 pub struct ClipboardHistoryService {
@@ -77,33 +112,96 @@ impl ClipboardHistoryService {
         let config = Arc::clone(&self.config);
 
         thread::spawn(move || {
+            info!("剪切板历史监控线程已启动");
             println!("剪切板历史监控线程已启动");
 
-            // 创建 arboard 剪切板实例
-            let mut clipboard = match Clipboard::new() {
-                Ok(cb) => cb,
-                Err(e) => {
-                    eprintln!("无法创建剪切板实例: {}", e);
-                    return;
-                }
-            };
+            // 连续错误计数器
+            let mut consecutive_errors = 0u32;
+            const MAX_CONSECUTIVE_ERRORS: u32 = 10;
 
             loop {
                 thread::sleep(Duration::from_millis(500));
 
-                let current_config = config.lock().unwrap().clone();
-                if !current_config.enabled {
-                    continue;
-                }
+                // 使用 catch_unwind 捕获 panic，防止线程崩溃导致整个程序崩溃
+                let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                    Self::monitor_clipboard_once(
+                        &db_path,
+                        &last_text,
+                        &last_image,
+                        &config,
+                    )
+                }));
 
-                // 检查文本内容
-                if let Ok(text) = clipboard.get_text() {
-                    let mut last = last_text.lock().unwrap();
-                    if text != *last && !text.trim().is_empty() {
+                match result {
+                    Ok(Ok(())) => {
+                        // 正常执行，重置错误计数
+                        consecutive_errors = 0;
+                    }
+                    Ok(Err(e)) => {
+                        // 普通错误（非 panic）
+                        consecutive_errors += 1;
+                        let error_msg = format!("剪切板监控错误 ({}/{}): {}",
+                            consecutive_errors, MAX_CONSECUTIVE_ERRORS, e);
+                        log_clipboard_error(&error_msg);
+
+                        if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
+                            warn!("剪切板监控连续错误过多，暂停 5 秒");
+                            thread::sleep(Duration::from_secs(5));
+                            consecutive_errors = 0;
+                        }
+                    }
+                    Err(panic_info) => {
+                        // 捕获到 panic
+                        consecutive_errors += 1;
+                        let panic_msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
+                            s.to_string()
+                        } else if let Some(s) = panic_info.downcast_ref::<String>() {
+                            s.clone()
+                        } else {
+                            "未知 panic".to_string()
+                        };
+
+                        let error_msg = format!("剪切板监控 PANIC ({}/{}): {}",
+                            consecutive_errors, MAX_CONSECUTIVE_ERRORS, panic_msg);
+                        log_clipboard_error(&error_msg);
+
+                        if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
+                            warn!("剪切板监控连续 panic 过多，暂停 10 秒后重试");
+                            thread::sleep(Duration::from_secs(10));
+                            consecutive_errors = 0;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /// 执行一次剪切板监控检查
+    fn monitor_clipboard_once(
+        db_path: &str,
+        last_text: &Arc<Mutex<String>>,
+        last_image: &Arc<Mutex<u64>>,
+        config: &Arc<Mutex<ClipboardConfig>>,
+    ) -> Result<(), String> {
+        let current_config = config.lock().map_err(|e| format!("获取配置锁失败: {}", e))?.clone();
+        if !current_config.enabled {
+            return Ok(());
+        }
+
+        // 创建 arboard 剪切板实例 - 每次都创建新实例以避免状态问题
+        let mut clipboard = Clipboard::new().map_err(|e| format!("创建剪切板实例失败: {}", e))?;
+
+        // 检查文本内容 - 使用 Result 处理错误
+        match clipboard.get_text() {
+            Ok(text) => {
+                if !text.trim().is_empty() {
+                    let mut last = last_text.lock().map_err(|e| format!("获取文本锁失败: {}", e))?;
+                    if text != *last {
                         *last = text.clone();
+                        drop(last); // 释放锁
 
                         // 保存到数据库
-                        if let Ok(conn) = Connection::open(&db_path) {
+                        if let Ok(conn) = Connection::open(db_path) {
                             let preview = text.chars().take(100).collect::<String>();
                             let record = CreateClipboardRecord {
                                 content_type: ClipboardContentType::Text.to_string(),
@@ -115,87 +213,122 @@ impl ClipboardHistoryService {
 
                             match Self::save_record(&conn, &record) {
                                 Ok(id) => {
+                                    debug!("✓ 剪切板文本已保存, ID: {}", id);
                                     println!("✓ 剪切板文本已保存, ID: {}, 预览: {}", id,
                                         preview.chars().take(30).collect::<String>());
 
-                                    // 检查是否是 SQL 语句，如果是也保存到 SQL 历史
+                                    // 检查是否是 SQL 语句
                                     if SqlService::is_valid_sql(&text) {
                                         if let Ok(sql_id) = SqlService::save_sql(&conn, &text, "clipboard") {
                                             println!("  ↳ 同时保存为 SQL 历史, ID: {}", sql_id);
                                         }
                                     }
 
-                                    // 清理超出数量的旧记录
                                     let _ = Self::cleanup_old_records(&conn, current_config.max_history);
                                 }
-                                Err(e) => println!("✗ 保存剪切板内容失败: {}", e),
-                            }
-                        }
-                    }
-                }
-
-                // 检查图片内容
-                if let Ok(img) = clipboard.get_image() {
-                    // 检查是否需要跳过（手动复制图片时设置的标记）
-                    if SKIP_NEXT_IMAGE.swap(false, Ordering::SeqCst) {
-                        println!("跳过图片检测（手动复制触发）");
-                        continue;
-                    }
-
-                    // 计算图片哈希（简单方式：使用图片尺寸和部分像素）
-                    let hash = Self::calculate_image_hash(&img);
-                    let mut last = last_image.lock().unwrap();
-
-                    if hash != *last && hash != 0 {
-                        *last = hash;
-
-                        // 保存图片到文件
-                        if let Ok(conn) = Connection::open(&db_path) {
-                            let save_dir = &current_config.image_save_dir;
-
-                            // 确保目录存在
-                            if let Err(e) = fs::create_dir_all(save_dir) {
-                                eprintln!("创建图片目录失败: {}", e);
-                                continue;
-                            }
-
-                            // 生成文件名
-                            let timestamp = Local::now().format("%Y%m%d_%H%M%S_%3f");
-                            let filename = format!("clip_{}.png", timestamp);
-                            let file_path = Path::new(save_dir).join(&filename);
-                            let file_path_str = file_path.to_string_lossy().to_string();
-
-                            // 保存图片
-                            match Self::save_image_to_file(&img, &file_path) {
-                                Ok(_) => {
-                                    println!("✓ 剪切板图片已保存: {}", file_path_str);
-
-                                    // 保存记录到数据库
-                                    let record = CreateClipboardRecord {
-                                        content_type: ClipboardContentType::Image.to_string(),
-                                        content: file_path_str.clone(),
-                                        preview: Some(format!("[图片] {}", filename)),
-                                        image_path: Some(file_path_str.clone()),
-                                        source_app: None,
-                                    };
-
-                                    if let Ok(id) = Self::save_record(&conn, &record) {
-                                        println!("  ↳ 图片记录已保存, ID: {}", id);
-                                    }
-
-                                    // 不自动覆盖剪切板，保留原始图片可粘贴到微信等应用
-                                    // 用户可通过历史面板或 Ctrl+Shift+V 获取路径
-
-                                    // 清理超出数量的旧记录
-                                    let _ = Self::cleanup_old_records(&conn, current_config.max_history);
+                                Err(e) => {
+                                    log_clipboard_error(&format!("保存剪切板文本失败: {}", e));
                                 }
-                                Err(e) => eprintln!("保存图片失败: {}", e),
                             }
                         }
                     }
                 }
             }
-        });
+            Err(e) => {
+                // 文本获取失败通常是因为剪切板中没有文本或格式不支持
+                // 这不是严重错误，只记录 debug 级别
+                debug!("获取剪切板文本失败（可能无文本内容）: {}", e);
+            }
+        }
+
+        // 检查图片内容
+        match clipboard.get_image() {
+            Ok(img) => {
+                // 检查是否需要跳过
+                if SKIP_NEXT_IMAGE.swap(false, Ordering::SeqCst) {
+                    debug!("跳过图片检测（手动复制触发）");
+                    return Ok(());
+                }
+
+                // 验证图片数据有效性
+                if img.width == 0 || img.height == 0 || img.bytes.is_empty() {
+                    debug!("跳过无效图片数据: width={}, height={}, bytes={}",
+                        img.width, img.height, img.bytes.len());
+                    return Ok(());
+                }
+
+                // 验证图片尺寸是否合理（避免异常大的图片导致内存问题）
+                const MAX_IMAGE_DIMENSION: usize = 16384; // 16K 分辨率
+                const MAX_IMAGE_BYTES: usize = 100 * 1024 * 1024; // 100MB
+
+                if img.width > MAX_IMAGE_DIMENSION || img.height > MAX_IMAGE_DIMENSION {
+                    log_clipboard_error(&format!(
+                        "跳过超大图片: {}x{} (最大 {}x{})",
+                        img.width, img.height, MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION
+                    ));
+                    return Ok(());
+                }
+
+                if img.bytes.len() > MAX_IMAGE_BYTES {
+                    log_clipboard_error(&format!(
+                        "跳过超大图片数据: {} bytes (最大 {} bytes)",
+                        img.bytes.len(), MAX_IMAGE_BYTES
+                    ));
+                    return Ok(());
+                }
+
+                let hash = Self::calculate_image_hash(&img);
+                let mut last = last_image.lock().map_err(|e| format!("获取图片锁失败: {}", e))?;
+
+                if hash != *last && hash != 0 {
+                    *last = hash;
+                    drop(last);
+
+                    if let Ok(conn) = Connection::open(db_path) {
+                        let save_dir = &current_config.image_save_dir;
+
+                        if let Err(e) = fs::create_dir_all(save_dir) {
+                            return Err(format!("创建图片目录失败: {}", e));
+                        }
+
+                        let timestamp = Local::now().format("%Y%m%d_%H%M%S_%3f");
+                        let filename = format!("clip_{}.png", timestamp);
+                        let file_path = Path::new(save_dir).join(&filename);
+                        let file_path_str = file_path.to_string_lossy().to_string();
+
+                        match Self::save_image_to_file(&img, &file_path) {
+                            Ok(_) => {
+                                println!("✓ 剪切板图片已保存: {}", file_path_str);
+
+                                let record = CreateClipboardRecord {
+                                    content_type: ClipboardContentType::Image.to_string(),
+                                    content: file_path_str.clone(),
+                                    preview: Some(format!("[图片] {}", filename)),
+                                    image_path: Some(file_path_str.clone()),
+                                    source_app: None,
+                                };
+
+                                if let Ok(id) = Self::save_record(&conn, &record) {
+                                    println!("  ↳ 图片记录已保存, ID: {}", id);
+                                }
+
+                                let _ = Self::cleanup_old_records(&conn, current_config.max_history);
+                            }
+                            Err(e) => {
+                                log_clipboard_error(&format!("保存图片失败: {}", e));
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                // 图片获取失败通常是因为剪切板中没有图片
+                // 这不是严重错误
+                debug!("获取剪切板图片失败（可能无图片内容）: {}", e);
+            }
+        }
+
+        Ok(())
     }
 
     /// 计算图片哈希（简单实现）
@@ -215,17 +348,29 @@ impl ClipboardHistoryService {
 
     /// 保存图片到文件
     fn save_image_to_file(img: &arboard::ImageData, path: &Path) -> Result<(), String> {
+        // 验证图片数据
+        let expected_size = img.width * img.height * 4; // RGBA = 4 bytes per pixel
+        if img.bytes.len() != expected_size {
+            return Err(format!(
+                "图片数据大小不匹配: 期望 {} bytes ({}x{}x4), 实际 {} bytes",
+                expected_size, img.width, img.height, img.bytes.len()
+            ));
+        }
+
         // arboard 的图片数据是 RGBA 格式
         let img_buffer = image::RgbaImage::from_raw(
             img.width as u32,
             img.height as u32,
             img.bytes.to_vec(),
         )
-        .ok_or("无法创建图片缓冲区")?;
+        .ok_or_else(|| format!(
+            "无法创建图片缓冲区: {}x{}, {} bytes",
+            img.width, img.height, img.bytes.len()
+        ))?;
 
         img_buffer
             .save_with_format(path, ImageFormat::Png)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| format!("保存 PNG 文件失败: {}", e))?;
 
         Ok(())
     }
@@ -408,7 +553,7 @@ impl ClipboardHistoryService {
             )
             .map_err(|e| format!("记录不存在: {}", e))?;
 
-        let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
+        let mut clipboard = Clipboard::new().map_err(|e| format!("创建剪切板实例失败: {}", e))?;
 
         match record.content_type.as_str() {
             "image" => {
@@ -416,30 +561,59 @@ impl ClipboardHistoryService {
                 let image_path = record.image_path.as_ref().unwrap_or(&record.content);
                 let path_str = image_path.clone();
 
+                debug!("尝试复制图片: {}", image_path);
                 println!("尝试复制图片: {}", image_path);
 
                 // 设置标记，让监控线程跳过这次
                 SKIP_NEXT_IMAGE.store(true, Ordering::SeqCst);
 
                 // 使用独立线程复制图片（Windows 剪切板 API 需要）
+                // 使用 catch_unwind 防止 panic 导致程序崩溃
                 let result = std::thread::spawn(move || {
-                    Self::copy_image_to_clipboard_impl(&path_str)
-                }).join().map_err(|_| "线程执行失败".to_string())?;
+                    panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                        Self::copy_image_to_clipboard_impl(&path_str)
+                    }))
+                }).join();
 
                 match result {
-                    Ok(msg) => {
+                    Ok(Ok(Ok(msg))) => {
                         println!("✓ {}", msg);
                         Ok(format!("[图片已复制] {}", image_path))
                     }
-                    Err(e) => {
+                    Ok(Ok(Err(e))) => {
                         SKIP_NEXT_IMAGE.store(false, Ordering::SeqCst);
+                        let error_msg = format!("复制图片失败: {}", e);
+                        log_clipboard_error(&error_msg);
                         println!("✗ {}", e);
                         Err(e)
+                    }
+                    Ok(Err(panic_info)) => {
+                        SKIP_NEXT_IMAGE.store(false, Ordering::SeqCst);
+                        let panic_msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
+                            s.to_string()
+                        } else if let Some(s) = panic_info.downcast_ref::<String>() {
+                            s.clone()
+                        } else {
+                            "未知错误".to_string()
+                        };
+                        let error_msg = format!("复制图片时发生 panic: {}", panic_msg);
+                        log_clipboard_error(&error_msg);
+                        Err(error_msg)
+                    }
+                    Err(_) => {
+                        SKIP_NEXT_IMAGE.store(false, Ordering::SeqCst);
+                        let error_msg = "复制图片线程执行失败".to_string();
+                        log_clipboard_error(&error_msg);
+                        Err(error_msg)
                     }
                 }
             }
             _ => {
-                clipboard.set_text(&record.content).map_err(|e| e.to_string())?;
+                clipboard.set_text(&record.content).map_err(|e| {
+                    let error_msg = format!("复制文本到剪切板失败: {}", e);
+                    log_clipboard_error(&error_msg);
+                    error_msg
+                })?;
                 Ok(record.content)
             }
         }
@@ -449,7 +623,7 @@ impl ClipboardHistoryService {
     #[cfg(windows)]
     fn copy_image_to_clipboard_impl(image_path: &str) -> Result<String, String> {
         use clipboard_win::{formats, Clipboard, Setter};
-        use std::io::Cursor;
+        use image::GenericImageView;
 
         let path = Path::new(image_path);
         if !path.exists() {
