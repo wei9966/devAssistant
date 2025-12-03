@@ -102,6 +102,9 @@
     <template #footer>
       <div class="dialog-footer">
         <n-button @click="handleCancel">取消</n-button>
+        <n-button v-if="!isEdit" @click="handleSaveAndNew" :loading="savingAndNew">
+          保存并新增
+        </n-button>
         <n-button type="primary" @click="handleSubmit" :loading="saving">
           {{ isEdit ? '保存' : '添加' }}
         </n-button>
@@ -159,12 +162,14 @@ const props = withDefaults(
 const emit = defineEmits<{
   'update:show': [value: boolean];
   submit: [data: AppFormData];
+  'save-and-new': [data: AppFormData];
   cancel: [];
 }>();
 
 const message = useMessage();
 const formRef = ref<FormInst>();
 const saving = ref(false);
+const savingAndNew = ref(false);
 const launcherSettings = ref<AppLauncherSettings>({ allowedExtensions: ['exe', 'lnk'] });
 const selectMode = ref<'file' | 'folder'>('file');
 
@@ -403,6 +408,26 @@ const handleSubmit = async () => {
     console.error('表单验证失败:', error);
   } finally {
     saving.value = false;
+  }
+};
+
+// 保存并新增
+const handleSaveAndNew = async () => {
+  try {
+    await formRef.value?.validate();
+    savingAndNew.value = true;
+
+    emit('save-and-new', { ...formData.value });
+
+    // 重置表单但不关闭对话框
+    formData.value = { ...defaultFormData };
+    selectMode.value = 'file';
+
+    message.success('应用已添加，可继续添加下一个');
+  } catch (error) {
+    console.error('表单验证失败:', error);
+  } finally {
+    savingAndNew.value = false;
   }
 };
 

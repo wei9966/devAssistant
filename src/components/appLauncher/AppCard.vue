@@ -2,12 +2,24 @@
   <div
     ref="cardRef"
     class="app-card"
-    :class="{ pinned: app.isPinned, hidden: app.isHidden, dragging: isBeingDragged }"
+    :class="{
+      pinned: app.isPinned,
+      hidden: app.isHidden,
+      dragging: isBeingDragged,
+      'batch-mode': batchSelectMode,
+      selected: isSelected
+    }"
     @mousedown="handleMouseDown"
-    @click="handleLaunch"
+    @click="handleClick"
+    @contextmenu.prevent="handleContextMenu"
   >
     <!-- Hover Glow Effect -->
     <div class="hover-glow"></div>
+
+    <!-- 批量选择复选框 -->
+    <div v-if="batchSelectMode" class="select-checkbox" @click.stop="handleToggleSelect">
+      <n-checkbox :checked="isSelected" />
+    </div>
 
     <div class="card-content">
       <!-- 应用图标 -->
@@ -32,7 +44,7 @@
     </div>
 
     <!-- 操作按钮（悬停显示） -->
-    <div class="card-actions" @dragstart.prevent.stop>
+    <div v-if="!batchSelectMode" class="card-actions" @dragstart.prevent.stop>
       <n-button
         text
         size="small"
@@ -56,18 +68,32 @@
         </template>
       </n-button>
     </div>
+
+    <!-- 右键菜单 -->
+    <n-dropdown
+      placement="bottom-start"
+      trigger="manual"
+      :x="contextMenuX"
+      :y="contextMenuY"
+      :options="contextMenuOptions"
+      :show="showContextMenu"
+      @select="handleContextMenuSelect"
+      @clickoutside="showContextMenu = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { NButton, NIcon } from 'naive-ui';
-import { AppsOutline, CreateOutline, TrashOutline, Pin } from '@vicons/ionicons5';
+import { ref, computed, h } from 'vue';
+import { NButton, NIcon, NCheckbox, NDropdown } from 'naive-ui';
+import { AppsOutline, CreateOutline, TrashOutline, Pin, FolderOpenOutline } from '@vicons/ionicons5';
 import type { AppItem } from '@/types/appLauncher';
 
 const props = defineProps<{
   app: AppItem;
   isBeingDragged?: boolean;
+  batchSelectMode?: boolean;
+  isSelected?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -76,6 +102,8 @@ const emit = defineEmits<{
   edit: [app: AppItem];
   delete: [appId: string];
   'mousedown-drag': [app: AppItem, event: MouseEvent, element: HTMLElement];
+  'toggle-select': [appId: string];
+  'show-in-folder': [path: string];
 }>();
 
 const cardRef = ref<HTMLElement | null>(null);
@@ -83,13 +111,87 @@ const iconError = ref(false);
 const mouseDownTime = ref(0);
 const isDragStarted = ref(false);
 
-const handleLaunch = () => {
+// 右键菜单状态
+const showContextMenu = ref(false);
+const contextMenuX = ref(0);
+const contextMenuY = ref(0);
+
+// 右键菜单选项
+const contextMenuOptions = computed(() => [
+  {
+    label: '打开文件位置',
+    key: 'show-in-folder',
+    icon: () => h(NIcon, null, { default: () => h(FolderOpenOutline) }),
+  },
+  {
+    type: 'divider',
+    key: 'd1',
+  },
+  {
+    label: props.app.isPinned ? '取消置顶' : '置顶',
+    key: 'pin',
+    icon: () => h(NIcon, null, { default: () => h(Pin) }),
+  },
+  {
+    label: '编辑',
+    key: 'edit',
+    icon: () => h(NIcon, null, { default: () => h(CreateOutline) }),
+  },
+  {
+    label: '删除',
+    key: 'delete',
+    icon: () => h(NIcon, null, { default: () => h(TrashOutline) }),
+  },
+]);
+
+// 处理点击事件
+const handleClick = () => {
+  // 批量选择模式下点击切换选中状态
+  if (props.batchSelectMode) {
+    emit('toggle-select', props.app.id);
+    return;
+  }
+
   // 如果刚刚拖拽过，不触发点击
   if (isDragStarted.value || Date.now() - mouseDownTime.value > 300) {
     isDragStarted.value = false;
     return;
   }
   emit('launch', props.app.id);
+};
+
+// 切换选中状态
+const handleToggleSelect = () => {
+  emit('toggle-select', props.app.id);
+};
+
+// 右键菜单
+const handleContextMenu = (e: MouseEvent) => {
+  // 批量模式下不显示右键菜单
+  if (props.batchSelectMode) return;
+
+  contextMenuX.value = e.clientX;
+  contextMenuY.value = e.clientY;
+  showContextMenu.value = true;
+};
+
+// 右键菜单选择处理
+const handleContextMenuSelect = (key: string) => {
+  showContextMenu.value = false;
+  switch (key) {
+    case 'show-in-folder':
+      emit('show-in-folder', props.app.path);
+      break;
+    case 'pin':
+      handlePin();
+      break;
+    case 'edit':
+      handleEdit();
+      break;
+    case 'delete':
+      handleDelete();
+      break;
+  }
 };
 
 const handlePin = () => {
@@ -114,9 +216,12 @@ const handleMouseDown = (e: MouseEvent) => {
   // 忽略右键和中键
   if (e.button !== 0) return;
 
-  // 检查是否点击了操作按钮区域
+  // 批量选择模式下不启用拖拽
+  if (props.batchSelectMode) return;
+
+  // 检查是否点击了操作按钮区域或复选框
   const target = e.target as HTMLElement;
-  if (target.closest('.card-actions')) return;
+  if (target.closest('.card-actions') || target.closest('.select-checkbox')) return;
 
   mouseDownTime.value = Date.now();
   isDragStarted.value = false;
@@ -329,5 +434,48 @@ const handleMouseDown = (e: MouseEvent) => {
 
 .pin-btn.active:hover {
   color: #818cf8;
+}
+
+/* 批量选择模式样式 */
+.app-card.batch-mode {
+  cursor: pointer;
+}
+
+.app-card.batch-mode:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.app-card.selected {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.15);
+}
+
+.app-card.selected:hover {
+  border-color: #818cf8;
+  background: rgba(99, 102, 241, 0.2);
+}
+
+.select-checkbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.select-checkbox:hover {
+  background: rgba(99, 102, 241, 0.3);
+}
+
+.app-card.selected .select-checkbox {
+  background: rgba(99, 102, 241, 0.4);
 }
 </style>

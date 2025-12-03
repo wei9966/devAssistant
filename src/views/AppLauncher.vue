@@ -73,6 +73,34 @@
     <div class="toolbar">
       <div class="toolbar-left">
         <span class="app-count">{{ filteredApps.length }} 个应用</span>
+        <!-- 批量选择模式切换 -->
+        <n-button
+          size="small"
+          :type="batchSelectMode ? 'primary' : 'default'"
+          @click="toggleBatchSelectMode"
+        >
+          <template #icon>
+            <n-icon><CheckboxOutline /></n-icon>
+          </template>
+          {{ batchSelectMode ? '退出批量' : '批量选择' }}
+        </n-button>
+        <!-- 批量操作按钮 -->
+        <template v-if="batchSelectMode">
+          <n-button size="small" @click="handleSelectAll">
+            {{ isAllSelected ? '取消全选' : '全选' }}
+          </n-button>
+          <n-button
+            size="small"
+            type="error"
+            :disabled="selectedAppIds.size === 0"
+            @click="handleBatchDelete"
+          >
+            <template #icon>
+              <n-icon><TrashOutline /></n-icon>
+            </template>
+            删除选中 ({{ selectedAppIds.size }})
+          </n-button>
+        </template>
       </div>
       <div class="toolbar-right">
         <n-button-group>
@@ -112,11 +140,15 @@
             :key="app.id"
             :app="app"
             :is-being-dragged="draggingApp?.id === app.id"
+            :batch-select-mode="batchSelectMode"
+            :is-selected="selectedAppIds.has(app.id)"
             @launch="handleLaunch"
             @pin="handlePin"
             @edit="handleEdit"
             @delete="handleDelete"
             @mousedown-drag="handleMouseDragStart"
+            @toggle-select="handleToggleSelect"
+            @show-in-folder="handleShowInFolder"
           />
         </div>
       </div>
@@ -133,11 +165,15 @@
             :key="app.id"
             :app="app"
             :is-being-dragged="draggingApp?.id === app.id"
+            :batch-select-mode="batchSelectMode"
+            :is-selected="selectedAppIds.has(app.id)"
             @launch="handleLaunch"
             @pin="handlePin"
             @edit="handleEdit"
             @delete="handleDelete"
             @mousedown-drag="handleMouseDragStart"
+            @toggle-select="handleToggleSelect"
+            @show-in-folder="handleShowInFolder"
           />
         </div>
       </div>
@@ -160,6 +196,7 @@
       :app="currentApp"
       :categories="categories"
       @submit="handleSaveApp"
+      @save-and-new="handleSaveAndNewApp"
       @cancel="handleCancelEdit"
     />
 
@@ -227,6 +264,7 @@ import {
   SettingsOutline,
   TrashOutline,
   SparklesOutline,
+  CheckboxOutline,
 } from '@vicons/ionicons5';
 import AppCard from '@/components/appLauncher/AppCard.vue';
 import AppSearchBar from '@/components/appLauncher/AppSearchBar.vue';
@@ -257,6 +295,10 @@ const showCategoryManager = ref(false);
 const showLauncherSettings = ref(false);
 const currentApp = ref<AppItem | null>(null);
 const currentWorkflow = ref<Workflow | null>(null);
+
+// 批量选择状态
+const batchSelectMode = ref(false);
+const selectedAppIds = ref<Set<string>>(new Set());
 
 // 鼠标拖拽状态
 const draggingApp = ref<AppItem | null>(null);
@@ -392,6 +434,11 @@ const categoryCounts = computed(() => {
 
 const currentCategoryName = computed(() => {
   return categories.value.find((cat) => cat.id === selectedCategory.value)?.name || '其他';
+});
+
+// 判断是否全选
+const isAllSelected = computed(() => {
+  return filteredApps.value.length > 0 && selectedAppIds.value.size === filteredApps.value.length;
 });
 
 // 更多操作菜单
@@ -698,6 +745,121 @@ const handleSaveApp = async (data: any) => {
 
 const handleCancelEdit = () => {
   currentApp.value = null;
+};
+
+// 保存并新增应用
+const handleSaveAndNewApp = async (data: any) => {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+
+    // 添加新应用
+    const newApp: AppItem = {
+      id: Date.now().toString(),
+      name: data.name,
+      path: data.path,
+      category: data.category,
+      tags: data.tags || [],
+      launchArgs: data.launchArgs || '',
+      icon: data.icon,
+      isPinned: data.isPinned || false,
+      isHidden: false,
+      launchCount: 0,
+      itemType: data.itemType || ItemType.Application,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    // 保存到数据库，后端会自动提取图标并返回完整数据
+    const savedApp = await invoke<AppItem>('add_app', { app: newApp });
+
+    // 更新本地状态（使用后端返回的数据，包含图标）
+    allApps.value.push(savedApp);
+
+    // 不关闭对话框，让用户继续添加
+  } catch (error) {
+    message.error('保存失败: ' + error);
+    console.error('保存应用失败:', error);
+  }
+};
+
+// ========== 批量选择功能 ==========
+
+// 切换批量选择模式
+const toggleBatchSelectMode = () => {
+  batchSelectMode.value = !batchSelectMode.value;
+  if (!batchSelectMode.value) {
+    // 退出批量模式时清空选择
+    selectedAppIds.value.clear();
+  }
+};
+
+// 全选/取消全选
+const handleSelectAll = () => {
+  if (isAllSelected.value) {
+    selectedAppIds.value.clear();
+  } else {
+    selectedAppIds.value = new Set(filteredApps.value.map((app) => app.id));
+  }
+};
+
+// 切换单个应用的选择状态
+const handleToggleSelect = (appId: string) => {
+  if (selectedAppIds.value.has(appId)) {
+    selectedAppIds.value.delete(appId);
+  } else {
+    selectedAppIds.value.add(appId);
+  }
+  // 触发响应式更新
+  selectedAppIds.value = new Set(selectedAppIds.value);
+};
+
+// 批量删除
+const handleBatchDelete = () => {
+  const count = selectedAppIds.value.size;
+  if (count === 0) return;
+
+  dialog.warning({
+    title: '批量删除应用',
+    content: `确定要删除选中的 ${count} 个应用吗？此操作不可恢复。`,
+    positiveText: '确定删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        let deletedCount = 0;
+
+        for (const appId of selectedAppIds.value) {
+          try {
+            await invoke('delete_app', { appId });
+            deletedCount++;
+          } catch (error) {
+            console.error('删除应用失败:', appId, error);
+          }
+        }
+
+        // 更新本地状态
+        allApps.value = allApps.value.filter((app) => !selectedAppIds.value.has(app.id));
+        selectedAppIds.value.clear();
+        batchSelectMode.value = false;
+
+        message.success(`成功删除 ${deletedCount} 个应用`);
+      } catch (error) {
+        message.error('批量删除失败: ' + error);
+        console.error('批量删除失败:', error);
+      }
+    },
+  });
+};
+
+// 在文件夹中显示应用
+const handleShowInFolder = async (appPath: string) => {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('show_in_folder', { path: appPath });
+  } catch (error) {
+    message.error('打开文件位置失败: ' + error);
+    console.error('打开文件位置失败:', error);
+  }
 };
 
 const handleManageCategories = () => {
