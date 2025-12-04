@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { WorkLog } from '@/types/workLog';
+import type { WorkLog, DayContextSummary, WeekContextSummary } from '@/types/workLog';
 
 export const workLogApi = {
   // 保存工作日志
@@ -35,5 +35,25 @@ export const workLogApi = {
   // 获取所有工作日志
   async getAllWorkLogs(): Promise<WorkLog[]> {
     return await invoke('get_all_work_logs');
+  },
+
+  // 基于上下文生成日报
+  async generateWithContext(date: string): Promise<string> {
+    return await invoke('work_log_generate_with_context', { date });
+  },
+
+  // 获取当日上下文摘要
+  async getContextSummary(date: string): Promise<DayContextSummary> {
+    return await invoke('context_get_day_summary', { date });
+  },
+
+  // 基于上下文生成周报
+  async generateWeeklyWithContext(startDate: string, endDate: string): Promise<string> {
+    return await invoke('work_log_generate_weekly_with_context', { startDate, endDate });
+  },
+
+  // 获取周上下文摘要
+  async getWeekContextSummary(startDate: string, endDate: string): Promise<WeekContextSummary> {
+    return await invoke('context_get_week_summary', { startDate, endDate });
   },
 };

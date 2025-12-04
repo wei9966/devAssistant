@@ -27,3 +27,68 @@ export const WEEKLY_PLAN_STATUS_LABELS: Record<WeeklyPlanStatus, string> = {
   draft: '草稿',
   confirmed: '已确认',
 };
+
+// 上下文摘要相关类型
+export interface ActiveTimeRange {
+  start: string;
+  end: string;
+  totalMinutes: number;
+}
+
+export interface AppUsage {
+  appName: string;
+  minutes: number;
+  percentage: number;
+}
+
+export interface ActivityDistribution {
+  coding: number;
+  browsing: number;
+  document: number;
+  meeting: number;
+  communication: number;
+  other: number;
+}
+
+export interface KeyActivity {
+  time: string;
+  description: string;
+  appName: string;
+}
+
+export interface DayContextSummary {
+  activeTimeRange: ActiveTimeRange;
+  appUsage: AppUsage[];
+  activityDistribution: ActivityDistribution;
+  keyActivities: KeyActivity[];
+}
+
+export interface DailyActiveHours {
+  date: string;
+  hours: number;
+}
+
+export interface WeeklyAppRanking {
+  appName: string;
+  totalMinutes: number;
+  trend: 'up' | 'down' | 'stable';
+}
+
+export interface WeeklyActivitySummary {
+  type: string;
+  totalMinutes: number;
+  dailyAverage: number;
+}
+
+export interface WorkPatterns {
+  mostProductiveHour: number;
+  averageStartTime: string;
+  averageEndTime: string;
+}
+
+export interface WeekContextSummary {
+  dailyActiveHours: DailyActiveHours[];
+  weeklyAppRanking: WeeklyAppRanking[];
+  weeklyActivitySummary: WeeklyActivitySummary[];
+  workPatterns: WorkPatterns;
+}

@@ -505,6 +505,13 @@
           </div>
         </n-tab-pane>
 
+        <!-- 屏幕上下文标签 -->
+        <n-tab-pane name="context" tab="屏幕上下文">
+          <div class="tab-content">
+            <ContextManager />
+          </div>
+        </n-tab-pane>
+
         <!-- 关于标签 -->
         <n-tab-pane name="about" tab="关于">
           <div class="tab-content">
@@ -543,6 +550,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { aiApi } from '@/api/aiApi';
 import { AI_PROVIDERS } from '@/types/ai';
 import type { AiProvider, AiLog, AiLogStats } from '@/types/ai';
+import ContextManager from '@/components/context/ContextManager.vue';
 
 const route = useRoute();
 const message = useMessage();

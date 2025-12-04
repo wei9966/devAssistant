@@ -83,6 +83,13 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     create_clipboard_history_table(conn)?;
     create_clipboard_history_indexes(conn)?;
 
+    // 创建屏幕上下文相关表
+    create_screen_contexts_table(conn)?;
+    create_screen_contexts_indexes(conn)?;
+    create_vlm_config_table(conn)?;
+    create_daily_summaries_table(conn)?;
+    migrate_work_logs_add_context_ids(conn)?;
+
     Ok(())
 }
 
@@ -1377,6 +1384,103 @@ fn create_clipboard_history_indexes(conn: &Connection) -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_clipboard_history_content_type ON clipboard_history(content_type)",
         [],
     )?;
+
+    Ok(())
+}
+
+/// 创建 screen_contexts 表（屏幕上下文）
+fn create_screen_contexts_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS screen_contexts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            captured_at TEXT NOT NULL,
+            app_name TEXT,
+            window_title TEXT,
+            activity_type TEXT NOT NULL,
+            description TEXT NOT NULL,
+            key_content TEXT,
+            screenshot_hash TEXT,
+            screenshot_path TEXT,
+            processing_time_ms INTEGER
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 screen_contexts 表索引
+fn create_screen_contexts_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_screen_contexts_captured_at ON screen_contexts(captured_at DESC)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_screen_contexts_app_name ON screen_contexts(app_name)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_screen_contexts_activity_type ON screen_contexts(activity_type)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 VLM 配置表
+fn create_vlm_config_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS vlm_config (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            provider TEXT NOT NULL,
+            api_key TEXT NOT NULL,
+            base_url TEXT,
+            model TEXT,
+            enabled INTEGER DEFAULT 1,
+            max_image_size INTEGER DEFAULT 10240,
+            image_quality INTEGER DEFAULT 80,
+            timeout INTEGER DEFAULT 30,
+            created_at TEXT DEFAULT (datetime('now', 'localtime')),
+            updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 daily_summaries 表（每日摘要）
+fn create_daily_summaries_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS daily_summaries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            summary_date TEXT NOT NULL UNIQUE,
+            total_contexts INTEGER NOT NULL,
+            app_stats TEXT NOT NULL,
+            activity_timeline TEXT NOT NULL,
+            ai_summary TEXT,
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 迁移 work_logs 表：添加 context_ids 字段
+fn migrate_work_logs_add_context_ids(conn: &Connection) -> Result<()> {
+    // 检查 context_ids 列是否存在
+    let has_context_ids: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('work_logs') WHERE name='context_ids'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_context_ids == 0 {
+        conn.execute("ALTER TABLE work_logs ADD COLUMN context_ids TEXT", [])?;
+        println!("✓ 已添加 context_ids 列到 work_logs 表");
+    }
 
     Ok(())
 }

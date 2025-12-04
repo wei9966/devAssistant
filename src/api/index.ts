@@ -8,3 +8,6 @@ export const api = {
   //   return await invoke('example_command', params)
   // }
 }
+
+// Export API modules
+export * from './promptApi';

@@ -1,6 +1,7 @@
 pub mod app_launcher;
 pub mod app_launcher_settings;
 pub mod clipboard;
+pub mod screen_context;
 pub mod sql_record;
 pub mod task;
 pub mod weekly_plan;
@@ -13,10 +14,15 @@ pub use app_launcher::{
     WorkflowLaunchResult,
 };
 pub use app_launcher_settings::AppLauncherSettings;
+pub use clipboard::{ClipboardConfig, ClipboardContentType, ClipboardHistory, ClipboardQueryParams, CreateClipboardRecord};
+pub use screen_context::{
+    ActiveTimeRange, ActivityDistribution, AppUsage, DailyActiveHours, DailySummary, DayContextSummary,
+    DayStats, KeyActivity, ScreenContext, WeekContextSummary, WeeklyActivitySummary, WeeklyAppRanking,
+    WorkPatterns,
+};
 pub use sql_record::SqlRecord;
 pub use task::{
     FileContext, Tag, Task, TaskCategory, TaskPriority, TaskQuadrant, TaskStatus, WorkContext,
 };
 pub use weekly_plan::{WeeklyPlan, WeeklyPlanStatus};
 pub use work_log::WorkLog;
-pub use clipboard::{ClipboardConfig, ClipboardContentType, ClipboardHistory, ClipboardQueryParams, CreateClipboardRecord};

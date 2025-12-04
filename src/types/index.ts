@@ -2,6 +2,9 @@
 
 // 将在后续任务中添加具体的类型定义
 
+// Export prompt types
+export * from './prompts';
+
 export interface Task {
   id: number
   title: string

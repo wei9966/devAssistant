@@ -1,6 +1,14 @@
 use crate::models::work_log::WorkLog;
+use crate::models::screen_context::{
+    ActiveTimeRange, ActivityDistribution, AppUsage, DailyActiveHours, DayContextSummary,
+    KeyActivity, ScreenContext, WeekContextSummary, WeeklyActivitySummary, WeeklyAppRanking,
+    WorkPatterns,
+};
+use crate::services::context_store_service::ContextStoreService;
 use anyhow::Result;
+use chrono::{DateTime, Duration, Local, NaiveDateTime, Timelike};
 use rusqlite::{params, Connection};
+use std::collections::HashMap;
 
 pub struct WorkLogService;
 
@@ -148,6 +156,258 @@ impl WorkLogService {
     /// 删除日志的简化方法 (与 delete_work_log 功能相同)
     pub fn delete_log(conn: &Connection, date: &str) -> Result<()> {
         Self::delete_work_log(conn, date)
+    }
+
+    /// 获取当日上下文摘要
+    pub fn get_day_context_summary(
+        conn: &Connection,
+        date: &str,
+    ) -> Result<DayContextSummary> {
+        // 获取当日所有上下文
+        let contexts = ContextStoreService::list_by_date(conn, date)?;
+
+        if contexts.is_empty() {
+            return Ok(DayContextSummary {
+                active_time_range: ActiveTimeRange {
+                    start: String::new(),
+                    end: String::new(),
+                    total_minutes: 0,
+                },
+                app_usage: vec![],
+                activity_distribution: ActivityDistribution {
+                    coding: 0,
+                    browsing: 0,
+                    document: 0,
+                    meeting: 0,
+                    communication: 0,
+                    other: 0,
+                },
+                key_activities: vec![],
+            });
+        }
+
+        // 计算时间范围
+        let timestamps: Vec<_> = contexts
+            .iter()
+            .filter_map(|c| {
+                NaiveDateTime::parse_from_str(&c.captured_at, "%Y-%m-%d %H:%M:%S").ok()
+            })
+            .collect();
+
+        let (start, end, total_minutes) = if !timestamps.is_empty() {
+            let min_time = timestamps.iter().min().unwrap();
+            let max_time = timestamps.iter().max().unwrap();
+            let duration = max_time.signed_duration_since(*min_time);
+            (
+                min_time.format("%H:%M").to_string(),
+                max_time.format("%H:%M").to_string(),
+                duration.num_minutes() as i32,
+            )
+        } else {
+            (String::new(), String::new(), 0)
+        };
+
+        // 统计应用使用情况
+        let mut app_counts: HashMap<String, i32> = HashMap::new();
+        for context in &contexts {
+            if let Some(app_name) = &context.app_name {
+                *app_counts.entry(app_name.clone()).or_insert(0) += 1;
+            }
+        }
+
+        let total_count = contexts.len() as f32;
+        let mut app_usage: Vec<AppUsage> = app_counts
+            .into_iter()
+            .map(|(app_name, count)| AppUsage {
+                app_name,
+                minutes: count * 10, // 假设每次采集间隔10分钟
+                percentage: (count as f32 / total_count * 100.0),
+            })
+            .collect();
+        app_usage.sort_by(|a, b| b.minutes.cmp(&a.minutes));
+
+        // 统计活动类型分布
+        let mut activity_counts = HashMap::new();
+        for context in &contexts {
+            *activity_counts
+                .entry(context.activity_type.clone())
+                .or_insert(0) += 10; // 每次10分钟
+        }
+
+        let activity_distribution = ActivityDistribution {
+            coding: *activity_counts.get("coding").unwrap_or(&0),
+            browsing: *activity_counts.get("browsing").unwrap_or(&0),
+            document: *activity_counts.get("document").unwrap_or(&0),
+            meeting: *activity_counts.get("meeting").unwrap_or(&0),
+            communication: *activity_counts.get("communication").unwrap_or(&0),
+            other: *activity_counts.get("other").unwrap_or(&0),
+        };
+
+        // 提取关键活动（取前10个最重要的）
+        let key_activities: Vec<KeyActivity> = contexts
+            .iter()
+            .take(10)
+            .map(|c| KeyActivity {
+                time: c
+                    .captured_at
+                    .split(' ')
+                    .nth(1)
+                    .unwrap_or("")
+                    .to_string(),
+                description: c.description.clone(),
+                app_name: c.app_name.clone().unwrap_or_else(|| "Unknown".to_string()),
+            })
+            .collect();
+
+        Ok(DayContextSummary {
+            active_time_range: ActiveTimeRange {
+                start,
+                end,
+                total_minutes,
+            },
+            app_usage,
+            activity_distribution,
+            key_activities,
+        })
+    }
+
+    /// 获取周上下文摘要
+    pub fn get_week_context_summary(
+        conn: &Connection,
+        start_date: &str,
+        end_date: &str,
+    ) -> Result<WeekContextSummary> {
+        // 解析日期范围
+        let start = chrono::NaiveDate::parse_from_str(start_date, "%Y-%m-%d")?;
+        let end = chrono::NaiveDate::parse_from_str(end_date, "%Y-%m-%d")?;
+
+        // 收集每日活动时长
+        let mut daily_active_hours = vec![];
+        let mut current_date = start;
+        while current_date <= end {
+            let date_str = current_date.format("%Y-%m-%d").to_string();
+            let contexts = ContextStoreService::list_by_date(conn, &date_str)?;
+            let hours = (contexts.len() as f32 * 10.0) / 60.0; // 10分钟每次采集
+            daily_active_hours.push(DailyActiveHours {
+                date: date_str,
+                hours,
+            });
+            current_date = current_date.succ_opt().unwrap();
+        }
+
+        // 收集本周所有上下文用于统计
+        let mut all_contexts = vec![];
+        let mut current_date = start;
+        while current_date <= end {
+            let date_str = current_date.format("%Y-%m-%d").to_string();
+            let mut contexts = ContextStoreService::list_by_date(conn, &date_str)?;
+            all_contexts.append(&mut contexts);
+            current_date = current_date.succ_opt().unwrap();
+        }
+
+        // 统计应用使用排行
+        let mut app_minutes: HashMap<String, i32> = HashMap::new();
+        for context in &all_contexts {
+            if let Some(app_name) = &context.app_name {
+                *app_minutes.entry(app_name.clone()).or_insert(0) += 10;
+            }
+        }
+
+        let mut weekly_app_ranking: Vec<WeeklyAppRanking> = app_minutes
+            .into_iter()
+            .map(|(app_name, total_minutes)| WeeklyAppRanking {
+                app_name,
+                total_minutes,
+                trend: "stable".to_string(), // 简化处理，默认为stable
+            })
+            .collect();
+        weekly_app_ranking.sort_by(|a, b| b.total_minutes.cmp(&a.total_minutes));
+        weekly_app_ranking.truncate(10); // 只保留前10名
+
+        // 统计活动类型
+        let mut activity_minutes: HashMap<String, i32> = HashMap::new();
+        for context in &all_contexts {
+            *activity_minutes
+                .entry(context.activity_type.clone())
+                .or_insert(0) += 10;
+        }
+
+        let working_days = (end - start).num_days() + 1;
+        let weekly_activity_summary: Vec<WeeklyActivitySummary> = activity_minutes
+            .into_iter()
+            .map(|(activity_type, total_minutes)| WeeklyActivitySummary {
+                r#type: activity_type,
+                total_minutes,
+                daily_average: total_minutes as f32 / working_days as f32,
+            })
+            .collect();
+
+        // 分析工作模式
+        let mut hour_counts: HashMap<i32, i32> = HashMap::new();
+        let mut start_hours = vec![];
+        let mut end_hours = vec![];
+
+        for date in &daily_active_hours {
+            let contexts = ContextStoreService::list_by_date(conn, &date.date)?;
+            if !contexts.is_empty() {
+                // 统计每小时活动
+                for context in &contexts {
+                    if let Ok(dt) =
+                        NaiveDateTime::parse_from_str(&context.captured_at, "%Y-%m-%d %H:%M:%S")
+                    {
+                        let hour = dt.hour() as i32;
+                        *hour_counts.entry(hour).or_insert(0) += 1;
+                    }
+                }
+
+                // 记录开始和结束时间
+                if let Some(first) = contexts.last() {
+                    if let Ok(dt) =
+                        NaiveDateTime::parse_from_str(&first.captured_at, "%Y-%m-%d %H:%M:%S")
+                    {
+                        start_hours.push(dt.hour());
+                    }
+                }
+                if let Some(last) = contexts.first() {
+                    if let Ok(dt) =
+                        NaiveDateTime::parse_from_str(&last.captured_at, "%Y-%m-%d %H:%M:%S")
+                    {
+                        end_hours.push(dt.hour());
+                    }
+                }
+            }
+        }
+
+        let most_productive_hour = hour_counts
+            .into_iter()
+            .max_by_key(|(_, count)| *count)
+            .map(|(hour, _)| hour)
+            .unwrap_or(10);
+
+        let average_start_hour = if !start_hours.is_empty() {
+            start_hours.iter().sum::<u32>() as f32 / start_hours.len() as f32
+        } else {
+            9.0
+        };
+
+        let average_end_hour = if !end_hours.is_empty() {
+            end_hours.iter().sum::<u32>() as f32 / end_hours.len() as f32
+        } else {
+            18.0
+        };
+
+        let work_patterns = WorkPatterns {
+            most_productive_hour,
+            average_start_time: format!("{:02}:00", average_start_hour as i32),
+            average_end_time: format!("{:02}:00", average_end_hour as i32),
+        };
+
+        Ok(WeekContextSummary {
+            daily_active_hours,
+            weekly_app_ranking,
+            weekly_activity_summary,
+            work_patterns,
+        })
     }
 }
 

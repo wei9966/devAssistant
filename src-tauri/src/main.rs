@@ -9,8 +9,10 @@ mod utils;
 
 use utils::crash_logger::{setup_panic_handler, cleanup_old_crash_logs, log_runtime};
 use commands::ai_commands::AiState;
+use commands::context_commands::ContextManagerState;
 use commands::shortcut_commands::ShortcutState;
 use commands::sql_ai_commands::SqlAiState;
+use commands::vlm_commands::VlmState;
 use db::connection::{init_database, DbConnection};
 use services::clipboard_history_service::ClipboardHistoryService;
 use std::sync::{Arc, Mutex};
@@ -149,6 +151,12 @@ fn main() {
     // 初始化全局 AI 状态
     let ai_state = AiState::new();
 
+    // 初始化 VLM 状态
+    let vlm_state = VlmState::new();
+
+    // 初始化上下文管理器状态
+    let context_manager_state = ContextManagerState::new();
+
     // 获取数据库路径
     let db_path = match dirs::data_local_dir() {
         Some(dir) => dir.join("dev-assistant").join("dev_assistant.db"),
@@ -171,6 +179,8 @@ fn main() {
         .manage(shortcut_state)
         .manage(sql_ai_state)
         .manage(ai_state)
+        .manage(vlm_state)
+        .manage(context_manager_state)
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -406,6 +416,12 @@ fn main() {
             commands::ai_commands::get_ai_log_stats,
             commands::ai_commands::clear_ai_logs,
             commands::ai_commands::save_ai_log,
+            // VLM 相关命令
+            commands::vlm_commands::vlm_save_config,
+            commands::vlm_commands::vlm_get_config,
+            commands::vlm_commands::vlm_test_connection,
+            commands::vlm_commands::vlm_analyze_image,
+            commands::vlm_commands::vlm_is_enabled,
             // 窗口相关命令
             commands::window_commands::show_window,
             commands::window_commands::hide_window,
@@ -420,6 +436,10 @@ fn main() {
             commands::work_log_commands::get_recent_work_logs,
             commands::work_log_commands::delete_work_log,
             commands::work_log_commands::get_all_work_logs,
+            commands::work_log_commands::context_get_day_summary,
+            commands::work_log_commands::context_get_week_summary,
+            commands::work_log_commands::work_log_generate_with_context,
+            commands::work_log_commands::work_log_generate_weekly_with_context,
             // 周计划相关命令
             commands::weekly_plan_commands::save_weekly_plan,
             commands::weekly_plan_commands::get_weekly_plan,
@@ -516,10 +536,37 @@ fn main() {
             commands::clipboard_commands::get_clipboard_history_count,
             commands::clipboard_commands::copy_image_path,
             commands::clipboard_commands::copy_latest_image_path,
+            // 屏幕上下文相关命令
+            commands::context_commands::context_start_capture,
+            commands::context_commands::context_stop_capture,
+            commands::context_commands::context_get_status,
+            commands::context_commands::context_capture_once,
+            commands::context_commands::context_update_config,
+            commands::context_commands::context_get_config,
+            commands::context_commands::context_reset_daily_stats,
+            commands::context_commands::context_get_settings,
+            commands::context_commands::context_update_settings,
+            commands::context_commands::context_get_stats,
+            commands::context_commands::context_list_by_date,
+            commands::context_commands::context_generate_summary,
+            commands::context_commands::context_delete_by_date,
+            commands::context_commands::context_cleanup_old,
+            // 时间线相关命令
+            commands::timeline_commands::get_timeline,
+            commands::timeline_commands::generate_daily_report,
+            commands::timeline_commands::merge_timeline_items,
+            commands::timeline_commands::get_activities_by_date,
+            commands::timeline_commands::auto_merge_by_time_window,
             // 崩溃日志相关命令
             commands::system_commands::get_crash_logs,
             commands::system_commands::get_crash_log_path,
             commands::system_commands::get_runtime_log,
+            // 提示词相关命令
+            commands::prompt_commands::get_prompt_config,
+            commands::prompt_commands::save_prompt_config,
+            commands::prompt_commands::reset_prompt_config,
+            commands::prompt_commands::get_prompt_template,
+            commands::prompt_commands::update_prompt_template,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");
