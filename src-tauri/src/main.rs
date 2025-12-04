@@ -7,11 +7,11 @@ mod models;
 mod services;
 mod utils;
 
+use utils::crash_logger::{setup_panic_handler, cleanup_old_crash_logs, log_runtime};
 use commands::ai_commands::AiState;
 use commands::shortcut_commands::ShortcutState;
 use commands::sql_ai_commands::SqlAiState;
 use db::connection::{init_database, DbConnection};
-use services::clipboard_service::ClipboardService;
 use services::clipboard_history_service::ClipboardHistoryService;
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
@@ -77,11 +77,42 @@ fn center_window_on_mouse_screen<R: tauri::Runtime>(window: &tauri::WebviewWindo
 }
 
 fn main() {
+    // 设置 Windows 错误模式，禁用系统错误对话框（如"损坏的映像"等 DLL 加载错误）
+    // 必须在最开始设置，避免任何 DLL 加载时弹出错误框
+    #[cfg(windows)]
+    {
+        use winapi::um::errhandlingapi::SetErrorMode;
+        use winapi::um::winbase::{SEM_FAILCRITICALERRORS, SEM_NOGPFAULTERRORBOX, SEM_NOOPENFILEERRORBOX};
+        unsafe {
+            // SEM_FAILCRITICALERRORS: 禁用严重错误对话框
+            // SEM_NOGPFAULTERRORBOX: 禁用 GPF 错误框
+            // SEM_NOOPENFILEERRORBOX: 禁用文件打开错误框
+            SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
+        }
+    }
+
+    // 设置 panic 处理器（必须在最开始）
+    setup_panic_handler();
+
     // 初始化环境日志
     env_logger::init();
 
+    // 清理过期的崩溃日志
+    cleanup_old_crash_logs();
+
+    log_runtime("应用启动中...");
+
     // 初始化数据库
-    let conn = init_database().expect("无法初始化数据库");
+    let conn = match init_database() {
+        Ok(c) => {
+            log_runtime("数据库初始化成功");
+            c
+        }
+        Err(e) => {
+            log_runtime(&format!("数据库初始化失败: {}", e));
+            panic!("无法初始化数据库: {}", e);
+        }
+    };
 
     // 尝试从数据库加载快捷键配置（在将 conn 移动到 Arc 之前）
     let saved_config = {
@@ -119,20 +150,21 @@ fn main() {
     let ai_state = AiState::new();
 
     // 获取数据库路径
-    let db_path = dirs::data_local_dir()
-        .expect("无法获取应用数据目录")
-        .join("dev-assistant")
-        .join("dev_assistant.db");
+    let db_path = match dirs::data_local_dir() {
+        Some(dir) => dir.join("dev-assistant").join("dev_assistant.db"),
+        None => {
+            log_runtime("无法获取应用数据目录，使用当前目录");
+            std::path::PathBuf::from("dev_assistant.db")
+        }
+    };
 
-    // 启动剪贴板监控服务（SQL 历史）
-    let clipboard_service = ClipboardService::new();
-    clipboard_service.start_monitoring(db_path.to_str().expect("无法转换数据库路径").to_string());
-    println!("剪贴板SQL监控服务已启动");
+    let db_path_str = db_path.to_str().unwrap_or("dev_assistant.db").to_string();
+    log_runtime(&format!("数据库路径: {}", db_path_str));
 
-    // 启动剪切板历史监控服务
+    // 启动剪切板历史监控服务（统一监控，包含 SQL 检测）
     let clipboard_history_service = ClipboardHistoryService::new();
-    clipboard_history_service.start_monitoring(db_path.to_str().expect("无法转换数据库路径").to_string());
-    println!("剪贴板历史监控服务已启动");
+    clipboard_history_service.start_monitoring(db_path_str.clone());
+    log_runtime("剪贴板历史监控服务已启动");
 
     tauri::Builder::default()
         .manage(db_state)
@@ -270,6 +302,8 @@ fn main() {
                 eprintln!("警告: 无法注册快捷键 {}: {}", clipboard_history_shortcut, e);
             }
 
+            log_runtime("全局快捷键注册完成");
+
             // 注册全局快捷键: 复制最近图片路径
             let copy_image_path_shortcut = loaded_config.copy_image_path.clone();
             let db_path_for_shortcut = db_path.clone();
@@ -301,6 +335,7 @@ fn main() {
                 eprintln!("警告: 无法注册快捷键 {}: {}", copy_image_path_shortcut, e);
             }
 
+            log_runtime("应用 setup 完成");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -481,6 +516,10 @@ fn main() {
             commands::clipboard_commands::get_clipboard_history_count,
             commands::clipboard_commands::copy_image_path,
             commands::clipboard_commands::copy_latest_image_path,
+            // 崩溃日志相关命令
+            commands::system_commands::get_crash_logs,
+            commands::system_commands::get_crash_log_path,
+            commands::system_commands::get_runtime_log,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");

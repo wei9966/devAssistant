@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sysinfo::System;
+use crate::utils::crash_logger;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SystemInfo {
@@ -153,4 +154,51 @@ pub fn clear_all_data() -> Result<(), String> {
     // 不清空 app_settings 表,保留用户设置
 
     Ok(())
+}
+
+/// 崩溃日志条目
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CrashLogEntry {
+    pub filename: String,
+    pub content: String,
+}
+
+/// 获取崩溃日志列表
+#[tauri::command]
+pub fn get_crash_logs(limit: Option<usize>) -> Result<Vec<CrashLogEntry>, String> {
+    let logs = crash_logger::get_recent_crash_logs(limit.unwrap_or(10));
+    Ok(logs
+        .into_iter()
+        .map(|(filename, content)| CrashLogEntry { filename, content })
+        .collect())
+}
+
+/// 获取崩溃日志目录路径
+#[tauri::command]
+pub fn get_crash_log_path() -> Result<String, String> {
+    let path = crash_logger::get_crash_log_dir();
+    Ok(path.to_string_lossy().to_string())
+}
+
+/// 获取运行时日志内容（最近N行）
+#[tauri::command]
+pub fn get_runtime_log(lines: Option<usize>) -> Result<String, String> {
+    let log_path = crash_logger::get_runtime_log_path();
+
+    if !log_path.exists() {
+        return Ok("暂无运行日志".to_string());
+    }
+
+    let content = std::fs::read_to_string(&log_path)
+        .map_err(|e| format!("读取日志失败: {}", e))?;
+
+    let limit = lines.unwrap_or(100);
+    let log_lines: Vec<&str> = content.lines().collect();
+    let start = if log_lines.len() > limit {
+        log_lines.len() - limit
+    } else {
+        0
+    };
+
+    Ok(log_lines[start..].join("\n"))
 }

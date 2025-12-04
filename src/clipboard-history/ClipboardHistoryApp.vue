@@ -325,7 +325,7 @@ const imageLoadErrors = ref<Record<number, boolean>>({})
 const config = ref<ClipboardConfig>({
   image_save_dir: '',
   image_archive_dir: '',
-  max_history: 100,
+  max_history: 1000,
   auto_copy_image_path: true,
   enabled: true,
   shortcut: 'Ctrl+Shift+C'
@@ -458,7 +458,9 @@ function formatDate(dateStr: string): string {
 async function loadHistory() {
   loading.value = true
   try {
-    history.value = await clipboardApi.getHistory(100)
+    // 使用配置中的 max_history 值，而不是硬编码的 100
+    const limit = config.value.max_history || 1000
+    history.value = await clipboardApi.getHistory(limit)
     totalCount.value = await clipboardApi.getHistoryCount()
     // 重置图片加载错误状态
     imageLoadErrors.value = {}

@@ -82,7 +82,7 @@ impl Default for ClipboardConfig {
         Self {
             image_save_dir: default_dir,
             image_archive_dir: archive_dir,
-            max_history: 100,
+            max_history: 1000,
             auto_copy_image_path: true,
             enabled: true,
             shortcut: "Ctrl+Shift+C".to_string(),

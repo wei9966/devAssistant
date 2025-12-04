@@ -905,16 +905,35 @@ impl AppScannerService {
         // 我们将使用一个简单的方法：调用PowerShell脚本提取图标到临时文件
         let temp_icon = std::env::temp_dir().join(format!("icon_{}.png", std::process::id()));
 
+        // 添加错误处理和 SetErrorMode 来抑制系统错误对话框（如"损坏的映像"等）
+        // 在 PowerShell 中调用 kernel32.dll 的 SetErrorMode 函数
         let ps_script = format!(
             r#"
-            Add-Type -AssemblyName System.Drawing
-            $path = '{}'
-            $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
-            if ($icon) {{
-                $bitmap = $icon.ToBitmap()
-                $bitmap.Save('{}', [System.Drawing.Imaging.ImageFormat]::Png)
-                $bitmap.Dispose()
-                $icon.Dispose()
+            $ErrorActionPreference = 'SilentlyContinue'
+
+            # 设置错误模式，禁用系统错误对话框
+            $signature = @'
+            [DllImport("kernel32.dll")]
+            public static extern uint SetErrorMode(uint uMode);
+'@
+            try {{
+                $kernel32 = Add-Type -MemberDefinition $signature -Name 'Kernel32' -Namespace 'Win32' -PassThru -ErrorAction SilentlyContinue
+                # SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX = 0x8003
+                $null = $kernel32::SetErrorMode(0x8003)
+            }} catch {{}}
+
+            try {{
+                Add-Type -AssemblyName System.Drawing -ErrorAction SilentlyContinue
+                $path = '{}'
+                $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
+                if ($icon) {{
+                    $bitmap = $icon.ToBitmap()
+                    $bitmap.Save('{}', [System.Drawing.Imaging.ImageFormat]::Png)
+                    $bitmap.Dispose()
+                    $icon.Dispose()
+                }}
+            }} catch {{
+                # 静默忽略图标提取错误
             }}
             "#,
             file_path.display().to_string().replace("'", "''"),
@@ -925,6 +944,8 @@ impl AppScannerService {
             .creation_flags(0x08000000) // CREATE_NO_WINDOW
             .arg("-NoProfile")
             .arg("-NonInteractive")
+            .arg("-ExecutionPolicy")
+            .arg("Bypass")
             .arg("-Command")
             .arg(&ps_script)
             .output();
