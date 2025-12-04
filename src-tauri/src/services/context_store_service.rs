@@ -153,6 +153,15 @@ impl ContextStoreService {
         Ok(affected)
     }
 
+    /// 更新上下文描述（用于VLM分析后更新）
+    pub fn update_description(conn: &Connection, id: i64, description: &str, key_content: Option<&str>) -> Result<()> {
+        conn.execute(
+            "UPDATE screen_contexts SET description = ?, key_content = ? WHERE id = ?",
+            params![description, key_content, id],
+        )?;
+        Ok(())
+    }
+
     /// 保存每日摘要
     pub fn save_daily_summary(conn: &Connection, summary: &DailySummary) -> Result<()> {
         // 检查是否已存在该日期的摘要

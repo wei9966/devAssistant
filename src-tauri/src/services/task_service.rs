@@ -574,13 +574,24 @@ impl TaskService {
         Ok(stats)
     }
 
+    /// 安全截断字符串（按字符数，不是字节数）
+    fn safe_truncate(s: &str, max_chars: usize, suffix: &str) -> String {
+        let char_count = s.chars().count();
+        if char_count > max_chars {
+            let truncated: String = s.chars().take(max_chars).collect();
+            format!("{}{}", truncated, suffix)
+        } else {
+            s.to_string()
+        }
+    }
+
     /// 辅助方法：将数据库行映射为 Task 对象
     fn map_row_to_task(row: &rusqlite::Row) -> rusqlite::Result<Task> {
         // 读取描述字段，如果超过限制则截断
         let description: Option<String> = row.get(2)?;
         let safe_description = description.map(|d| {
-            if d.len() > 10000 {
-                format!("{}...[内容过长已截断]", &d[..10000])
+            if d.chars().count() > 3000 {
+                Self::safe_truncate(&d, 3000, "...[内容过长已截断]")
             } else {
                 d
             }
@@ -606,8 +617,8 @@ impl TaskService {
         // 读取备注字段，如果超过限制则截断
         let notes: Option<String> = row.get(14)?;
         let safe_notes = notes.map(|n| {
-            if n.len() > 5000 {
-                format!("{}...[内容过长已截断]", &n[..5000])
+            if n.chars().count() > 1500 {
+                Self::safe_truncate(&n, 1500, "...[内容过长已截断]")
             } else {
                 n
             }

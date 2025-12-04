@@ -110,6 +110,34 @@
             </div>
           </div>
 
+          <!-- 截图保存目录 -->
+          <div v-if="settings.saveScreenshots" class="setting-item-vertical">
+            <div class="setting-info">
+              <div class="setting-label">截图保存目录</div>
+              <div class="setting-desc">
+                截图文件保存的位置，留空使用默认目录
+                <span v-if="defaultScreenshotDir" class="default-dir-hint">
+                  （默认：{{ defaultScreenshotDir }}）
+                </span>
+              </div>
+            </div>
+            <div class="dir-input-wrapper">
+              <n-input
+                v-model:value="settings.screenshotDir"
+                placeholder="留空使用默认目录"
+                :disabled="!settings.captureEnabled"
+                clearable
+              />
+              <n-button
+                size="small"
+                :disabled="!settings.captureEnabled"
+                @click="handleSelectDir"
+              >
+                选择目录
+              </n-button>
+            </div>
+          </div>
+
           <!-- 当前状态信息 -->
           <div v-if="captureStatus && settings.captureEnabled" class="status-info">
             <n-alert type="info" :bordered="false">
@@ -138,15 +166,17 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { NSwitch, NSlider, NInputNumber, NDynamicTags, NButton, NSpin, NAlert, useMessage } from 'naive-ui';
+import { NSwitch, NSlider, NInputNumber, NDynamicTags, NButton, NSpin, NAlert, NInput, useMessage } from 'naive-ui';
 import { contextApi } from '@/api/contextApi';
 import type { ContextSettings, CaptureStatus } from '@/types/context';
+import { open } from '@tauri-apps/plugin-dialog';
 
 const message = useMessage();
 
 const loading = ref(true);
 const saving = ref(false);
 const captureStatus = ref<CaptureStatus | null>(null);
+const defaultScreenshotDir = ref<string>('');
 
 const defaultSettings: ContextSettings = {
   captureEnabled: false,
@@ -155,6 +185,7 @@ const defaultSettings: ContextSettings = {
   retentionDays: 7,
   excludedApps: [],
   saveScreenshots: false,
+  screenshotDir: null,
 };
 
 const settings = ref<ContextSettings>({ ...defaultSettings });
@@ -163,11 +194,20 @@ const originalSettings = ref<ContextSettings>({ ...defaultSettings });
 onMounted(async () => {
   await loadSettings();
   await loadStatus();
+  await loadDefaultDir();
   loading.value = false;
 
   // 定期更新状态
   setInterval(loadStatus, 5000);
 });
+
+async function loadDefaultDir() {
+  try {
+    defaultScreenshotDir.value = await contextApi.getDefaultScreenshotDir();
+  } catch (error) {
+    console.error('获取默认目录失败:', error);
+  }
+}
 
 async function loadSettings() {
   try {
@@ -221,6 +261,21 @@ async function handleSave() {
 function handleReset() {
   settings.value = { ...originalSettings.value };
   message.info('已重置为上次保存的设置');
+}
+
+async function handleSelectDir() {
+  try {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: '选择截图保存目录',
+    });
+    if (selected && typeof selected === 'string') {
+      settings.value.screenshotDir = selected;
+    }
+  } catch (error) {
+    console.error('选择目录失败:', error);
+  }
 }
 
 function formatTime(timestamp: string): string {
@@ -365,6 +420,24 @@ function formatTime(timestamp: string): string {
 
 .status-details strong {
   color: rgb(203, 213, 225);
+}
+
+.default-dir-hint {
+  color: rgb(100, 116, 139);
+  font-size: 11px;
+  display: block;
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.dir-input-wrapper {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.dir-input-wrapper :deep(.n-input) {
+  flex: 1;
 }
 
 .action-buttons {

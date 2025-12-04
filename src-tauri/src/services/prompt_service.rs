@@ -14,6 +14,7 @@ pub struct PromptSettings {
     pub batch_merging: PromptConfig,
     pub daily_report: PromptConfig,
     pub weekly_report: PromptConfig,
+    pub smart_tip_generation: PromptConfig,
 }
 
 impl Default for PromptSettings {
@@ -41,6 +42,53 @@ impl Default for PromptSettings {
 }"#.to_string(),
                 user: r#"请分析以下截图，描述用户正在进行的活动。
 当前时间: {current_time}"#.to_string(),
+            },
+            smart_tip_generation: PromptConfig {
+                system: r#"你是一个智能的个人助手，专注于根据current_user 最近的活动模式生成有价值、有建设性的提醒和建议。
+你的核心职责是：提供阶段性工作评价、未来规划提醒，帮助用户更好地管理时间和任务。
+
+**核心能力**:
+1. **阶段性评价**: 总结分析时间段内的工作模式、成果、特点，给出客观评价
+2. **规划提醒**: 基于当前活动趋势，对接下来的工作、任务、目标提供前瞻性建议
+3. **模式洞察**: 识别用户的工作习惯、效率瓶颈、潜在风险
+4. **价值导向**: 只生成真正有实际帮助、建设性意义的提醒
+
+**提醒维度**（优先级从高到低）:
+1. **阶段总结与评价**: 对前段时间的工作状态、产出、模式进行总结评价
+2. **规划与展望**: 对接下来需要关注的事项、目标提供建议
+3. **关键提醒**: 可能遗漏的重要任务、风险预警
+4. **效率优化**: 基于活动模式的具体改进建议
+5. **推荐内容**: 基于用户最关注的内容，推荐用户可能感兴趣的内容
+
+**质量标准**（严格执行）:
+- **必须具有建设性**: 能帮助用户改进工作、规划未来、避免风险
+- **必须具体可操作**: 提供明确的建议或行动指引
+- **必须有数据支撑**: 基于实际活动数据分析，而非泛泛而谈
+- **禁止零碎提醒**: 不要生成琐碎、价值低的提醒
+- **禁止无意义鼓励**: 如果没有真正有价值的提醒，返回空内容
+
+**输出要求**:
+- 使用markdown格式
+- 重点突出，聚焦2-3个核心建议即可
+- 语调友好但专业
+- **重要**: 如果分析后没有真正有价值、有建设性的提醒，直接返回"暂无重要提醒"
+"#.to_string(),
+                user: r#"**当前时间**: {current_time}
+**分析时间范围**: {start_time_str} - {end_time_str}
+**活动模式分析**: {activity_patterns_info}
+**最近提醒历史**: {recent_tips_info}
+**上下文数据**: {context_data}
+
+请基于用户活动上下文，生成有建设性的智能提醒：
+
+**分析要求**:
+1. **阶段评价优先**: 首先对这段时间的工作模式、成果、特点进行总结评价
+2. **规划提醒**: 基于活动趋势，对接下来需要关注的事项提供前瞻性建议
+3. **关键风险**: 识别可能遗漏的重要任务或潜在问题
+4. **避免低质量提醒**: 不要生成零碎、琐碎、泛泛而谈的提醒
+5. **避免重复**: 不要重复最近已经提醒过的内容
+6. **质量优先**: 如果没有真正有价值的提醒，直接返回"暂无重要提醒"
+"#.to_string(),
             },
             batch_merging: PromptConfig {
                 system: r#"你是一位信息整合专家。你的任务是分析一批上下文items，智能地判断哪些items应该合并，并生成合并后的结果。
@@ -176,6 +224,7 @@ impl PromptService {
             "batch_merging" => Ok(settings.batch_merging),
             "daily_report" => Ok(settings.daily_report),
             "weekly_report" => Ok(settings.weekly_report),
+            "smart_tip_generation" => Ok(settings.smart_tip_generation),
             _ => Err(format!("未知的提示词类型: {}", prompt_type)),
         }
     }
@@ -189,10 +238,20 @@ impl PromptService {
             "batch_merging" => settings.batch_merging = config,
             "daily_report" => settings.daily_report = config,
             "weekly_report" => settings.weekly_report = config,
+            "smart_tip_generation" => settings.smart_tip_generation = config,
             _ => return Err(format!("未知的提示词类型: {}", prompt_type)),
         }
 
         Self::save_config(&settings)?;
         Ok(())
+    }
+
+    /// 渲染提示词模板（替换变量）
+    pub fn render_template(template: &str, vars: &std::collections::HashMap<String, String>) -> String {
+        let mut result = template.to_string();
+        for (key, value) in vars {
+            result = result.replace(&format!("{{{}}}", key), value);
+        }
+        result
     }
 }

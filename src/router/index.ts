@@ -40,6 +40,30 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/screenshot-gallery',
+    name: 'screenshot-gallery',
+    component: () => import('../views/ScreenshotGallery.vue'),
+    meta: {
+      title: '截图回顾'
+    }
+  },
+  {
+    path: '/data-statistics',
+    name: 'data-statistics',
+    component: () => import('../views/DataStatistics.vue'),
+    meta: {
+      title: '数据统计'
+    }
+  },
+  {
+    path: '/notification-center',
+    name: 'notification-center',
+    component: () => import('../views/NotificationCenter.vue'),
+    meta: {
+      title: '通知中心'
+    }
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('../views/Settings.vue'),

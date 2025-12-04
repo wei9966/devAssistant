@@ -4,12 +4,14 @@
 use crate::models::screen_context::ScreenContext;
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose, Engine as _};
-use img_hash::{HashAlg, HasherConfig, image::DynamicImage, image::ImageOutputFormat};
+use img_hash::{HashAlg, HasherConfig, image::DynamicImage};
 use serde::{Deserialize, Serialize};
-use std::io::Cursor;
+use std::path::PathBuf;
 
 #[cfg(windows)]
-use winapi::um::winuser::{GetForegroundWindow, GetWindowTextW};
+use winapi::um::winuser::{GetCursorPos, GetForegroundWindow, GetWindowTextW};
+#[cfg(windows)]
+use winapi::shared::windef::POINT;
 
 /// 活动窗口信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,15 +38,48 @@ impl ScreenCaptureService {
         Self
     }
 
+    /// 获取鼠标所在的显示器
+    fn get_monitor_at_cursor(&self) -> Option<xcap::Monitor> {
+        #[cfg(windows)]
+        {
+            let cursor_pos = unsafe {
+                let mut point = POINT { x: 0, y: 0 };
+                if GetCursorPos(&mut point) != 0 {
+                    Some((point.x, point.y))
+                } else {
+                    None
+                }
+            };
+
+            if let Some((cx, cy)) = cursor_pos {
+                if let Ok(monitors) = xcap::Monitor::all() {
+                    for monitor in monitors {
+                        let x = monitor.x();
+                        let y = monitor.y();
+                        let w = monitor.width() as i32;
+                        let h = monitor.height() as i32;
+
+                        // 检查鼠标是否在这个显示器范围内
+                        if cx >= x && cx < x + w && cy >= y && cy < y + h {
+                            return Some(monitor);
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
     /// 截取当前屏幕，返回 base64 编码的图片
     pub fn capture_screen(&self) -> Result<String> {
-        // 获取所有屏幕
-        let screens = xcap::Monitor::all().context("无法获取屏幕列表")?;
-
-        // 使用第一个屏幕（主屏幕）
-        let screen = screens
-            .into_iter()
-            .next()
+        // 优先截取鼠标所在的屏幕
+        let screen = self.get_monitor_at_cursor()
+            .or_else(|| {
+                // 如果获取失败，使用主屏幕或第一个屏幕
+                xcap::Monitor::all().ok()?.into_iter()
+                    .find(|m| m.is_primary())
+                    .or_else(|| xcap::Monitor::all().ok()?.into_iter().next())
+            })
             .context("没有可用的屏幕")?;
 
         // 截图
@@ -128,6 +163,112 @@ impl ScreenCaptureService {
         } else {
             title.to_string()
         }
+    }
+
+    /// 基于应用名称自动识别活动类型
+    pub fn detect_activity_type(&self, app_name: Option<&str>, window_title: Option<&str>) -> String {
+        let app = app_name.unwrap_or("").to_lowercase();
+        let title = window_title.unwrap_or("").to_lowercase();
+
+        // 编码类工具
+        let coding_apps = [
+            "visual studio", "vs code", "vscode", "code", "intellij", "idea",
+            "pycharm", "webstorm", "phpstorm", "rider", "clion", "goland",
+            "sublime", "atom", "notepad++", "vim", "neovim", "emacs",
+            "eclipse", "netbeans", "android studio", "xcode", "cursor",
+            "terminal", "powershell", "cmd", "iterm", "warp", "hyper",
+            "git", "github desktop", "sourcetree", "fork", "gitkraken",
+        ];
+
+        // 浏览器
+        let browser_apps = [
+            "chrome", "firefox", "edge", "safari", "opera", "brave",
+            "vivaldi", "arc", "chromium",
+        ];
+
+        // 通讯工具
+        let chat_apps = [
+            "微信", "wechat", "qq", "钉钉", "dingtalk", "飞书", "feishu", "lark",
+            "slack", "discord", "telegram", "teams", "zoom", "skype",
+            "企业微信", "wecom", "whatsapp", "line",
+        ];
+
+        // 文档工具
+        let document_apps = [
+            "word", "excel", "powerpoint", "wps", "notion", "obsidian",
+            "typora", "markdown", "onenote", "evernote", "印象笔记",
+            "语雀", "yuque", "confluence", "wiki", "pdf", "acrobat",
+            "preview", "pages", "numbers", "keynote",
+        ];
+
+        // 设计工具
+        let design_apps = [
+            "figma", "sketch", "photoshop", "illustrator", "xd",
+            "indesign", "affinity", "canva", "pixelmator", "gimp",
+            "blender", "maya", "3ds max", "cinema 4d", "zbrush",
+        ];
+
+        // 检查应用名称
+        for keyword in coding_apps.iter() {
+            if app.contains(keyword) || title.contains(keyword) {
+                return "coding".to_string();
+            }
+        }
+
+        for keyword in browser_apps.iter() {
+            if app.contains(keyword) {
+                return "browsing".to_string();
+            }
+        }
+
+        for keyword in chat_apps.iter() {
+            if app.contains(keyword) || title.contains(keyword) {
+                return "chatting".to_string();
+            }
+        }
+
+        for keyword in document_apps.iter() {
+            if app.contains(keyword) || title.contains(keyword) {
+                return "document".to_string();
+            }
+        }
+
+        for keyword in design_apps.iter() {
+            if app.contains(keyword) || title.contains(keyword) {
+                return "design".to_string();
+            }
+        }
+
+        "other".to_string()
+    }
+
+    /// 保存截图到文件（直接从 xcap 截图保存）
+    pub fn save_screenshot_to_file(&self, dir: &PathBuf) -> Result<String> {
+        // 确保目录存在
+        std::fs::create_dir_all(dir).context("创建截图目录失败")?;
+
+        // 生成文件名
+        let now = chrono::Local::now();
+        let timestamp = now.format("%Y%m%d_%H%M%S").to_string();
+        let nanos = now.timestamp_subsec_micros() % 1000000;
+        let filename = format!("screenshot_{}_{:06}.png", timestamp, nanos);
+        let file_path = dir.join(&filename);
+
+        // 直接截图并保存（使用 xcap 的原生保存功能）
+        // 优先截取鼠标所在的屏幕
+        let screen = self.get_monitor_at_cursor()
+            .or_else(|| {
+                xcap::Monitor::all().ok()?.into_iter()
+                    .find(|m| m.is_primary())
+                    .or_else(|| xcap::Monitor::all().ok()?.into_iter().next())
+            })
+            .context("没有可用的屏幕")?;
+        let xcap_buffer = screen.capture_image().context("截图失败")?;
+
+        // 使用 image crate 保存（xcap 返回的是 image::ImageBuffer）
+        xcap_buffer.save(&file_path).context("保存截图文件失败")?;
+
+        Ok(file_path.to_string_lossy().to_string())
     }
 
     /// 计算图片的感知哈希值
@@ -227,6 +368,17 @@ impl ScreenCaptureService {
 
     /// 执行一次完整的截图采集，返回 ScreenContext
     pub fn capture_once(&self, last_hash: Option<&str>, threshold: f32) -> Result<Option<ScreenContext>> {
+        self.capture_once_with_save(last_hash, threshold, false, None)
+    }
+
+    /// 执行一次完整的截图采集，支持保存截图文件
+    pub fn capture_once_with_save(
+        &self,
+        last_hash: Option<&str>,
+        threshold: f32,
+        save_screenshot: bool,
+        screenshot_dir: Option<&PathBuf>,
+    ) -> Result<Option<ScreenContext>> {
         let start_time = std::time::Instant::now();
 
         // 截取屏幕
@@ -246,8 +398,31 @@ impl ScreenCaptureService {
         // 获取活动窗口信息
         let window_info = self.get_active_window_info();
 
-        // 获取当前时间
-        let captured_at = chrono::Local::now().to_rfc3339();
+        // 自动识别活动类型
+        let activity_type = self.detect_activity_type(
+            window_info.app_name.as_deref(),
+            window_info.window_title.as_deref(),
+        );
+
+        // 保存截图文件（如果启用）
+        let screenshot_path = if save_screenshot {
+            if let Some(dir) = screenshot_dir {
+                match self.save_screenshot_to_file(dir) {
+                    Ok(path) => Some(path),
+                    Err(e) => {
+                        eprintln!("保存截图失败: {}", e);
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // 获取当前时间（使用本地时间格式，避免时区问题）
+        let captured_at = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
         // 计算处理时间
         let processing_time_ms = start_time.elapsed().as_millis() as i64;
@@ -258,11 +433,11 @@ impl ScreenCaptureService {
             captured_at,
             app_name: window_info.app_name,
             window_title: window_info.window_title,
-            activity_type: "unknown".to_string(), // 需要 VLM 分析后确定
-            description: "".to_string(), // 需要 VLM 分析后填充
+            activity_type,
+            description: "".to_string(), // 可由 VLM 分析后填充
             key_content: None,
             screenshot_hash: Some(image_hash),
-            screenshot_path: None, // 可选：如果需要保存原始截图
+            screenshot_path,
             processing_time_ms: Some(processing_time_ms),
         }))
     }

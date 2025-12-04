@@ -72,7 +72,9 @@
                 <!-- 主内容区 -->
                 <div class="main-content">
                   <!-- Tauri窗口拖拽区域 -->
-                  <div data-tauri-drag-region class="drag-region"></div>
+                  <div data-tauri-drag-region class="drag-region">
+                    <NotificationBell />
+                  </div>
 
                   <div class="content-wrapper">
                     <router-view v-slot="{ Component, route }">
@@ -126,12 +128,16 @@ import {
   DocumentTextOutline as SqlIcon,
   BookOutline as LogIcon,
   RocketOutline as LauncherIcon,
+  ImagesOutline as ScreenshotIcon,
+  StatsChartOutline as StatsIcon,
+  NotificationsOutline as NotificationIcon,
   SettingsOutline as SettingsIcon
 } from '@vicons/ionicons5'
 import { invoke } from '@tauri-apps/api/core'
 import CyberpunkLauncher from '@/components/appLauncher/CyberpunkLauncher.vue'
 import QuickTaskModal from '@/components/QuickTaskModal.vue'
 import CyberpunkSqlModal from '@/components/sql/CyberpunkSqlModal.vue'
+import NotificationBell from '@/components/notification/NotificationBell.vue'
 
 interface SystemInfo {
   cpu_usage: number
@@ -240,6 +246,21 @@ const menuOptions: MenuOption[] = [
     label: '应用启动器',
     key: 'app-launcher',
     icon: () => h(LauncherIcon)
+  },
+  {
+    label: '截图回顾',
+    key: 'screenshot-gallery',
+    icon: () => h(ScreenshotIcon)
+  },
+  {
+    label: '数据统计',
+    key: 'data-statistics',
+    icon: () => h(StatsIcon)
+  },
+  {
+    label: '通知中心',
+    key: 'notification-center',
+    icon: () => h(NotificationIcon)
   },
   {
     label: '设置',
@@ -574,6 +595,15 @@ onUnmounted(() => {
   flex-shrink: 0;
   -webkit-app-region: drag;
   app-region: drag;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding-right: 16px;
+}
+
+.drag-region > * {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 .content-wrapper {

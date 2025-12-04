@@ -7,6 +7,7 @@ export interface ContextSettings {
   retentionDays: number;
   excludedApps: string[];
   saveScreenshots: boolean;
+  screenshotDir: string | null;  // 截图保存目录
 }
 
 export interface CaptureStatus {
@@ -68,4 +69,7 @@ export const contextApi = {
 
   // 清理过期数据
   cleanupOld: () => invoke<number>('context_cleanup_old'),
+
+  // 获取默认截图目录
+  getDefaultScreenshotDir: () => invoke<string>('context_get_default_screenshot_dir'),
 };

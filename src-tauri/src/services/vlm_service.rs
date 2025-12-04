@@ -2,7 +2,10 @@ use anyhow::{anyhow, Result};
 use reqwest::Client;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::time::Duration;
+
+use crate::services::prompt_manager_service::PromptManager;
 
 /// VLM Provider type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -135,6 +138,19 @@ pub struct VlmConfigResponse {
     pub max_image_size: Option<u32>,
     pub image_quality: Option<u32>,
     pub timeout: Option<u32>,
+}
+
+/// Screenshot Analysis Response from VLM
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScreenshotAnalysisResponse {
+    pub title: String,
+    pub summary: String,
+    pub keywords: Vec<String>,
+    pub importance: i32,
+    #[serde(alias = "appName")]
+    pub app_name: String,
+    #[serde(alias = "activityType")]
+    pub activity_type: String,
 }
 
 /// VLM Service
@@ -276,7 +292,8 @@ impl VlmService {
 
         // Use simple test prompt
         let test_prompt = "Please reply: Connection successful";
-        let test_image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="; // 1x1 transparent image
+        // 32x32 red PNG image (meets minimum 14x14 requirement for most APIs)
+        let test_image = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAQ0lEQVR4nO3NQQ0AIAwEwfbfKbwA4eM5MpN9bPcG2/V8fMV/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABwxQVmuwLT69W73AAAAABJRU5ErkJggg==";
 
         match self.analyze_image_internal(&config, test_image, test_prompt).await {
             Ok(_) => Ok(true),
@@ -293,6 +310,132 @@ impl VlmService {
         }
 
         self.analyze_image_internal(&config, image_base64, prompt).await
+    }
+
+    /// Analyze screenshot with PromptManager (new method)
+    pub async fn analyze_screenshot(
+        &self,
+        image_base64: &str,
+        history: Option<&str>,
+    ) -> Result<ScreenshotAnalysisResponse> {
+        let config = self.get_full_config()?;
+
+        if !config.is_valid() {
+            return Err(anyhow!("VLM is not enabled or configuration is invalid"));
+        }
+
+        // Load prompt template from PromptManager
+        let prompt_config = match PromptManager::get_instance() {
+            Ok(manager) => manager.get_screenshot_prompt().clone(),
+            Err(e) => {
+                log::warn!("Failed to load PromptManager, using fallback: {}", e);
+                // Fallback to default prompt if PromptManager fails
+                return self.analyze_screenshot_fallback(&config, image_base64, history).await;
+            }
+        };
+
+        // Prepare variables for prompt rendering
+        let now = chrono::Local::now();
+        let mut vars = HashMap::new();
+        vars.insert(
+            "current_date".to_string(),
+            now.format("%Y-%m-%d").to_string(),
+        );
+        vars.insert(
+            "current_timestamp".to_string(),
+            now.format("%Y-%m-%d %H:%M:%S").to_string(),
+        );
+        vars.insert(
+            "current_timezone".to_string(),
+            "+08:00".to_string(),
+        );
+        vars.insert(
+            "history".to_string(),
+            history.unwrap_or("无历史记录").to_string(),
+        );
+        vars.insert(
+            "total_screenshots".to_string(),
+            "1".to_string(),
+        );
+
+        // Render prompts using PromptManager's render method
+        let system_prompt = PromptManager::render_prompt(&prompt_config.system, &vars);
+        let user_prompt = PromptManager::render_prompt(&prompt_config.user, &vars);
+
+        // Call VLM API
+        let response_text = match config.provider.as_str() {
+            "claude" => {
+                self.analyze_with_claude_messages(&config, image_base64, &system_prompt, &user_prompt)
+                    .await?
+            }
+            _ => {
+                self.analyze_with_openai_compatible_messages(
+                    &config,
+                    image_base64,
+                    &system_prompt,
+                    &user_prompt,
+                )
+                .await?
+            }
+        };
+
+        // Parse JSON response
+        self.parse_screenshot_response(&response_text)
+    }
+
+
+    /// Parse screenshot analysis response
+    fn parse_screenshot_response(&self, response_text: &str) -> Result<ScreenshotAnalysisResponse> {
+        // Try to find JSON block in the response
+        let json_text = if let Some(start) = response_text.find('{') {
+            if let Some(end) = response_text.rfind('}') {
+                &response_text[start..=end]
+            } else {
+                response_text
+            }
+        } else {
+            response_text
+        };
+
+        serde_json::from_str::<ScreenshotAnalysisResponse>(json_text).map_err(|e| {
+            anyhow!(
+                "Failed to parse VLM response as JSON: {}. Response: {}",
+                e,
+                response_text
+            )
+        })
+    }
+
+    /// Fallback method when PromptService is unavailable
+    async fn analyze_screenshot_fallback(
+        &self,
+        config: &VlmConfig,
+        image_base64: &str,
+        history: Option<&str>,
+    ) -> Result<ScreenshotAnalysisResponse> {
+        let default_prompt = format!(
+            r#"请分析这张屏幕截图，识别用户正在进行的活动。
+当前时间: {}
+历史记录: {}
+
+请以JSON格式返回分析结果：
+{{
+  "title": "简洁的活动标题",
+  "summary": "详细的活动描述",
+  "keywords": ["关键词1", "关键词2"],
+  "importance": 5,
+  "app_name": "应用程序名称",
+  "activity_type": "coding"
+}}"#,
+            chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+            history.unwrap_or("无")
+        );
+
+        let response_text = self
+            .analyze_image_internal(config, image_base64, &default_prompt)
+            .await?;
+
+        self.parse_screenshot_response(&response_text)
     }
 
     /// Internal image analysis method
@@ -421,6 +564,132 @@ impl VlmService {
         let response_json: serde_json::Value = response.json().await?;
 
         let content = response_json["content"][0]["text"]
+            .as_str()
+            .ok_or_else(|| anyhow!("Unable to parse response content"))?;
+
+        Ok(content.to_string())
+    }
+
+    /// Analyze image with Claude API (with system and user prompts)
+    async fn analyze_with_claude_messages(
+        &self,
+        config: &VlmConfig,
+        image_base64: &str,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<String> {
+        let client = Client::builder()
+            .timeout(config.get_timeout())
+            .build()?;
+
+        let url = format!("{}/messages", config.get_base_url());
+
+        let request_body = serde_json::json!({
+            "model": config.get_model(),
+            "max_tokens": 2000,
+            "system": system_prompt,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/png",
+                                "data": image_base64
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": user_prompt
+                        }
+                    ]
+                }
+            ]
+        });
+
+        let response = client
+            .post(&url)
+            .header("x-api-key", &config.api_key)
+            .header("anthropic-version", "2023-06-01")
+            .header("Content-Type", "application/json")
+            .json(&request_body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("API request failed: {} - {}", status, error_text));
+        }
+
+        let response_json: serde_json::Value = response.json().await?;
+
+        let content = response_json["content"][0]["text"]
+            .as_str()
+            .ok_or_else(|| anyhow!("Unable to parse response content"))?;
+
+        Ok(content.to_string())
+    }
+
+    /// Analyze image with OpenAI compatible API (with system and user prompts)
+    async fn analyze_with_openai_compatible_messages(
+        &self,
+        config: &VlmConfig,
+        image_base64: &str,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<String> {
+        let client = Client::builder()
+            .timeout(config.get_timeout())
+            .build()?;
+
+        let url = format!("{}/chat/completions", config.get_base_url());
+
+        let request_body = serde_json::json!({
+            "model": config.get_model(),
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": user_prompt
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": format!("data:image/png;base64,{}", image_base64)
+                            }
+                        }
+                    ]
+                }
+            ],
+            "max_tokens": 2000
+        });
+
+        let response = client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", config.api_key))
+            .header("Content-Type", "application/json")
+            .json(&request_body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("API request failed: {} - {}", status, error_text));
+        }
+
+        let response_json: serde_json::Value = response.json().await?;
+
+        let content = response_json["choices"][0]["message"]["content"]
             .as_str()
             .ok_or_else(|| anyhow!("Unable to parse response content"))?;
 

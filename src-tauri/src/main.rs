@@ -4,17 +4,23 @@
 mod commands;
 mod db;
 mod models;
+mod prompts;
 mod services;
 mod utils;
 
 use utils::crash_logger::{setup_panic_handler, cleanup_old_crash_logs, log_runtime};
 use commands::ai_commands::AiState;
-use commands::context_commands::ContextManagerState;
+use commands::context_commands::{ContextManagerState, BatchProcessorState};
 use commands::shortcut_commands::ShortcutState;
 use commands::sql_ai_commands::SqlAiState;
 use commands::vlm_commands::VlmState;
 use db::connection::{init_database, DbConnection};
 use services::clipboard_history_service::ClipboardHistoryService;
+use services::scheduler_service::{SchedulerConfig, SchedulerService};
+use services::activity_summary_service::ActivitySummaryService;
+use services::vlm_service::VlmService;
+use services::prompt_manager_service::PromptManager;
+use chrono::{Duration, Local};
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
 use tauri::Manager;
@@ -157,6 +163,9 @@ fn main() {
     // 初始化上下文管理器状态
     let context_manager_state = ContextManagerState::new();
 
+    // 初始化批量处理器状态
+    let batch_processor_state = BatchProcessorState::new();
+
     // 获取数据库路径
     let db_path = match dirs::data_local_dir() {
         Some(dir) => dir.join("dev-assistant").join("dev_assistant.db"),
@@ -174,6 +183,64 @@ fn main() {
     clipboard_history_service.start_monitoring(db_path_str.clone());
     log_runtime("剪贴板历史监控服务已启动");
 
+    // 初始化 PromptManager
+    match PromptManager::get_instance() {
+        Ok(_) => {
+            log_runtime("PromptManager 初始化成功");
+        }
+        Err(e) => {
+            log_runtime(&format!("PromptManager 初始化失败: {}, 将在首次使用时加载", e));
+        }
+    }
+
+    // 初始化定时任务调度器
+    let scheduler_service = SchedulerService::new();
+    let scheduler_clone = scheduler_service.clone();
+    let db_path_for_scheduler = db_path_str.clone();
+
+    // 启动定时任务（使用 Tauri 的异步运行时）
+    tauri::async_runtime::spawn(async move {
+        // Activity 总结回调
+        let on_activity_summary = {
+            let db_path = db_path_for_scheduler.clone();
+            move || {
+                log::info!("执行 Activity 总结任务");
+
+                // 使用 Tauri 的异步运行时执行异步任务
+                let db_path = db_path.clone();
+                tauri::async_runtime::spawn(async move {
+                    let summary_service = ActivitySummaryService::new(db_path.clone());
+                    let vlm_service = VlmService::new(db_path.clone());
+
+                    // 聚合过去15分钟的截图
+                    let end_time = Local::now();
+                    let start_time = end_time - Duration::minutes(15);
+
+                    match summary_service.generate_summary(start_time, end_time, &vlm_service).await {
+                        Ok(summary) => {
+                            log::info!("Activity 总结已生成: {}", summary.summary_text);
+                        }
+                        Err(e) => {
+                            log::warn!("生成 Activity 总结失败: {}", e);
+                        }
+                    }
+                });
+            }
+        };
+
+        // Tips 回调（暂时为空）
+        let on_tips = || {
+            log::info!("执行 Tips 提示任务");
+        };
+
+        // 启动调度器
+        if let Err(e) = scheduler_clone.start(on_activity_summary, on_tips).await {
+            log::error!("启动定时任务调度器失败: {}", e);
+        } else {
+            log::info!("定时任务调度器已启动");
+        }
+    });
+
     tauri::Builder::default()
         .manage(db_state)
         .manage(shortcut_state)
@@ -181,6 +248,7 @@ fn main() {
         .manage(ai_state)
         .manage(vlm_state)
         .manage(context_manager_state)
+        .manage(batch_processor_state)
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -546,11 +614,25 @@ fn main() {
             commands::context_commands::context_reset_daily_stats,
             commands::context_commands::context_get_settings,
             commands::context_commands::context_update_settings,
+            commands::context_commands::context_get_default_screenshot_dir,
             commands::context_commands::context_get_stats,
             commands::context_commands::context_list_by_date,
             commands::context_commands::context_generate_summary,
             commands::context_commands::context_delete_by_date,
             commands::context_commands::context_cleanup_old,
+            // 批量截图处理器相关命令
+            commands::context_commands::context_start_batch_processor,
+            commands::context_commands::context_stop_batch_processor,
+            commands::context_commands::context_get_batch_processor_status,
+            commands::context_commands::context_process_screenshots_manually,
+            commands::context_commands::context_count_unprocessed_screenshots,
+            commands::context_commands::context_get_unprocessed_screenshot_ids,
+            // 截图回顾相关命令
+            commands::screenshot_commands::screenshot_get_image,
+            commands::screenshot_commands::screenshot_list,
+            commands::screenshot_commands::screenshot_get_detail,
+            commands::screenshot_commands::screenshot_get_activities,
+            commands::screenshot_commands::screenshot_debug_dates,
             // 时间线相关命令
             commands::timeline_commands::get_timeline,
             commands::timeline_commands::generate_daily_report,
@@ -567,6 +649,39 @@ fn main() {
             commands::prompt_commands::reset_prompt_config,
             commands::prompt_commands::get_prompt_template,
             commands::prompt_commands::update_prompt_template,
+            // 通知中心相关命令
+            commands::notification_commands::notification_list,
+            commands::notification_commands::notification_get_unread_count,
+            commands::notification_commands::notification_mark_read,
+            commands::notification_commands::notification_mark_all_read,
+            commands::notification_commands::notification_delete,
+            commands::notification_commands::notification_clear_all,
+            commands::notification_commands::notification_get_settings,
+            commands::notification_commands::notification_update_settings,
+            commands::notification_commands::notification_generate_daily_report,
+            commands::notification_commands::notification_generate_weekly_report,
+            commands::notification_commands::notification_generate_tip,
+            commands::notification_commands::notification_check_and_generate,
+            // 统计相关命令
+            commands::statistics_commands::statistics_get_heatmap,
+            commands::statistics_commands::statistics_get_daily_trend,
+            commands::statistics_commands::statistics_get_hourly_distribution,
+            commands::statistics_commands::statistics_get_app_usage,
+            commands::statistics_commands::statistics_get_activity_types,
+            // 日报相关命令
+            commands::report_commands::report_generate,
+            commands::report_commands::report_get,
+            commands::report_commands::report_list,
+            commands::report_commands::report_delete,
+            commands::report_commands::report_exists,
+            // 智能提示相关命令
+            commands::tips_commands::tips_generate,
+            commands::tips_commands::tips_list,
+            commands::tips_commands::tips_mark_read,
+            commands::tips_commands::tips_get_unread_count,
+            commands::tips_commands::tips_analyze_pattern,
+            commands::tips_commands::tips_should_generate,
+            commands::tips_commands::tips_cleanup_old,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");

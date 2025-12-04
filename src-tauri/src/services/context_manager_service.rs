@@ -42,9 +42,14 @@ pub struct MergedData {
 
 /// 上下文管理器配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ContextConfig {
     pub capture_interval_secs: u64,
     pub similarity_threshold: f32,
+    /// 是否保存原始截图文件
+    pub save_screenshots: bool,
+    /// 截图保存目录（为空则使用默认目录）
+    pub screenshot_dir: Option<String>,
 }
 
 impl Default for ContextConfig {
@@ -52,7 +57,25 @@ impl Default for ContextConfig {
         Self {
             capture_interval_secs: 10,
             similarity_threshold: 0.95,
+            save_screenshots: true,
+            screenshot_dir: None, // 使用默认目录
         }
+    }
+}
+
+impl ContextConfig {
+    /// 获取截图保存目录
+    pub fn get_screenshot_dir(&self) -> std::path::PathBuf {
+        if let Some(ref dir) = self.screenshot_dir {
+            if !dir.is_empty() {
+                return std::path::PathBuf::from(dir);
+            }
+        }
+        // 默认目录：用户数据目录/dev-assistant/screenshots
+        dirs::data_local_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("dev-assistant")
+            .join("screenshots")
     }
 }
 
@@ -116,6 +139,8 @@ impl ContextManager {
 
         state.is_running = true;
         let interval_secs = state.config.capture_interval_secs;
+        let save_screenshots = state.config.save_screenshots;
+        let screenshot_dir = state.config.get_screenshot_dir();
         drop(state); // 释放锁
 
         let state_clone = Arc::clone(&self.state);
@@ -138,13 +163,18 @@ impl ContextManager {
                     break;
                 }
 
-                // 执行截图采集
+                // 执行截图采集（支持保存截图文件）
                 let result = {
                     let state = state_clone.lock().await;
                     let threshold = state.config.similarity_threshold;
                     let last_hash = state.last_hash.as_deref();
 
-                    capture_service.capture_once(last_hash, threshold)
+                    capture_service.capture_once_with_save(
+                        last_hash,
+                        threshold,
+                        save_screenshots,
+                        Some(&screenshot_dir),
+                    )
                 };
 
                 match result {

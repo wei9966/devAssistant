@@ -90,6 +90,23 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     create_daily_summaries_table(conn)?;
     migrate_work_logs_add_context_ids(conn)?;
 
+    // 创建通知中心相关表
+    create_notifications_table(conn)?;
+    create_notifications_indexes(conn)?;
+    create_notification_settings_table(conn)?;
+
+    // 创建日报表
+    create_daily_reports_table(conn)?;
+    create_daily_reports_indexes(conn)?;
+
+    // 创建活动总结表
+    create_activity_summaries_table(conn)?;
+    create_activity_summaries_indexes(conn)?;
+
+    // 创建智能提示表
+    create_tips_table(conn)?;
+    create_tips_indexes(conn)?;
+
     Ok(())
 }
 
@@ -427,6 +444,39 @@ fn create_launch_history_indexes(conn: &Connection) -> Result<()> {
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_launch_history_launched_at ON launch_history(launched_at DESC)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 daily_reports 表（日报）
+fn create_daily_reports_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS daily_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL UNIQUE,
+            summary_text TEXT NOT NULL,
+            highlights TEXT NOT NULL,
+            insights TEXT NOT NULL,
+            total_screenshots INTEGER NOT NULL,
+            activity_breakdown TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 daily_reports 表索引
+fn create_daily_reports_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_daily_reports_date ON daily_reports(date DESC)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_daily_reports_created_at ON daily_reports(created_at DESC)",
         [],
     )?;
 
@@ -1481,6 +1531,146 @@ fn migrate_work_logs_add_context_ids(conn: &Connection) -> Result<()> {
         conn.execute("ALTER TABLE work_logs ADD COLUMN context_ids TEXT", [])?;
         println!("✓ 已添加 context_ids 列到 work_logs 表");
     }
+
+    Ok(())
+}
+
+/// 创建 notifications 表（通知记录）
+fn create_notifications_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            notification_type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            is_read INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 notifications 表索引
+fn create_notifications_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(notification_type)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 notification_settings 表（通知设置）
+fn create_notification_settings_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS notification_settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            tips_enabled INTEGER DEFAULT 1,
+            tips_interval_minutes INTEGER DEFAULT 60,
+            tips_max_per_day INTEGER DEFAULT 5,
+            daily_report_enabled INTEGER DEFAULT 1,
+            daily_report_time TEXT DEFAULT '18:00',
+            weekly_report_enabled INTEGER DEFAULT 1,
+            weekly_report_day INTEGER DEFAULT 0,
+            weekly_report_time TEXT DEFAULT '20:00',
+            updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )",
+        [],
+    )?;
+
+    // 插入默认设置(如果不存在)
+    conn.execute(
+        "INSERT OR IGNORE INTO notification_settings (id) VALUES (1)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 activity_summaries 表（活动总结）
+fn create_activity_summaries_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS activity_summaries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            summary_text TEXT NOT NULL,
+            activity_type TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 activity_summaries 表索引
+fn create_activity_summaries_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_activity_summaries_start_time ON activity_summaries(start_time DESC)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_activity_summaries_activity_type ON activity_summaries(activity_type)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_activity_summaries_created_at ON activity_summaries(created_at DESC)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 tips 表（智能提示）
+fn create_tips_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS tips (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content TEXT NOT NULL,
+            category TEXT NOT NULL,
+            priority TEXT NOT NULL,
+            is_read INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 tips 表索引
+fn create_tips_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tips_category ON tips(category)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tips_priority ON tips(priority)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tips_is_read ON tips(is_read)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tips_created_at ON tips(created_at DESC)",
+        [],
+    )?;
 
     Ok(())
 }

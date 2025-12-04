@@ -43,6 +43,7 @@ export interface ContextSettings {
   retentionDays: number;
   excludedApps: string[];
   saveScreenshots: boolean;
+  screenshotDir: string | null;  // 截图保存目录
 }
 
 export interface CaptureStatus {

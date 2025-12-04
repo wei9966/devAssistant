@@ -322,8 +322,12 @@ const expandedItems = ref(new Set<string>());
 const selectedDateTimestamp = ref<number | null>(null);
 const selectedDate = computed(() => {
   if (!selectedDateTimestamp.value) return null;
+  // 使用本地时间格式化，避免 toISOString() 的 UTC 时区问题
   const date = new Date(selectedDateTimestamp.value);
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 });
 const selectedActivityTypes = ref<string[]>([]);
 const minImportance = ref(1);

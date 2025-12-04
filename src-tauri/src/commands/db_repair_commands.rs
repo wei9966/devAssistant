@@ -31,29 +31,36 @@ pub fn repair_database(db: State<DbConnection>) -> Result<String, String> {
         let mut updates = Vec::new();
         let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
+        // 安全截断辅助函数（按字符数，不是字节数）
+        fn safe_truncate(s: &str, max_chars: usize) -> String {
+            s.chars().take(max_chars).collect()
+        }
+
         // 检查并截断description
         if let Some(desc) = description {
-            if desc.len() > 10000 {
+            let char_count = desc.chars().count();
+            if char_count > 3000 {
                 updates.push("description = ?");
                 let truncated = format!(
                     "{}...[已自动截断，原长度:{}字符]",
-                    &desc[..10000],
-                    desc.len()
+                    safe_truncate(&desc, 3000),
+                    char_count
                 );
                 params_vec.push(Box::new(truncated));
                 need_update = true;
-                eprintln!("任务 {} 的描述过长 ({}字符)，已截断", task_id, desc.len());
+                eprintln!("任务 {} 的描述过长 ({}字符)，已截断", task_id, char_count);
             }
         }
 
         // 检查并截断notes
         if let Some(n) = notes {
-            if n.len() > 5000 {
+            let char_count = n.chars().count();
+            if char_count > 1500 {
                 updates.push("notes = ?");
-                let truncated = format!("{}...[已自动截断，原长度:{}字符]", &n[..5000], n.len());
+                let truncated = format!("{}...[已自动截断，原长度:{}字符]", safe_truncate(&n, 1500), char_count);
                 params_vec.push(Box::new(truncated));
                 need_update = true;
-                eprintln!("任务 {} 的备注过长 ({}字符)，已截断", task_id, n.len());
+                eprintln!("任务 {} 的备注过长 ({}字符)，已截断", task_id, char_count);
             }
         }
 
