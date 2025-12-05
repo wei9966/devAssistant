@@ -30,6 +30,9 @@ pub struct ProcessingPrompts {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtractionPrompts {
+    /// 单张截图分析提示词
+    pub screenshot_single: PromptConfig,
+    /// 批量截图分析提示词
     pub screenshot_contextual_batch: PromptConfig,
 }
 
@@ -46,7 +49,9 @@ pub struct GenerationPrompts {
 /// Merging模块Prompts
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MergingPrompts {
+    #[serde(rename = "context_merging_multiple")]
     pub merge_batch_items: PromptConfig,
+    #[serde(rename = "screenshot_batch_merging")]
     pub merge_weekly_reports: PromptConfig,
 }
 
@@ -54,6 +59,7 @@ pub struct MergingPrompts {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntityPrompts {
     pub entity_extraction: PromptConfig,
+    #[serde(rename = "entity_meta_merging")]
     pub relationship_recognition: PromptConfig,
 }
 
@@ -91,20 +97,36 @@ impl PromptManager {
 
     /// 从默认路径加载
     pub fn load_default() -> Result<Self> {
-        // 尝试多个可能的配置文件路径
-        let possible_paths = vec![
-            "config/prompts_zh.yaml",
-            "./config/prompts_zh.yaml",
-            "../config/prompts_zh.yaml",
+        let mut possible_paths: Vec<PathBuf> = vec![
+            PathBuf::from("config/prompts_zh.yaml"),
+            PathBuf::from("./config/prompts_zh.yaml"),
+            PathBuf::from("../config/prompts_zh.yaml"),
         ];
 
-        for path in possible_paths {
-            if Path::new(path).exists() {
-                return Self::load_from_file(path);
+        // 基于可执行文件位置查找
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                // 可执行文件同级目录下的 config
+                possible_paths.push(exe_dir.join("config").join("prompts_zh.yaml"));
+                // 上一级目录的 config（开发时）
+                if let Some(parent_dir) = exe_dir.parent() {
+                    possible_paths.push(parent_dir.join("config").join("prompts_zh.yaml"));
+                }
             }
         }
 
-        anyhow::bail!("找不到默认配置文件，请确保 config/prompts_zh.yaml 存在")
+        // 基于应用数据目录查找
+        if let Some(data_dir) = dirs::data_local_dir() {
+            possible_paths.push(data_dir.join("dev-assistant").join("config").join("prompts_zh.yaml"));
+        }
+
+        for path in &possible_paths {
+            if path.exists() {
+                return Self::load_from_file(path.to_str().unwrap_or(""));
+            }
+        }
+
+        anyhow::bail!("找不到默认配置文件，请确保 config/prompts_zh.yaml 存在。已尝试路径: {:?}", possible_paths)
     }
 
     /// 获取全局单例
@@ -176,7 +198,12 @@ impl PromptManager {
         Ok(())
     }
 
-    /// 获取截图分析Prompt
+    /// 获取单张截图分析Prompt
+    pub fn get_screenshot_single_prompt(&self) -> &PromptConfig {
+        &self.config.processing.extraction.screenshot_single
+    }
+
+    /// 获取批量截图分析Prompt（用于一次性分析多张截图）
     pub fn get_screenshot_prompt(&self) -> &PromptConfig {
         &self.config.processing.extraction.screenshot_contextual_batch
     }

@@ -110,6 +110,12 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     // 迁移 tasks 表：添加 scheduled_start_time 字段（计划开始时间）
     migrate_tasks_add_scheduled_start_time(conn)?;
 
+    // 迁移 vlm_config 表：添加 max_tokens 字段
+    migrate_vlm_config_add_max_tokens(conn)?;
+
+    // 迁移 ai_config 表：添加 max_tokens 字段
+    migrate_ai_config_add_max_tokens(conn)?;
+
     Ok(())
 }
 
@@ -1701,6 +1707,50 @@ fn migrate_tasks_add_scheduled_start_time(conn: &Connection) -> Result<()> {
             "CREATE INDEX IF NOT EXISTS idx_tasks_scheduled_start_time ON tasks(scheduled_start_time)",
             [],
         )?;
+    }
+
+    Ok(())
+}
+
+/// 迁移 vlm_config 表：添加 max_tokens 字段（最大输出 token 数）
+fn migrate_vlm_config_add_max_tokens(conn: &Connection) -> Result<()> {
+    // 检查 max_tokens 列是否存在
+    let has_max_tokens: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('vlm_config') WHERE name='max_tokens'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_max_tokens == 0 {
+        conn.execute(
+            "ALTER TABLE vlm_config ADD COLUMN max_tokens INTEGER DEFAULT 8192",
+            [],
+        )?;
+        println!("✓ 已添加 max_tokens 列到 vlm_config 表");
+    }
+
+    Ok(())
+}
+
+/// 迁移 ai_config 表：添加 max_tokens 字段（最大输出 token 数）
+fn migrate_ai_config_add_max_tokens(conn: &Connection) -> Result<()> {
+    // 检查 max_tokens 列是否存在
+    let has_max_tokens: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('ai_config') WHERE name='max_tokens'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_max_tokens == 0 {
+        conn.execute(
+            "ALTER TABLE ai_config ADD COLUMN max_tokens INTEGER DEFAULT 4096",
+            [],
+        )?;
+        println!("✓ 已添加 max_tokens 列到 ai_config 表");
     }
 
     Ok(())

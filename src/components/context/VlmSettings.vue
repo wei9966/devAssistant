@@ -168,6 +168,24 @@
                     </n-input-number>
                   </div>
                 </div>
+
+                <!-- 最大输出 Token -->
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">最大输出 Token</div>
+                    <div class="setting-desc">VLM 响应的最大 token 数，不同模型支持不同上限（如 Qwen3-VL 支持 32K）</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-input-number
+                      v-model:value="vlmConfig.maxTokens"
+                      :min="1024"
+                      :max="65536"
+                      :step="1024"
+                      :disabled="!vlmConfig.enabled"
+                      style="width: 150px"
+                    />
+                  </div>
+                </div>
               </div>
             </n-collapse-item>
           </n-collapse>
@@ -240,6 +258,7 @@ const defaultConfig: VlmConfig = {
   maxImageSize: 5120,
   imageQuality: 80,
   timeout: 30,
+  maxTokens: 8192,
 };
 
 const vlmConfig = ref<VlmConfig>({ ...defaultConfig });
@@ -280,6 +299,7 @@ async function loadConfig() {
         maxImageSize: config.maxImageSize || 5120,
         imageQuality: config.imageQuality || 80,
         timeout: config.timeout || 30,
+        maxTokens: config.maxTokens || 8192,
       };
     }
   } catch (error) {

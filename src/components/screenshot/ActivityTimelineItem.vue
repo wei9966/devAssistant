@@ -19,10 +19,11 @@
     </n-popover>
 
     <!-- 截图缩略图网格 -->
-    <div class="screenshots-grid">
+    <div class="screenshots-grid" ref="gridRef">
       <div
         v-for="screenshot in activity.screenshots"
         :key="screenshot.id"
+        :ref="el => setThumbRef(screenshot.id, el)"
         class="screenshot-thumb"
         @click="handleScreenshotClick(screenshot)"
       >
@@ -45,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { NPopover, NSpin, NIcon } from 'naive-ui'
 import { ImageOutline } from '@vicons/ionicons5'
 import { screenshotApi, type ActivityGroup, type ScreenshotResource } from '@/api/screenshotApi'
@@ -63,22 +64,62 @@ const emit = defineEmits<Emits>()
 
 const thumbnails = ref<Record<number, string>>({})
 const loadingImages = ref<Record<number, boolean>>({})
+const gridRef = ref<HTMLElement | null>(null)
+const thumbRefs = ref<Map<number, HTMLElement>>(new Map())
 
-// 并行加载缩略图（不等待批次，渐进式显示）
-watch(
-  () => props.activity.screenshots,
-  (screenshots) => {
-    const toLoad = screenshots.filter(s => s.path && !thumbnails.value[s.id])
+// 懒加载队列管理器
+class LazyLoadQueue {
+  private queue: Array<() => Promise<void>> = []
+  private running = 0
+  private maxConcurrent = 5
 
-    // 全部并行加载，不等待批次完成
-    // 每张图片独立加载，完成后立即显示
-    toLoad.forEach(s => loadThumbnail(s))
-  },
-  { immediate: true }
-)
+  async add(task: () => Promise<void>) {
+    this.queue.push(task)
+    this.process()
+  }
 
+  private async process() {
+    if (this.running >= this.maxConcurrent || this.queue.length === 0) {
+      return
+    }
+
+    this.running++
+    const task = this.queue.shift()
+
+    if (task) {
+      try {
+        await task()
+      } catch (error) {
+        console.error('Task execution failed:', error)
+      } finally {
+        this.running--
+        this.process()
+      }
+    }
+  }
+
+  clear() {
+    this.queue = []
+  }
+}
+
+const loadQueue = new LazyLoadQueue()
+let observer: IntersectionObserver | null = null
+const observedElements = new Set<number>()
+
+// 设置缩略图引用
+function setThumbRef(id: number, el: any) {
+  if (el) {
+    thumbRefs.value.set(id, el as HTMLElement)
+  } else {
+    thumbRefs.value.delete(id)
+  }
+}
+
+// 加载缩略图
 async function loadThumbnail(screenshot: ScreenshotResource) {
-  if (!screenshot.path) return
+  if (!screenshot.path || thumbnails.value[screenshot.id]) return
+
   loadingImages.value[screenshot.id] = true
   try {
     const base64 = await screenshotApi.getImage(screenshot.path, true)
@@ -89,6 +130,74 @@ async function loadThumbnail(screenshot: ScreenshotResource) {
     loadingImages.value[screenshot.id] = false
   }
 }
+
+// 初始化 IntersectionObserver
+function setupObserver() {
+  if (!('IntersectionObserver' in window)) {
+    // 降级方案：直接加载所有图片
+    props.activity.screenshots.forEach(screenshot => {
+      if (screenshot.path && !thumbnails.value[screenshot.id]) {
+        loadQueue.add(() => loadThumbnail(screenshot))
+      }
+    })
+    return
+  }
+
+  observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const element = entry.target as HTMLElement
+          const screenshotId = parseInt(element.dataset.screenshotId || '0')
+
+          if (screenshotId && !observedElements.has(screenshotId)) {
+            observedElements.add(screenshotId)
+            const screenshot = props.activity.screenshots.find(s => s.id === screenshotId)
+
+            if (screenshot && screenshot.path && !thumbnails.value[screenshotId]) {
+              loadQueue.add(() => loadThumbnail(screenshot))
+            }
+
+            // 加载后取消观察
+            observer?.unobserve(element)
+          }
+        }
+      })
+    },
+    {
+      root: null,
+      rootMargin: '50px',
+      threshold: 0.01
+    }
+  )
+
+  // 观察所有缩略图元素
+  nextTick(() => {
+    thumbRefs.value.forEach((element, screenshotId) => {
+      element.dataset.screenshotId = screenshotId.toString()
+      observer?.observe(element)
+    })
+  })
+}
+
+// 清理资源
+function cleanup() {
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
+  observedElements.clear()
+  loadQueue.clear()
+  thumbRefs.value.clear()
+}
+
+onMounted(() => {
+  setupObserver()
+})
+
+onBeforeUnmount(() => {
+  cleanup()
+})
 
 function handleScreenshotClick(screenshot: ScreenshotResource) {
   emit('preview', screenshot)

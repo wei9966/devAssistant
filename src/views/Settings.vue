@@ -49,6 +49,20 @@
                     <n-switch v-model:value="settings.alwaysOnTop" />
                   </div>
                 </div>
+
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">日志级别</div>
+                    <div class="setting-desc">设置应用日志的详细程度，调试时可设为 Debug</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-select
+                      v-model:value="settings.logLevel"
+                      :options="logLevelOptions"
+                      class="log-level-select"
+                    />
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -310,6 +324,22 @@
                   </div>
                 </div>
 
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">最大输出 Token</div>
+                    <div class="setting-desc">AI 响应的最大 token 数，根据模型调整（默认 4096）</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-input-number
+                      v-model:value="aiConfig.maxTokens"
+                      :min="512"
+                      :max="32768"
+                      :step="512"
+                      style="width: 150px"
+                    />
+                  </div>
+                </div>
+
                 <div class="ai-actions">
                   <n-button
                     @click="testAiConnection"
@@ -554,7 +584,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, h } from 'vue';
 import { useRoute } from 'vue-router';
-import { NTabs, NTabPane, NSpace, NSwitch, NSelect, NInput, NButton, NIcon, NSpin, NAlert, NDataTable, NTag, NEmpty, NStatistic, NGrid, NGi, useMessage, useDialog } from 'naive-ui';
+import { NTabs, NTabPane, NSpace, NSwitch, NSelect, NInput, NInputNumber, NButton, NIcon, NSpin, NAlert, NDataTable, NTag, NEmpty, NStatistic, NGrid, NGi, useMessage, useDialog } from 'naive-ui';
 import { TimeOutline, RefreshOutline, InformationCircleOutline, TrashOutline, ReloadOutline } from '@vicons/ionicons5';
 import { invoke } from '@tauri-apps/api/core';
 import { aiApi } from '@/api/aiApi';
@@ -585,7 +615,18 @@ const settings = ref({
   taskNotification: true,
   staleTaskDays: 3,
   worklogReminder: true,
+  logLevel: 'info',
 });
+
+// 日志级别选项
+const logLevelOptions = [
+  { label: 'Trace (最详细)', value: 'trace' },
+  { label: 'Debug (调试)', value: 'debug' },
+  { label: 'Info (信息)', value: 'info' },
+  { label: 'Warn (警告)', value: 'warn' },
+  { label: 'Error (错误)', value: 'error' },
+  { label: 'Off (关闭)', value: 'off' },
+];
 
 const shortcuts = ref({
   taskBoard: 'Ctrl+Shift+N',
@@ -601,6 +642,7 @@ const aiConfig = ref({
   baseUrl: '',
   model: '',
   enabled: false,
+  maxTokens: 4096,
 });
 
 const testingAi = ref(false);
@@ -823,6 +865,7 @@ async function loadSettings() {
       taskNotification: appSettings.task_notification || true,
       staleTaskDays: appSettings.stale_task_days || 3,
       worklogReminder: appSettings.worklog_reminder || true,
+      logLevel: appSettings.log_level || 'info',
     };
   } catch (error) {
     console.error('加载设置失败:', error);
@@ -979,6 +1022,7 @@ async function handleSave() {
         git_enabled: settings.value.gitEnabled,
         git_path: settings.value.gitPath,
         auto_start: settings.value.autoStart,
+        log_level: settings.value.logLevel,
       },
     });
 
@@ -987,6 +1031,9 @@ async function handleSave() {
 
     // 应用开机自启动设置
     await invoke('set_autostart', { enable: settings.value.autoStart });
+
+    // 动态设置日志级别
+    await invoke('set_log_level', { level: settings.value.logLevel });
 
     message.success('设置已保存');
   } catch (error) {
@@ -1091,6 +1138,7 @@ async function loadAiConfig() {
       aiConfig.value.baseUrl = config.baseUrl || '';
       aiConfig.value.model = config.model || '';
       aiConfig.value.enabled = config.enabled;
+      aiConfig.value.maxTokens = config.maxTokens || 4096;
       // apiKey 需要用户重新输入，不从服务端加载
     }
   } catch (error) {
@@ -1109,6 +1157,7 @@ async function testAiConnection() {
       baseUrl: aiConfig.value.baseUrl || undefined,
       model: aiConfig.value.model || undefined,
       enabled: aiConfig.value.enabled,
+      maxTokens: aiConfig.value.maxTokens,
     });
     const result = await aiApi.testConnection();
     aiTestResult.value = result;
@@ -1134,6 +1183,7 @@ async function saveAiConfig() {
       baseUrl: aiConfig.value.baseUrl || undefined,
       model: aiConfig.value.model || undefined,
       enabled: aiConfig.value.enabled,
+      maxTokens: aiConfig.value.maxTokens,
     });
     message.success('AI 配置已保存');
   } catch (error: any) {
@@ -1158,6 +1208,13 @@ async function saveAiConfig() {
   color: rgb(241, 245, 249);
   letter-spacing: -0.025em;
   margin-bottom: 24px;
+  position: sticky;
+  top: -16px;
+  background: rgb(2, 6, 23);
+  padding-top: 16px;
+  padding-bottom: 16px;
+  margin-top: -16px;
+  z-index: 100;
 }
 
 .settings-container {
@@ -1310,6 +1367,11 @@ async function saveAiConfig() {
 /* 主题选择器 */
 .theme-select {
   min-width: 140px;
+}
+
+/* 日志级别选择器 */
+.log-level-select {
+  min-width: 160px;
 }
 
 /* AI 配置 */
@@ -1467,7 +1529,13 @@ async function saveAiConfig() {
 .save-section {
   display: flex;
   justify-content: flex-end;
-  padding-top: 8px;
+  padding-top: 16px;
+  padding-bottom: 16px;
+  position: sticky;
+  bottom: -32px;
+  background: rgb(2, 6, 23);
+  margin-bottom: -32px;
+  z-index: 98;
 }
 
 /* 滚动条样式 */
@@ -1495,6 +1563,14 @@ async function saveAiConfig() {
   --n-tab-text-color-hover: rgb(203, 213, 225);
   --n-bar-color: rgb(99, 102, 241);
   --n-tab-border-color: rgba(51, 65, 85, 0.6);
+}
+
+:deep(.n-tabs-nav) {
+  position: sticky;
+  top: 52px;
+  background: rgb(2, 6, 23);
+  z-index: 99;
+  padding-bottom: 8px;
 }
 
 :deep(.n-switch) {

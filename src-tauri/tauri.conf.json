@@ -260,6 +260,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": []
+    "targets": [],
+    "resources": [
+      "config/*"
+    ]
   }
 }

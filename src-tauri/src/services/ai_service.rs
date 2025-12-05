@@ -51,6 +51,8 @@ pub struct AiConfig {
     pub base_url: Option<String>,
     pub model: Option<String>,
     pub enabled: bool,
+    /// 最大输出 token 数，默认 4096
+    pub max_tokens: Option<u32>,
 }
 
 impl Default for AiConfig {
@@ -61,6 +63,7 @@ impl Default for AiConfig {
             base_url: None,
             model: None,
             enabled: true,
+            max_tokens: Some(4096),
         }
     }
 }
@@ -106,6 +109,11 @@ impl AiConfig {
             return has_base_url && has_model;
         }
         true
+    }
+
+    /// 获取最大输出 token 数
+    pub fn get_max_tokens(&self) -> u32 {
+        self.max_tokens.unwrap_or(4096)
     }
 }
 
@@ -307,6 +315,7 @@ impl AiService {
                 base_url: value["base_url"].as_str().map(|s| s.to_string()),
                 model: value["model"].as_str().map(|s| s.to_string()),
                 enabled: value["enabled"].as_bool().unwrap_or(false),
+                max_tokens: value["max_tokens"].as_u64().map(|n| n as u32),
             })
         } else {
             // 如果没有配置记录，返回默认配置
@@ -322,6 +331,7 @@ impl AiService {
             "base_url": config.base_url,
             "model": config.model,
             "enabled": config.enabled,
+            "max_tokens": config.max_tokens,
         });
 
         let now = std::time::SystemTime::now()
@@ -541,7 +551,7 @@ impl AiService {
             model: model.to_string(),
             messages,
             temperature: 0.7,
-            max_tokens: 4096,
+            max_tokens: self.config.get_max_tokens() as i32,
         };
 
         let url = format!("{}/v1/chat/completions", base_url);

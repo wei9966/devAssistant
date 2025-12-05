@@ -43,6 +43,14 @@ pub struct AppSettings {
 
     // 开机自启动
     pub auto_start: bool,
+
+    // 日志设置
+    #[serde(default = "default_log_level")]
+    pub log_level: String,
+}
+
+fn default_log_level() -> String {
+    "info".to_string()
 }
 
 impl Default for AppSettings {
@@ -72,6 +80,7 @@ impl Default for AppSettings {
             git_enabled: false,
             git_path: String::new(),
             auto_start: false,
+            log_level: "info".to_string(),
         }
     }
 }
@@ -260,6 +269,11 @@ impl SettingsService {
             "auto_start" => {
                 if let Some(b) = value.as_bool() {
                     settings.auto_start = b;
+                }
+            }
+            "log_level" => {
+                if let Some(s) = value.as_str() {
+                    settings.log_level = s.to_string();
                 }
             }
             _ => {

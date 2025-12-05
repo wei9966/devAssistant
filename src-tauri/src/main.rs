@@ -147,6 +147,35 @@ fn main() {
     let loaded_config =
         saved_config.unwrap_or_else(|| commands::shortcut_commands::ShortcutConfig::default());
 
+    // 从设置加载日志级别
+    {
+        let settings_json: Option<String> = conn
+            .query_row(
+                "SELECT value FROM app_settings WHERE key = 'app_settings'",
+                [],
+                |row| row.get(0),
+            )
+            .ok();
+
+        if let Some(json) = settings_json {
+            if let Ok(settings) = serde_json::from_str::<serde_json::Value>(&json) {
+                if let Some(log_level) = settings.get("log_level").and_then(|v| v.as_str()) {
+                    let level = match log_level.to_lowercase().as_str() {
+                        "trace" => log::LevelFilter::Trace,
+                        "debug" => log::LevelFilter::Debug,
+                        "info" => log::LevelFilter::Info,
+                        "warn" => log::LevelFilter::Warn,
+                        "error" => log::LevelFilter::Error,
+                        "off" => log::LevelFilter::Off,
+                        _ => log::LevelFilter::Info,
+                    };
+                    log::set_max_level(level);
+                    log_runtime(&format!("已从设置加载日志级别: {}", log_level));
+                }
+            }
+        }
+    }
+
     // 将 conn 移动到 Arc 中
     let db_state = DbConnection(Arc::new(Mutex::new(conn)));
 
@@ -805,6 +834,8 @@ fn main() {
             commands::system_commands::get_crash_logs,
             commands::system_commands::get_crash_log_path,
             commands::system_commands::get_runtime_log,
+            commands::system_commands::set_log_level,
+            commands::system_commands::get_log_level,
             // 提示词相关命令
             commands::prompt_commands::get_prompt_config,
             commands::prompt_commands::save_prompt_config,

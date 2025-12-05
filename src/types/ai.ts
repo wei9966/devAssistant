@@ -8,6 +8,7 @@ export interface AiConfig {
   baseUrl?: string;
   model?: string;
   enabled: boolean;
+  maxTokens?: number;         // 最大输出 token 数
 }
 
 // AI 配置响应（API Key 已脱敏）
@@ -17,6 +18,7 @@ export interface AiConfigResponse {
   baseUrl?: string;
   model?: string;
   enabled: boolean;
+  maxTokens?: number;     // 最大输出 token 数
 }
 
 // AI 提供商信息

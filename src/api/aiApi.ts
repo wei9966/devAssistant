@@ -10,6 +10,7 @@ export const aiApi = {
       baseUrl: config.baseUrl,
       model: config.model,
       enabled: config.enabled,
+      maxTokens: config.maxTokens,
     });
   },
 

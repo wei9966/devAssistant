@@ -2,12 +2,12 @@ import { invoke } from '@tauri-apps/api/core';
 import type { VlmConfig, VlmConfigResponse } from '@/types/vlm';
 
 /**
- * VLM (Vision Language Model) API ¥ã
- * /* VLM Ğ›F‚ICîVLDeepSeek-VLOpenAIFKimiClaude
+ * VLM (Vision Language Model) API ï¿½ï¿½
+ * /* VLM Ğ›Fï¿½ICï¿½VLDeepSeek-VLOpenAIFKimiClaude
  */
 export const vlmApi = {
   /**
-   * İX VLM Mn
+   * ï¿½X VLM Mn
    */
   async saveConfig(config: VlmConfig): Promise<void> {
     await invoke('vlm_save_config', {
@@ -19,35 +19,36 @@ export const vlmApi = {
       maxImageSize: config.maxImageSize,
       imageQuality: config.imageQuality,
       timeout: config.timeout,
+      maxTokens: config.maxTokens,
     });
   },
 
   /**
-   * ·Ö VLM MnAPI Key ò1O	
+   * ï¿½ï¿½ VLM MnAPI Key ï¿½1O	
    */
   async getConfig(): Promise<VlmConfigResponse | null> {
     return await invoke('vlm_get_config');
   },
 
   /**
-   * KÕ VLM Ş¥
+   * Kï¿½ VLM Ş¥
    */
   async testConnection(): Promise<boolean> {
     return await invoke('vlm_test_connection');
   },
 
   /**
-   * şG…¹
-   * @param imageBase64 Base64 „şG
-   * @param prompt Ğ:Í
-   * @returns Óœ‡,
+   * ï¿½ï¿½Gï¿½ï¿½
+   * @param imageBase64 Base64 ï¿½ï¿½G
+   * @param prompt ï¿½ï¿½:ï¿½
+   * @returns ï¿½Óœï¿½,
    */
   async analyzeImage(imageBase64: string, prompt: string): Promise<string> {
     return await invoke('vlm_analyze_image', { imageBase64, prompt });
   },
 
   /**
-   * Àå VLM /&/(
+   * ï¿½ï¿½ VLM /&/(
    */
   async isEnabled(): Promise<boolean> {
     return await invoke('vlm_is_enabled');

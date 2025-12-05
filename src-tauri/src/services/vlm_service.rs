@@ -63,6 +63,8 @@ pub struct VlmConfig {
     pub max_image_size: Option<u32>,
     pub image_quality: Option<u32>,
     pub timeout: Option<u32>,
+    /// 最大输出 token 数，默认 8192
+    pub max_tokens: Option<u32>,
 }
 
 impl Default for VlmConfig {
@@ -76,6 +78,7 @@ impl Default for VlmConfig {
             max_image_size: Some(10240),  // 10MB
             image_quality: Some(80),
             timeout: Some(30),
+            max_tokens: Some(8192),
         }
     }
 }
@@ -147,6 +150,11 @@ impl VlmConfig {
     pub fn get_timeout(&self) -> Duration {
         Duration::from_secs(self.timeout.unwrap_or(30) as u64)
     }
+
+    /// Get max tokens
+    pub fn get_max_tokens(&self) -> u32 {
+        self.max_tokens.unwrap_or(8192)
+    }
 }
 
 /// VLM Configuration Response (API Key masked)
@@ -161,6 +169,7 @@ pub struct VlmConfigResponse {
     pub max_image_size: Option<u32>,
     pub image_quality: Option<u32>,
     pub timeout: Option<u32>,
+    pub max_tokens: Option<u32>,
 }
 
 /// Screenshot Analysis Response from VLM
@@ -170,10 +179,42 @@ pub struct ScreenshotAnalysisResponse {
     pub summary: String,
     pub keywords: Vec<String>,
     pub importance: i32,
-    #[serde(alias = "appName")]
+    #[serde(alias = "appName", default)]
     pub app_name: String,
-    #[serde(alias = "activityType")]
+    #[serde(alias = "activityType", alias = "context_type", default)]
     pub activity_type: String,
+}
+
+/// VLM 批量分析响应结构（来自 PromptManager 的新格式）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct VlmBatchResponse {
+    items: Vec<VlmBatchItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct VlmBatchItem {
+    decision: Option<String>,
+    #[serde(default)]
+    history_id: Option<String>,
+    #[serde(default)]
+    screen_ids: Vec<i32>,
+    analysis: VlmBatchAnalysis,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct VlmBatchAnalysis {
+    #[serde(default)]
+    context_type: Option<String>,
+    title: String,
+    summary: String,
+    #[serde(default)]
+    keywords: Vec<String>,
+    #[serde(default)]
+    importance: i32,
+    #[serde(default)]
+    confidence: Option<i32>,
+    #[serde(default)]
+    event_time: Option<String>,
 }
 
 /// VLM Service
@@ -199,8 +240,8 @@ impl VlmService {
         conn.execute(
             "INSERT OR REPLACE INTO vlm_config (
                 id, provider, api_key, base_url, model, enabled,
-                max_image_size, image_quality, timeout, updated_at
-            ) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now', 'localtime'))",
+                max_image_size, image_quality, timeout, max_tokens, updated_at
+            ) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, datetime('now', 'localtime'))",
             rusqlite::params![
                 config.provider,
                 config.api_key,
@@ -210,6 +251,7 @@ impl VlmService {
                 config.max_image_size,
                 config.image_quality,
                 config.timeout,
+                config.max_tokens,
             ],
         ).map_err(|e| anyhow!("Failed to save VLM config: {}", e))?;
 
@@ -222,7 +264,7 @@ impl VlmService {
 
         let result = conn.query_row(
             "SELECT provider, api_key, base_url, model, enabled,
-                    max_image_size, image_quality, timeout
+                    max_image_size, image_quality, timeout, max_tokens
              FROM vlm_config WHERE id = 1",
             [],
             |row| {
@@ -235,6 +277,7 @@ impl VlmService {
                     max_image_size: row.get(5)?,
                     image_quality: row.get(6)?,
                     timeout: row.get(7)?,
+                    max_tokens: row.get(8)?,
                 })
             },
         );
@@ -279,7 +322,7 @@ impl VlmService {
 
         let result = conn.query_row(
             "SELECT provider, api_key, base_url, model, enabled,
-                    max_image_size, image_quality, timeout
+                    max_image_size, image_quality, timeout, max_tokens
              FROM vlm_config WHERE id = 1",
             [],
             |row| {
@@ -292,6 +335,7 @@ impl VlmService {
                     max_image_size: row.get(5)?,
                     image_quality: row.get(6)?,
                     timeout: row.get(7)?,
+                    max_tokens: row.get(8)?,
                 })
             },
         );
@@ -335,7 +379,8 @@ impl VlmService {
         self.analyze_image_internal(&config, image_base64, prompt).await
     }
 
-    /// Analyze screenshot with PromptManager (new method)
+    /// Analyze single screenshot
+    /// 单张截图分析使用专门的单张截图提示词
     pub async fn analyze_screenshot(
         &self,
         image_base64: &str,
@@ -347,45 +392,32 @@ impl VlmService {
             return Err(anyhow!("VLM is not enabled or configuration is invalid"));
         }
 
-        // Load prompt template from PromptManager
+        // 尝试从 PromptManager 加载单张截图分析提示词
         let prompt_config = match PromptManager::get_instance() {
-            Ok(manager) => manager.get_screenshot_prompt().clone(),
+            Ok(manager) => manager.get_screenshot_single_prompt().clone(),
             Err(e) => {
                 log::warn!("Failed to load PromptManager, using fallback: {}", e);
-                // Fallback to default prompt if PromptManager fails
                 return self.analyze_screenshot_fallback(&config, image_base64, history).await;
             }
         };
 
-        // Prepare variables for prompt rendering
+        // 准备变量
         let now = chrono::Local::now();
         let mut vars = HashMap::new();
-        vars.insert(
-            "current_date".to_string(),
-            now.format("%Y-%m-%d").to_string(),
-        );
         vars.insert(
             "current_timestamp".to_string(),
             now.format("%Y-%m-%d %H:%M:%S").to_string(),
         );
         vars.insert(
-            "current_timezone".to_string(),
-            "+08:00".to_string(),
-        );
-        vars.insert(
             "history".to_string(),
             history.unwrap_or("无历史记录").to_string(),
         );
-        vars.insert(
-            "total_screenshots".to_string(),
-            "1".to_string(),
-        );
 
-        // Render prompts using PromptManager's render method
+        // 渲染提示词
         let system_prompt = PromptManager::render_prompt(&prompt_config.system, &vars);
         let user_prompt = PromptManager::render_prompt(&prompt_config.user, &vars);
 
-        // Call VLM API
+        // 调用 VLM API
         let response_text = match config.provider.as_str() {
             "claude" => {
                 self.analyze_with_claude_messages(&config, image_base64, &system_prompt, &user_prompt)
@@ -402,12 +434,15 @@ impl VlmService {
             }
         };
 
-        // Parse JSON response
+        // 解析 JSON 响应
         self.parse_screenshot_response(&response_text)
     }
 
 
     /// Parse screenshot analysis response
+    /// 支持两种格式：
+    /// 1. 新的批量格式：{ "items": [{ "analysis": { ... } }] }
+    /// 2. 旧的扁平格式：{ "title": "...", "summary": "...", ... }
     fn parse_screenshot_response(&self, response_text: &str) -> Result<ScreenshotAnalysisResponse> {
         // 记录 VLM 返回的原始文本内容
         log::debug!("VLM 返回的原始文本: {}", response_text);
@@ -425,6 +460,25 @@ impl VlmService {
 
         log::debug!("提取的 JSON 文本: {}", json_text);
 
+        // 首先尝试解析为新的批量格式（带 items 数组）
+        if let Ok(batch_response) = serde_json::from_str::<VlmBatchResponse>(json_text) {
+            if let Some(first_item) = batch_response.items.first() {
+                let analysis = &first_item.analysis;
+                log::debug!("成功解析为批量格式，提取第一个 item 的 analysis");
+                return Ok(ScreenshotAnalysisResponse {
+                    title: analysis.title.clone(),
+                    summary: analysis.summary.clone(),
+                    keywords: analysis.keywords.clone(),
+                    importance: analysis.importance,
+                    // context_type 映射到 activity_type
+                    activity_type: analysis.context_type.clone().unwrap_or_else(|| "other".to_string()),
+                    // 批量格式中没有 app_name，设为空字符串
+                    app_name: String::new(),
+                });
+            }
+        }
+
+        // 如果批量格式解析失败，尝试解析为扁平格式
         serde_json::from_str::<ScreenshotAnalysisResponse>(json_text).map_err(|e| {
             log::error!("JSON 解析失败: {}，原始文本: {}", e, response_text);
             anyhow!(
@@ -512,7 +566,7 @@ impl VlmService {
                     ]
                 }
             ],
-            "max_tokens": 1000
+            "max_tokens": config.get_max_tokens()
         });
 
         let response = client
@@ -559,7 +613,7 @@ impl VlmService {
 
         let request_body = serde_json::json!({
             "model": config.get_model(),
-            "max_tokens": 1000,
+            "max_tokens": config.get_max_tokens(),
             "messages": [
                 {
                     "role": "user",
@@ -627,7 +681,7 @@ impl VlmService {
 
         let request_body = serde_json::json!({
             "model": config.get_model(),
-            "max_tokens": 2000,
+            "max_tokens": config.get_max_tokens(),
             "system": system_prompt,
             "messages": [
                 {
@@ -717,7 +771,7 @@ impl VlmService {
                     ]
                 }
             ],
-            "max_tokens": 2000
+            "max_tokens": config.get_max_tokens()
         });
 
         let response = client

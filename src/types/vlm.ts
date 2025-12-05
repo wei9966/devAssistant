@@ -18,6 +18,7 @@ export interface VlmConfig {
   maxImageSize?: number;      // 最大图片尺寸 (KB)
   imageQuality?: number;      // 图片压缩质量 (0-100)
   timeout?: number;           // 请求超时 (秒)
+  maxTokens?: number;         // 最大输出 token 数
 }
 
 // VLM 配置响应（API Key 已脱敏）
@@ -30,6 +31,7 @@ export interface VlmConfigResponse {
   maxImageSize?: number;
   imageQuality?: number;
   timeout?: number;
+  maxTokens?: number;         // 最大输出 token 数
 }
 
 // 提供商预设配置

@@ -24,6 +24,7 @@ pub struct AiConfigResponse {
     pub base_url: Option<String>,
     pub model: Option<String>,
     pub enabled: bool,
+    pub max_tokens: Option<u32>,
 }
 
 /// AI 提供商枚举
@@ -66,6 +67,7 @@ pub async fn save_ai_config(
     base_url: Option<String>,
     model: Option<String>,
     enabled: bool,
+    max_tokens: Option<u32>,
 ) -> Result<(), String> {
     // 验证 provider
     let provider_enum = AiProvider::from_string(&provider)?;
@@ -77,6 +79,7 @@ pub async fn save_ai_config(
         "base_url": base_url,
         "model": model,
         "enabled": enabled,
+        "max_tokens": max_tokens,
     });
 
     // 保存到数据库
@@ -108,6 +111,7 @@ pub async fn save_ai_config(
             base_url: base_url.clone(),
             model: model.clone(),
             enabled: true,
+            max_tokens,
         };
 
         let service = AiService::new(ai_config);
@@ -152,6 +156,7 @@ pub fn get_ai_config(db: State<'_, DbConnection>) -> Result<Option<AiConfigRespo
             base_url: config["base_url"].as_str().map(|s| s.to_string()),
             model: config["model"].as_str().map(|s| s.to_string()),
             enabled: config["enabled"].as_bool().unwrap_or(false),
+            max_tokens: config["max_tokens"].as_u64().map(|n| n as u32),
         }))
     } else {
         Ok(None)

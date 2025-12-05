@@ -32,6 +32,7 @@ pub async fn vlm_save_config(
     max_image_size: Option<u32>,
     image_quality: Option<u32>,
     timeout: Option<u32>,
+    max_tokens: Option<u32>,
     vlm_state: State<'_, VlmState>,
 ) -> Result<(), String> {
     let db_path = get_db_path();
@@ -45,6 +46,7 @@ pub async fn vlm_save_config(
         max_image_size,
         image_quality,
         timeout,
+        max_tokens,
     };
 
     let service = VlmService::new(db_path.clone());

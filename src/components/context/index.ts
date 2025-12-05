@@ -4,4 +4,3 @@ export { default as ContextSettings } from './ContextSettings.vue';
 export { default as ContextBrowser } from './ContextBrowser.vue';
 export { default as ContextTimeline } from './ContextTimeline.vue';
 export { default as VlmSettings } from './VlmSettings.vue';
-export { default as PromptSettings } from './PromptSettings.vue';

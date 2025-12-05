@@ -115,7 +115,7 @@
         <div class="card-content">
           <n-timeline>
             <n-timeline-item
-              v-for="item in group.items"
+              v-for="item in getVisibleItems(group)"
               :key="item.id"
               :type="getTimelineItemType(item.activityType)"
               :title="formatTime(item.startTime)"
@@ -218,6 +218,20 @@
               </div>
             </n-timeline-item>
           </n-timeline>
+
+          <!-- 加载更多按钮 -->
+          <div v-if="hasMoreItems(group)" class="load-more-container">
+            <n-button
+              text
+              type="primary"
+              @click="expandGroup(group.date)"
+            >
+              <template #icon>
+                <n-icon :component="ChevronDownOutline" />
+              </template>
+              加载更多 (剩余 {{ getRemainingCount(group) }} 个活动)
+            </n-button>
+          </div>
         </div>
       </section>
     </div>
@@ -317,6 +331,8 @@ const loading = ref(true);
 const generatingReport = ref(false);
 const timelineGroups = ref<TimelineGroup[]>([]);
 const expandedItems = ref(new Set<string>());
+const expandedGroups = ref(new Set<string>()); // 追踪已展开的分组
+const INITIAL_ITEMS_PER_GROUP = 15; // 每组初始显示的项目数
 
 // 过滤器状态
 const selectedDateTimestamp = ref<number | null>(null);
@@ -375,6 +391,9 @@ async function loadTimeline() {
     };
 
     timelineGroups.value = await timelineApi.getTimeline(filter);
+    // 重置展开状态
+    expandedGroups.value.clear();
+    expandedItems.value.clear();
   } catch (error: any) {
     console.error('加载时间线失败:', error);
     message.error('加载时间线失败');
@@ -502,6 +521,29 @@ function getActivityIcon(type: string) {
 
 function getTimelineItemType(type: string): 'default' | 'success' | 'info' | 'warning' | 'error' {
   return getActivityTagType(type);
+}
+
+// 获取分组中可见的项目
+function getVisibleItems(group: TimelineGroup): TimelineItem[] {
+  if (expandedGroups.value.has(group.date)) {
+    return group.items; // 已展开，显示所有项目
+  }
+  return group.items.slice(0, INITIAL_ITEMS_PER_GROUP); // 只显示前N个
+}
+
+// 检查分组是否有更多项目
+function hasMoreItems(group: TimelineGroup): boolean {
+  return group.items.length > INITIAL_ITEMS_PER_GROUP && !expandedGroups.value.has(group.date);
+}
+
+// 展开分组显示所有项目
+function expandGroup(groupDate: string) {
+  expandedGroups.value.add(groupDate);
+}
+
+// 获取剩余项目数量
+function getRemainingCount(group: TimelineGroup): number {
+  return group.items.length - INITIAL_ITEMS_PER_GROUP;
 }
 </script>
 
@@ -647,6 +689,18 @@ function getTimelineItemType(type: string): 'default' | 'success' | 'info' | 'wa
   display: flex;
   gap: 8px;
   margin-top: 4px;
+}
+
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 8px;
+  margin-top: 8px;
+  border-top: 1px solid rgba(51, 65, 85, 0.3);
+}
+
+.load-more-container .n-button {
+  font-size: 13px;
 }
 
 .item-details {

@@ -202,3 +202,29 @@ pub fn get_runtime_log(lines: Option<usize>) -> Result<String, String> {
 
     Ok(log_lines[start..].join("\n"))
 }
+
+/// 设置日志级别
+#[tauri::command]
+pub fn set_log_level(level: String) -> Result<(), String> {
+    let log_level = match level.to_lowercase().as_str() {
+        "trace" => log::LevelFilter::Trace,
+        "debug" => log::LevelFilter::Debug,
+        "info" => log::LevelFilter::Info,
+        "warn" => log::LevelFilter::Warn,
+        "error" => log::LevelFilter::Error,
+        "off" => log::LevelFilter::Off,
+        _ => return Err(format!("无效的日志级别: {}", level)),
+    };
+
+    log::set_max_level(log_level);
+    crash_logger::log_runtime(&format!("日志级别已设置为: {}", level));
+    log::info!("日志级别已动态更改为: {}", level);
+
+    Ok(())
+}
+
+/// 获取当前日志级别
+#[tauri::command]
+pub fn get_log_level() -> String {
+    log::max_level().to_string().to_lowercase()
+}
