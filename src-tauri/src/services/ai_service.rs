@@ -125,6 +125,24 @@ pub struct WorkLogInput {
     pub completed_tasks: Vec<String>,
     pub executed_sqls: Vec<String>,
     pub git_commits: Vec<String>,
+    /// 可选的屏幕活动摘要（来自截图回顾）
+    pub activity_summary: Option<ActivitySummaryInput>,
+}
+
+/// 活动摘要输入（简化版，用于工作日志生成）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivitySummaryInput {
+    /// 活动时间范围 (如 "09:00 - 18:30")
+    pub time_range: String,
+    /// 总活动时长（分钟）
+    pub total_minutes: i32,
+    /// 主要应用使用（前5个）
+    pub top_apps: Vec<String>,
+    /// 活动类型分布描述
+    pub activity_distribution: String,
+    /// 关键活动描述
+    pub key_activities: Vec<String>,
 }
 
 /// 应用分类输入
@@ -624,13 +642,14 @@ impl AiService {
 
     /// 自动生成工作日志
     pub async fn generate_work_log(&self, input: WorkLogInput) -> Result<String> {
-        // 检查是否有任务
+        // 检查是否有内容
         let has_tasks = !input.completed_tasks.is_empty();
         let has_sqls = !input.executed_sqls.is_empty();
         let has_commits = !input.git_commits.is_empty();
+        let has_activity = input.activity_summary.is_some();
 
         // 如果没有任何内容，返回简单模板
-        if !has_tasks && !has_sqls && !has_commits {
+        if !has_tasks && !has_sqls && !has_commits && !has_activity {
             return Ok(format!("## {} 工作日志\n\n今日暂无记录的工作内容。", input.date));
         }
 
@@ -665,21 +684,48 @@ impl AiService {
             String::new()
         };
 
+        // 构建屏幕活动摘要
+        let activity_section = if let Some(activity) = &input.activity_summary {
+            let mut section = format!("\n\n屏幕活动记录：\n- 活动时间：{}", activity.time_range);
+            if activity.total_minutes > 0 {
+                let hours = activity.total_minutes / 60;
+                let mins = activity.total_minutes % 60;
+                section.push_str(&format!("（共 {}小时{}分钟）", hours, mins));
+            }
+            if !activity.top_apps.is_empty() {
+                section.push_str(&format!("\n- 主要使用应用：{}", activity.top_apps.join("、")));
+            }
+            if !activity.activity_distribution.is_empty() {
+                section.push_str(&format!("\n- 活动类型分布：{}", activity.activity_distribution));
+            }
+            if !activity.key_activities.is_empty() {
+                section.push_str("\n- 关键活动：");
+                for act in &activity.key_activities {
+                    section.push_str(&format!("\n  - {}", act));
+                }
+            }
+            section
+        } else {
+            String::new()
+        };
+
         let prompt = format!(
             "请将以下工作内容整理成专业的 Markdown 格式工作日志。\n\n\
             日期：{}\n\
-            {}{}{}\n\n\
+            {}{}{}{}\n\n\
             要求：\n\
             1. 直接输出 Markdown 格式，以 \"## {} 工作日志\" 开头\n\
-            2. 根据任务内容智能分组，使用 ### 作为分组标题（如：功能开发、Bug修复、代码优化等）\n\
+            2. 根据内容智能分组，使用 ### 作为分组标题（如：功能开发、Bug修复、代码优化、工作时间等）\n\
             3. 每个任务用 \"- \" 开头的列表项展示\n\
             4. 如果任务带有标签（括号内容），保留标签信息\n\
-            5. 语言简洁专业，不要添加额外的总结或评价\n\
-            6. 只输出日志内容，不要输出其他说明文字",
+            5. 如果有屏幕活动记录，在最后添加 \"### 工作时间\" 小节简要描述工作时间段和主要使用的工具\n\
+            6. 语言简洁专业，不要添加额外的总结或评价\n\
+            7. 只输出日志内容，不要输出其他说明文字",
             input.date,
             tasks_section,
             sqls_section,
             commits_section,
+            activity_section,
             input.date
         );
 

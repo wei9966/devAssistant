@@ -2,7 +2,9 @@ use crate::db::connection::DbConnection;
 use crate::services::ai_service::{
     AiConfig, AiLog, AiLogQuery, AiLogStats, AiProvider as ServiceAiProvider, AiService,
     AppClassifyInput, AppClassifyResult, TaskClassifyResult, TaskSummaryInput, WorkflowRecommendation,
+    ActivitySummaryInput,
 };
+use crate::services::work_log_service::WorkLogService;
 use std::sync::Mutex;
 use tauri::State;
 
@@ -215,6 +217,72 @@ pub async fn ai_generate_work_log(
 ) -> Result<String, String> {
     use crate::services::ai_service::WorkLogInput;
 
+    // 尝试获取屏幕活动摘要
+    let activity_summary = {
+        let conn = db.0.lock().map_err(|e| e.to_string())?;
+        match WorkLogService::get_day_context_summary(&conn, &date) {
+            Ok(summary) => {
+                // 检查是否有有效的活动数据
+                if summary.active_time_range.total_minutes > 0 {
+                    // 转换为 ActivitySummaryInput
+                    let time_range = format!(
+                        "{} - {}",
+                        summary.active_time_range.start,
+                        summary.active_time_range.end
+                    );
+
+                    // 获取前5个应用
+                    let top_apps: Vec<String> = summary.app_usage
+                        .iter()
+                        .take(5)
+                        .map(|app| app.app_name.clone())
+                        .collect();
+
+                    // 构建活动类型分布描述
+                    let dist = &summary.activity_distribution;
+                    let mut dist_parts = vec![];
+                    if dist.coding > 0 {
+                        dist_parts.push(format!("编程{}分钟", dist.coding));
+                    }
+                    if dist.browsing > 0 {
+                        dist_parts.push(format!("浏览{}分钟", dist.browsing));
+                    }
+                    if dist.document > 0 {
+                        dist_parts.push(format!("文档{}分钟", dist.document));
+                    }
+                    if dist.meeting > 0 {
+                        dist_parts.push(format!("会议{}分钟", dist.meeting));
+                    }
+                    if dist.communication > 0 {
+                        dist_parts.push(format!("沟通{}分钟", dist.communication));
+                    }
+                    if dist.other > 0 {
+                        dist_parts.push(format!("其他{}分钟", dist.other));
+                    }
+                    let activity_distribution = dist_parts.join("、");
+
+                    // 获取关键活动描述
+                    let key_activities: Vec<String> = summary.key_activities
+                        .iter()
+                        .take(5)
+                        .map(|act| format!("[{}] {} ({})", act.time, act.description, act.app_name))
+                        .collect();
+
+                    Some(ActivitySummaryInput {
+                        time_range,
+                        total_minutes: summary.active_time_range.total_minutes,
+                        top_apps,
+                        activity_distribution,
+                        key_activities,
+                    })
+                } else {
+                    None
+                }
+            }
+            Err(_) => None, // 如果获取失败，继续使用原有逻辑
+        }
+    };
+
     let (config, provider_str, model_str) = {
         let conn = db.0.lock().map_err(|e| e.to_string())?;
         let cfg = AiService::load_config(&conn).map_err(|e| e.to_string())?;
@@ -233,11 +301,13 @@ pub async fn ai_generate_work_log(
         completed_tasks: completed_tasks.clone(),
         executed_sqls: executed_sqls.clone(),
         git_commits: git_commits.clone(),
+        activity_summary: activity_summary.clone(),
     };
 
+    let has_activity = activity_summary.is_some();
     let prompt = format!(
-        "生成工作日志 - 日期: {}, 任务数: {}, SQL数: {}, 提交数: {}",
-        date, completed_tasks.len(), executed_sqls.len(), git_commits.len()
+        "生成工作日志 - 日期: {}, 任务数: {}, SQL数: {}, 提交数: {}, 含活动摘要: {}",
+        date, completed_tasks.len(), executed_sqls.len(), git_commits.len(), has_activity
     );
 
     let start = std::time::Instant::now();

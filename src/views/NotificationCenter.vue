@@ -22,20 +22,6 @@
         </n-button>
         <n-button
           size="small"
-          @click="handleGenerateDailyReport"
-          :loading="generatingDaily"
-        >
-          手动生成日报
-        </n-button>
-        <n-button
-          size="small"
-          @click="handleGenerateWeeklyReport"
-          :loading="generatingWeekly"
-        >
-          手动生成周报
-        </n-button>
-        <n-button
-          size="small"
           type="primary"
           @click="showSettings = true"
         >
@@ -137,8 +123,6 @@ const message = useMessage()
 const dialog = useDialog()
 
 const loading = ref(false)
-const generatingDaily = ref(false)
-const generatingWeekly = ref(false)
 const showSettings = ref(false)
 const showDetail = ref(false)
 const currentNotification = ref<Notification | null>(null)
@@ -251,34 +235,6 @@ function handleClearAll() {
       }
     }
   })
-}
-
-async function handleGenerateDailyReport() {
-  generatingDaily.value = true
-  try {
-    await notificationApi.generateDailyReport()
-    message.success('日报生成成功')
-    await loadNotifications()
-  } catch (error) {
-    console.error('生成日报失败:', error)
-    message.error('生成日报失败')
-  } finally {
-    generatingDaily.value = false
-  }
-}
-
-async function handleGenerateWeeklyReport() {
-  generatingWeekly.value = true
-  try {
-    await notificationApi.generateWeeklyReport()
-    message.success('周报生成成功')
-    await loadNotifications()
-  } catch (error) {
-    console.error('生成周报失败:', error)
-    message.error('生成周报失败')
-  } finally {
-    generatingWeekly.value = false
-  }
 }
 
 function handleViewDetail(notification: Notification) {

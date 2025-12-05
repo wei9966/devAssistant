@@ -207,7 +207,7 @@ impl WorkLogService {
             (String::new(), String::new(), 0)
         };
 
-        // 统计应用使用情况
+        // 统计应用使用情况（按次数统计）
         let mut app_counts: HashMap<String, i32> = HashMap::new();
         for context in &contexts {
             if let Some(app_name) = &context.app_name {
@@ -215,32 +215,43 @@ impl WorkLogService {
             }
         }
 
+        // 根据比例分配总时长到各应用
         let total_count = contexts.len() as f32;
         let mut app_usage: Vec<AppUsage> = app_counts
             .into_iter()
-            .map(|(app_name, count)| AppUsage {
-                app_name,
-                minutes: count * 10, // 假设每次采集间隔10分钟
-                percentage: (count as f32 / total_count * 100.0),
+            .map(|(app_name, count)| {
+                // 按比例计算该应用的使用时长
+                let minutes = ((count as f32 / total_count) * total_minutes as f32).round() as i32;
+                AppUsage {
+                    app_name,
+                    minutes,
+                    percentage: (count as f32 / total_count * 100.0),
+                }
             })
             .collect();
         app_usage.sort_by(|a, b| b.minutes.cmp(&a.minutes));
 
-        // 统计活动类型分布
-        let mut activity_counts = HashMap::new();
+        // 统计活动类型分布（按次数统计）
+        let mut activity_type_counts: HashMap<String, i32> = HashMap::new();
         for context in &contexts {
-            *activity_counts
+            *activity_type_counts
                 .entry(context.activity_type.clone())
-                .or_insert(0) += 10; // 每次10分钟
+                .or_insert(0) += 1;
         }
 
+        // 根据比例分配总时长到各活动类型
+        let get_activity_minutes = |activity_type: &str| -> i32 {
+            let count = *activity_type_counts.get(activity_type).unwrap_or(&0);
+            ((count as f32 / total_count) * total_minutes as f32).round() as i32
+        };
+
         let activity_distribution = ActivityDistribution {
-            coding: *activity_counts.get("coding").unwrap_or(&0),
-            browsing: *activity_counts.get("browsing").unwrap_or(&0),
-            document: *activity_counts.get("document").unwrap_or(&0),
-            meeting: *activity_counts.get("meeting").unwrap_or(&0),
-            communication: *activity_counts.get("communication").unwrap_or(&0),
-            other: *activity_counts.get("other").unwrap_or(&0),
+            coding: get_activity_minutes("coding"),
+            browsing: get_activity_minutes("browsing"),
+            document: get_activity_minutes("document"),
+            meeting: get_activity_minutes("meeting"),
+            communication: get_activity_minutes("communication"),
+            other: get_activity_minutes("other"),
         };
 
         // 提取关键活动（取前10个最重要的）
@@ -281,13 +292,33 @@ impl WorkLogService {
         let start = chrono::NaiveDate::parse_from_str(start_date, "%Y-%m-%d")?;
         let end = chrono::NaiveDate::parse_from_str(end_date, "%Y-%m-%d")?;
 
-        // 收集每日活动时长
+        // 收集每日活动时长（基于实际时间范围计算）
         let mut daily_active_hours = vec![];
         let mut current_date = start;
         while current_date <= end {
             let date_str = current_date.format("%Y-%m-%d").to_string();
             let contexts = ContextStoreService::list_by_date(conn, &date_str)?;
-            let hours = (contexts.len() as f32 * 10.0) / 60.0; // 10分钟每次采集
+
+            // 根据实际时间戳计算活动时长
+            let hours = if contexts.len() > 1 {
+                let timestamps: Vec<_> = contexts
+                    .iter()
+                    .filter_map(|c| {
+                        NaiveDateTime::parse_from_str(&c.captured_at, "%Y-%m-%d %H:%M:%S").ok()
+                    })
+                    .collect();
+                if let (Some(min_time), Some(max_time)) = (timestamps.iter().min(), timestamps.iter().max()) {
+                    let duration = max_time.signed_duration_since(*min_time);
+                    duration.num_minutes() as f32 / 60.0
+                } else {
+                    0.0
+                }
+            } else if contexts.len() == 1 {
+                1.0 / 60.0 // 单次采集按1分钟计
+            } else {
+                0.0
+            };
+
             daily_active_hours.push(DailyActiveHours {
                 date: date_str,
                 hours,
@@ -305,40 +336,50 @@ impl WorkLogService {
             current_date = current_date.succ_opt().unwrap();
         }
 
-        // 统计应用使用排行
-        let mut app_minutes: HashMap<String, i32> = HashMap::new();
+        // 计算周总活动时长（基于每日时长汇总）
+        let week_total_minutes: f32 = daily_active_hours.iter().map(|d| d.hours * 60.0).sum();
+        let week_total_count = all_contexts.len() as f32;
+
+        // 统计应用使用排行（按次数统计，然后按比例分配时长）
+        let mut app_counts: HashMap<String, i32> = HashMap::new();
         for context in &all_contexts {
             if let Some(app_name) = &context.app_name {
-                *app_minutes.entry(app_name.clone()).or_insert(0) += 10;
+                *app_counts.entry(app_name.clone()).or_insert(0) += 1;
             }
         }
 
-        let mut weekly_app_ranking: Vec<WeeklyAppRanking> = app_minutes
+        let mut weekly_app_ranking: Vec<WeeklyAppRanking> = app_counts
             .into_iter()
-            .map(|(app_name, total_minutes)| WeeklyAppRanking {
-                app_name,
-                total_minutes,
-                trend: "stable".to_string(), // 简化处理，默认为stable
+            .map(|(app_name, count)| {
+                let total_minutes = ((count as f32 / week_total_count) * week_total_minutes).round() as i32;
+                WeeklyAppRanking {
+                    app_name,
+                    total_minutes,
+                    trend: "stable".to_string(), // 简化处理，默认为stable
+                }
             })
             .collect();
         weekly_app_ranking.sort_by(|a, b| b.total_minutes.cmp(&a.total_minutes));
         weekly_app_ranking.truncate(10); // 只保留前10名
 
-        // 统计活动类型
-        let mut activity_minutes: HashMap<String, i32> = HashMap::new();
+        // 统计活动类型（按次数统计，然后按比例分配时长）
+        let mut activity_type_counts: HashMap<String, i32> = HashMap::new();
         for context in &all_contexts {
-            *activity_minutes
+            *activity_type_counts
                 .entry(context.activity_type.clone())
-                .or_insert(0) += 10;
+                .or_insert(0) += 1;
         }
 
         let working_days = (end - start).num_days() + 1;
-        let weekly_activity_summary: Vec<WeeklyActivitySummary> = activity_minutes
+        let weekly_activity_summary: Vec<WeeklyActivitySummary> = activity_type_counts
             .into_iter()
-            .map(|(activity_type, total_minutes)| WeeklyActivitySummary {
-                r#type: activity_type,
-                total_minutes,
-                daily_average: total_minutes as f32 / working_days as f32,
+            .map(|(activity_type, count)| {
+                let total_minutes = ((count as f32 / week_total_count) * week_total_minutes).round() as i32;
+                WeeklyActivitySummary {
+                    r#type: activity_type,
+                    total_minutes,
+                    daily_average: total_minutes as f32 / working_days as f32,
+                }
             })
             .collect();
 
