@@ -409,6 +409,9 @@ impl VlmService {
 
     /// Parse screenshot analysis response
     fn parse_screenshot_response(&self, response_text: &str) -> Result<ScreenshotAnalysisResponse> {
+        // 记录 VLM 返回的原始文本内容
+        log::debug!("VLM 返回的原始文本: {}", response_text);
+
         // Try to find JSON block in the response
         let json_text = if let Some(start) = response_text.find('{') {
             if let Some(end) = response_text.rfind('}') {
@@ -420,7 +423,10 @@ impl VlmService {
             response_text
         };
 
+        log::debug!("提取的 JSON 文本: {}", json_text);
+
         serde_json::from_str::<ScreenshotAnalysisResponse>(json_text).map_err(|e| {
+            log::error!("JSON 解析失败: {}，原始文本: {}", e, response_text);
             anyhow!(
                 "Failed to parse VLM response as JSON: {}. Response: {}",
                 e,
@@ -525,9 +531,15 @@ impl VlmService {
 
         let response_json: serde_json::Value = response.json().await?;
 
+        // 记录原始响应用于调试
+        log::debug!("VLM API 原始响应: {}", serde_json::to_string_pretty(&response_json).unwrap_or_default());
+
         let content = response_json["choices"][0]["message"]["content"]
             .as_str()
-            .ok_or_else(|| anyhow!("Unable to parse response content"))?;
+            .ok_or_else(|| {
+                log::error!("VLM 响应解析失败，原始响应: {}", serde_json::to_string(&response_json).unwrap_or_default());
+                anyhow!("Unable to parse response content")
+            })?;
 
         Ok(content.to_string())
     }
@@ -586,9 +598,15 @@ impl VlmService {
 
         let response_json: serde_json::Value = response.json().await?;
 
+        // 记录原始响应用于调试
+        log::debug!("Claude API 原始响应: {}", serde_json::to_string_pretty(&response_json).unwrap_or_default());
+
         let content = response_json["content"][0]["text"]
             .as_str()
-            .ok_or_else(|| anyhow!("Unable to parse response content"))?;
+            .ok_or_else(|| {
+                log::error!("Claude 响应解析失败，原始响应: {}", serde_json::to_string(&response_json).unwrap_or_default());
+                anyhow!("Unable to parse response content")
+            })?;
 
         Ok(content.to_string())
     }
@@ -649,9 +667,15 @@ impl VlmService {
 
         let response_json: serde_json::Value = response.json().await?;
 
+        // 记录原始响应用于调试
+        log::debug!("Claude Messages API 原始响应: {}", serde_json::to_string_pretty(&response_json).unwrap_or_default());
+
         let content = response_json["content"][0]["text"]
             .as_str()
-            .ok_or_else(|| anyhow!("Unable to parse response content"))?;
+            .ok_or_else(|| {
+                log::error!("Claude Messages 响应解析失败，原始响应: {}", serde_json::to_string(&response_json).unwrap_or_default());
+                anyhow!("Unable to parse response content")
+            })?;
 
         Ok(content.to_string())
     }
@@ -712,9 +736,15 @@ impl VlmService {
 
         let response_json: serde_json::Value = response.json().await?;
 
+        // 记录原始响应用于调试
+        log::debug!("OpenAI Messages API 原始响应: {}", serde_json::to_string_pretty(&response_json).unwrap_or_default());
+
         let content = response_json["choices"][0]["message"]["content"]
             .as_str()
-            .ok_or_else(|| anyhow!("Unable to parse response content"))?;
+            .ok_or_else(|| {
+                log::error!("OpenAI Messages 响应解析失败，原始响应: {}", serde_json::to_string(&response_json).unwrap_or_default());
+                anyhow!("Unable to parse response content")
+            })?;
 
         Ok(content.to_string())
     }
