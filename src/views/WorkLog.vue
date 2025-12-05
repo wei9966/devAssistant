@@ -685,7 +685,20 @@ import {
   useDialog
 } from 'naive-ui';
 import dayjs from 'dayjs';
+import isoWeek from 'dayjs/plugin/isoWeek';
+import 'dayjs/locale/zh-cn';
 import { marked } from 'marked';
+
+dayjs.extend(isoWeek);
+dayjs.locale('zh-cn'); // 设置为中文（周一为一周的开始）
+
+// 生成 ISO 周格式的 key，如 2025-W49
+function getIsoWeekKey(timestamp: number): string {
+  const d = dayjs(timestamp);
+  const year = d.isoWeekYear();
+  const week = d.isoWeek();
+  return `${year}-W${week.toString().padStart(2, '0')}`;
+}
 import { useWorkLogStore } from '@/stores/workLogStore';
 import { useWeeklyPlanStore } from '@/stores/weeklyPlanStore';
 import { useTaskStore } from '@/stores/taskStore';
@@ -788,10 +801,10 @@ const renderedPlanContent = computed(() => {
   }
 });
 
-// 获取周计划周的 key（格式：2025-W48）
+// 获取周计划周的 key（格式：2025-W48，使用 ISO 周格式）
 const planWeekKey = computed(() => {
   if (!planWeekRange.value || planWeekRange.value[0] === 0) return '';
-  return dayjs(planWeekRange.value[0]).format('YYYY-[W]WW');
+  return getIsoWeekKey(planWeekRange.value[0]);
 });
 
 // 按类型过滤日志
@@ -804,8 +817,8 @@ const dailyLogs = computed(() => {
 
 const weeklyLogs = computed(() => {
   return workLogStore.recentLogs.filter(log => {
-    // 周报日期格式: YYYY-WW
-    return /^\d{4}-\d{2}$/.test(log.date) || /^\d{4}-W\d{2}$/.test(log.date);
+    // 周报日期格式: GGGG-WWW (如 2025-W49) 或兼容旧格式 YYYY-XX
+    return /^\d{4}-W\d{2}$/.test(log.date) || /^\d{4}-\d{2}$/.test(log.date);
   });
 });
 
@@ -942,7 +955,7 @@ async function loadWeeklyTasks() {
     });
 
     // 加载当前周的计划（用于周报对比）
-    const weekKey = dayjs(weekRange.value[0]).format('YYYY-[W]WW');
+    const weekKey = getIsoWeekKey(weekRange.value[0]);
     await weeklyPlanStore.loadWeeklyPlan(weekKey);
     weeklyPlanForReport.value = weeklyPlanStore.currentPlan;
   } catch (error) {
@@ -959,7 +972,7 @@ async function handleWeekChange(value: string) {
   await loadWeeklyTasks();
 
   // 尝试加载已保存的周报
-  const weekKey = dayjs(weekRange.value[0]).format('YYYY-WW');
+  const weekKey = getIsoWeekKey(weekRange.value[0]);
   await workLogStore.loadWorkLog(weekKey);
   currentLog.value = workLogStore.currentLog?.content || '';
 }
@@ -1023,7 +1036,7 @@ async function handlePlanWeekChange(value: string) {
   await loadPlanTasks();
 
   // 尝试加载已保存的周计划
-  const weekKey = dayjs(planWeekRange.value[0]).format('YYYY-[W]WW');
+  const weekKey = getIsoWeekKey(planWeekRange.value[0]);
   await weeklyPlanStore.loadWeeklyPlan(weekKey);
   currentPlanContent.value = weeklyPlanStore.currentPlan?.content || '';
 }
@@ -1167,14 +1180,14 @@ watch(logMode, async (newMode) => {
     // 切换到周报模式，加载周任务
     await loadWeeklyTasks();
     // 尝试加载已保存的周报
-    const weekKey = dayjs(weekRange.value[0]).format('YYYY-WW');
+    const weekKey = getIsoWeekKey(weekRange.value[0]);
     await workLogStore.loadWorkLog(weekKey);
     currentLog.value = workLogStore.currentLog?.content || '';
   } else if (newMode === 'plan') {
     // 切换到周计划模式，加载下周任务
     await loadPlanTasks();
     // 尝试加载已保存的周计划
-    const weekKey = dayjs(planWeekRange.value[0]).format('YYYY-[W]WW');
+    const weekKey = getIsoWeekKey(planWeekRange.value[0]);
     await weeklyPlanStore.loadWeeklyPlan(weekKey);
     currentPlanContent.value = weeklyPlanStore.currentPlan?.content || '';
   } else {
@@ -1258,8 +1271,8 @@ async function handleSave() {
       dateStr = dayjs(selectedDate.value).format('YYYY-MM-DD');
       logType = 'daily';
     } else {
-      // 周报使用周的起始日期作为key
-      dateStr = dayjs(weekRange.value[0]).format('YYYY-WW');
+      // 周报使用周的起始日期作为key，格式：2025-W49（ISO周格式）
+      dateStr = getIsoWeekKey(weekRange.value[0]);
       logType = 'weekly';
     }
 
@@ -1427,7 +1440,7 @@ function selectDailyLog(log: WorkLog) {
 
 // 选择周报记录
 function selectWeeklyLog(log: WorkLog) {
-  // 周报日期格式: YYYY-WW，无法直接转换为日期
+  // 周报日期格式: GGGG-WWW（如 2025-W49），无法直接转换为日期
   // 只更新内容，不更新日期选择器
   currentLog.value = log.content;
 
@@ -1453,15 +1466,15 @@ function isSelectedDate(date: string) {
 
 // 检查是否为当前选中的周
 function isSelectedWeek(date: string) {
-  const currentWeekKey = dayjs(weekRange.value[0]).format('YYYY-WW');
-  // 处理两种格式: YYYY-WW 或 YYYY-XX
+  const currentWeekKey = getIsoWeekKey(weekRange.value[0]);
+  // 处理两种格式: 2025-W49 或 2025-49（兼容旧格式）
   const normalizedDate = date.includes('W') ? date : date.replace(/^(\d{4})-(\d{2})$/, '$1-W$2');
   return normalizedDate === currentWeekKey || date === currentWeekKey.replace('W', '');
 }
 
 // 格式化周报日期显示
 function formatWeekDate(date: string) {
-  // 周报日期格式: YYYY-WW 或 YYYY-XX
+  // 周报日期格式: GGGG-WWW (如 2025-W49) 或兼容旧格式 YYYY-XX
   const match = date.match(/^(\d{4})-W?(\d{2})$/);
   if (match) {
     return `${match[1]}年 第${match[2]}周`;
