@@ -32,6 +32,7 @@ pub fn configure_sql_ai(
     let provider = match provider.to_lowercase().as_str() {
         "deepseek" => AiProvider::DeepSeek,
         "qwen" => AiProvider::Qwen,
+        "custom" => AiProvider::Custom,
         _ => return Err(format!("不支持的 AI 提供商: {}", provider)),
     };
 
@@ -76,6 +77,7 @@ pub async fn test_sql_ai_connection(ai_state: State<'_, SqlAiState>) -> Result<b
             provider: match service.config.provider {
                 AiProvider::DeepSeek => AiProvider::DeepSeek,
                 AiProvider::Qwen => AiProvider::Qwen,
+                AiProvider::Custom => AiProvider::Custom,
             },
             api_key: service.config.api_key.clone(),
             base_url: service.config.base_url.clone(),
@@ -115,6 +117,7 @@ pub async fn ai_classify_sqls(
             provider: match ai_config.provider {
                 crate::services::ai_service::AiProvider::DeepSeek => AiProvider::DeepSeek,
                 crate::services::ai_service::AiProvider::Qwen => AiProvider::Qwen,
+                crate::services::ai_service::AiProvider::Custom => AiProvider::Custom,
             },
             api_key: ai_config.api_key,
             base_url: ai_config.base_url,

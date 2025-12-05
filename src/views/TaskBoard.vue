@@ -309,6 +309,18 @@
               />
             </n-form-item>
           </div>
+
+          <!-- 计划开始时间（精确到秒，用于提醒） -->
+          <n-form-item label="计划开始时间" path="scheduledStartTime">
+            <n-date-picker
+              v-model:value="formData.scheduledStartTime"
+              type="datetime"
+              clearable
+              placeholder="选择计划开始时间，到时间会提醒您"
+              style="width: 100%;"
+              format="yyyy-MM-dd HH:mm:ss"
+            />
+          </n-form-item>
         </n-form>
       </div>
       <template #footer>
@@ -475,6 +487,7 @@ const formData = reactive({
   tagIds: [] as number[],
   dueDate: null as number | null,        // 截止日期
   registeredAt: Date.now() as number,    // 登记日期，默认为今天
+  scheduledStartTime: null as number | null, // 计划开始时间（精确到秒，用于提醒）
 });
 
 const formRules = {
@@ -684,6 +697,7 @@ async function handleCreate() {
     // 格式化日期
     const dueDateStr = formData.dueDate ? dayjs(formData.dueDate).format('YYYY-MM-DD') : undefined;
     const registeredAtStr = formData.registeredAt ? dayjs(formData.registeredAt).format('YYYY-MM-DD') : undefined;
+    const scheduledStartTimeStr = formData.scheduledStartTime ? dayjs(formData.scheduledStartTime).format('YYYY-MM-DD HH:mm:ss') : undefined;
 
     // 创建任务
     const taskId = await taskStore.createTask(
@@ -693,7 +707,8 @@ async function handleCreate() {
       finalPriority,
       finalQuadrant,
       dueDateStr,
-      registeredAtStr
+      registeredAtStr,
+      scheduledStartTimeStr
     );
 
     // 合并用户选择的标签和 AI 推荐的标签（去重）
@@ -752,6 +767,7 @@ async function handleEdit(task: Task) {
   formData.tagIds = task.tags?.map(t => t.id!).filter(id => id !== undefined) || [];
   formData.dueDate = task.dueDate ? new Date(task.dueDate).getTime() : null;
   formData.registeredAt = task.registeredAt ? new Date(task.registeredAt).getTime() : Date.now();
+  formData.scheduledStartTime = task.scheduledStartTime ? new Date(task.scheduledStartTime).getTime() : null;
   showCreateModal.value = true;
 }
 
@@ -776,6 +792,7 @@ async function handleUpdate() {
     // 格式化日期
     const dueDateStr = formData.dueDate ? dayjs(formData.dueDate).format('YYYY-MM-DD') : undefined;
     const registeredAtStr = formData.registeredAt ? dayjs(formData.registeredAt).format('YYYY-MM-DD') : undefined;
+    const scheduledStartTimeStr = formData.scheduledStartTime ? dayjs(formData.scheduledStartTime).format('YYYY-MM-DD HH:mm:ss') : undefined;
 
     // 更新任务基本信息
     await taskStore.updateTask(editingTaskId.value!, {
@@ -786,6 +803,7 @@ async function handleUpdate() {
       quadrant: formData.quadrant,
       dueDate: dueDateStr,
       registeredAt: registeredAtStr,
+      scheduledStartTime: scheduledStartTimeStr,
     });
 
     // 处理标签更新:先移除所有标签,再添加选中的标签
@@ -822,6 +840,7 @@ function handleCancelEdit() {
   formData.tagIds = [];
   formData.dueDate = null;
   formData.registeredAt = Date.now();
+  formData.scheduledStartTime = null;
 
   // 清理防抖定时器
   if (aiEnhanceDebounceTimer) {

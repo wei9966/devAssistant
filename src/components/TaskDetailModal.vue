@@ -131,6 +131,14 @@
               <span class="timeline-relative">{{ formatRelativeTime(task.createdAt) }}</span>
             </div>
           </div>
+          <div v-if="task.scheduledStartTime" class="timeline-item">
+            <div class="timeline-dot scheduled"></div>
+            <div class="timeline-content">
+              <span class="timeline-label">计划开始</span>
+              <span class="timeline-value">{{ formatDateTime(task.scheduledStartTime) }}</span>
+              <span class="timeline-relative">{{ formatRelativeTime(task.scheduledStartTime) }}</span>
+            </div>
+          </div>
           <div v-if="task.startedAt" class="timeline-item">
             <div class="timeline-dot active"></div>
             <div class="timeline-content">
@@ -867,6 +875,11 @@ const getPriorityBadgeType = (priority: number) => {
 .timeline-dot.completed {
   background: #10b981;
   box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+}
+
+.timeline-dot.scheduled {
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
 }
 
 .timeline-content {

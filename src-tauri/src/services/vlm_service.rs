@@ -81,43 +81,66 @@ impl Default for VlmConfig {
 }
 
 impl VlmConfig {
-    /// Get API base URL
-    pub fn get_base_url(&self) -> &str {
-        if let Some(url) = &self.base_url {
-            url.as_str()
-        } else {
-            match self.provider.as_str() {
-                "qwen-vl" => "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                "deepseek-vl" => "https://api.deepseek.com/v1",
-                "openai" => "https://api.openai.com/v1",
-                "doubao" => "https://ark.cn-beijing.volces.com/api/v3",
-                "kimi" => "https://api.moonshot.cn/v1",
-                "claude" => "https://api.anthropic.com/v1",
-                _ => "",
+    /// Get API base URL (removes trailing slashes)
+    pub fn get_base_url(&self) -> String {
+        let url = if let Some(url) = &self.base_url {
+            if !url.is_empty() {
+                url.clone()
+            } else {
+                self.get_default_base_url().to_string()
             }
+        } else {
+            self.get_default_base_url().to_string()
+        };
+        // 移除末尾的斜杠，避免 URL 拼接时出现双斜杠
+        url.trim_end_matches('/').to_string()
+    }
+
+    /// Get default base URL for provider
+    fn get_default_base_url(&self) -> &str {
+        match self.provider.as_str() {
+            "qwen-vl" => "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "deepseek-vl" => "https://api.deepseek.com/v1",
+            "openai" => "https://api.openai.com/v1",
+            "doubao" => "https://ark.cn-beijing.volces.com/api/v3",
+            "kimi" => "https://api.moonshot.cn/v1",
+            "claude" => "https://api.anthropic.com/v1",
+            "custom" => "", // 自定义提供商必须设置 base_url
+            _ => "",
         }
     }
 
     /// Get model name
     pub fn get_model(&self) -> &str {
         if let Some(model) = &self.model {
-            model.as_str()
-        } else {
-            match self.provider.as_str() {
-                "qwen-vl" => "qwen-vl-plus",
-                "deepseek-vl" => "deepseek-vl",
-                "openai" => "gpt-4-vision-preview",
-                "doubao" => "doubao-vision-pro-32k",
-                "kimi" => "moonshot-v1-8k-vision-preview",
-                "claude" => "claude-3-sonnet-20240229",
-                _ => "",
+            if !model.is_empty() {
+                return model.as_str();
             }
+        }
+        match self.provider.as_str() {
+            "qwen-vl" => "qwen-vl-plus",
+            "deepseek-vl" => "deepseek-vl",
+            "openai" => "gpt-4-vision-preview",
+            "doubao" => "doubao-vision-pro-32k",
+            "kimi" => "moonshot-v1-8k-vision-preview",
+            "claude" => "claude-3-sonnet-20240229",
+            "custom" => "", // 自定义提供商必须设置 model
+            _ => "",
         }
     }
 
     /// Validate configuration
     pub fn is_valid(&self) -> bool {
-        !self.api_key.is_empty() && self.enabled
+        if self.api_key.is_empty() || !self.enabled {
+            return false;
+        }
+        // 自定义提供商必须配置 base_url 和 model
+        if self.provider == "custom" {
+            let has_base_url = self.base_url.as_ref().map_or(false, |u| !u.is_empty());
+            let has_model = self.model.as_ref().map_or(false, |m| !m.is_empty());
+            return has_base_url && has_model;
+        }
+        true
     }
 
     /// Get timeout duration

@@ -52,12 +52,13 @@ export const useTaskStore = defineStore('task', () => {
     priority: number = 2,
     quadrant?: string,
     dueDate?: string,
-    registeredAt?: string
+    registeredAt?: string,
+    scheduledStartTime?: string
   ) {
     loading.value = true;
     error.value = null;
     try {
-      const taskId = await taskApi.createTask(title, description, category, priority, quadrant, dueDate, registeredAt);
+      const taskId = await taskApi.createTask(title, description, category, priority, quadrant, dueDate, registeredAt, scheduledStartTime);
       await loadTasks();
       return taskId;
     } catch (e) {
@@ -122,6 +123,7 @@ export const useTaskStore = defineStore('task', () => {
       quadrant?: string;
       dueDate?: string;
       registeredAt?: string;
+      scheduledStartTime?: string;
     }
   ) {
     try {

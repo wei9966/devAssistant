@@ -10,6 +10,7 @@ use std::time::Instant;
 pub enum AiProvider {
     DeepSeek,
     Qwen,
+    Custom,
 }
 
 impl Default for AiProvider {
@@ -23,6 +24,7 @@ impl std::fmt::Display for AiProvider {
         match self {
             AiProvider::DeepSeek => write!(f, "deepseek"),
             AiProvider::Qwen => write!(f, "qwen"),
+            AiProvider::Custom => write!(f, "custom"),
         }
     }
 }
@@ -34,6 +36,7 @@ impl std::str::FromStr for AiProvider {
         match s.to_lowercase().as_str() {
             "deepseek" => Ok(AiProvider::DeepSeek),
             "qwen" => Ok(AiProvider::Qwen),
+            "custom" => Ok(AiProvider::Custom),
             _ => Err(anyhow!("未知的 AI 提供商: {}", s)),
         }
     }
@@ -66,30 +69,43 @@ impl AiConfig {
     /// 获取 API 基础 URL
     pub fn get_base_url(&self) -> &str {
         if let Some(url) = &self.base_url {
-            url.as_str()
-        } else {
-            match self.provider {
-                AiProvider::DeepSeek => "https://api.deepseek.com",
-                AiProvider::Qwen => "https://dashscope.aliyuncs.com/compatible-mode",
+            if !url.is_empty() {
+                return url.as_str();
             }
+        }
+        match self.provider {
+            AiProvider::DeepSeek => "https://api.deepseek.com",
+            AiProvider::Qwen => "https://dashscope.aliyuncs.com/compatible-mode",
+            AiProvider::Custom => "", // 自定义提供商必须设置 base_url
         }
     }
 
     /// 获取模型名称
     pub fn get_model(&self) -> &str {
         if let Some(model) = &self.model {
-            model.as_str()
-        } else {
-            match self.provider {
-                AiProvider::DeepSeek => "deepseek-chat",
-                AiProvider::Qwen => "qwen-turbo",
+            if !model.is_empty() {
+                return model.as_str();
             }
+        }
+        match self.provider {
+            AiProvider::DeepSeek => "deepseek-chat",
+            AiProvider::Qwen => "qwen-turbo",
+            AiProvider::Custom => "", // 自定义提供商必须设置 model
         }
     }
 
     /// 验证配置是否有效
     pub fn is_valid(&self) -> bool {
-        !self.api_key.is_empty() && self.enabled
+        if self.api_key.is_empty() || !self.enabled {
+            return false;
+        }
+        // 自定义提供商必须配置 base_url 和 model
+        if self.provider == AiProvider::Custom {
+            let has_base_url = self.base_url.as_ref().map_or(false, |u| !u.is_empty());
+            let has_model = self.model.as_ref().map_or(false, |m| !m.is_empty());
+            return has_base_url && has_model;
+        }
+        true
     }
 }
 
@@ -1023,6 +1039,7 @@ mod tests {
     fn test_ai_provider_to_string() {
         assert_eq!(AiProvider::DeepSeek.to_string(), "deepseek");
         assert_eq!(AiProvider::Qwen.to_string(), "qwen");
+        assert_eq!(AiProvider::Custom.to_string(), "custom");
     }
 
     #[test]
@@ -1032,6 +1049,7 @@ mod tests {
             AiProvider::DeepSeek
         );
         assert_eq!("qwen".parse::<AiProvider>().unwrap(), AiProvider::Qwen);
+        assert_eq!("custom".parse::<AiProvider>().unwrap(), AiProvider::Custom);
         assert_eq!(
             "DEEPSEEK".parse::<AiProvider>().unwrap(),
             AiProvider::DeepSeek

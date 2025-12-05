@@ -16,10 +16,13 @@ use commands::sql_ai_commands::SqlAiState;
 use commands::vlm_commands::VlmState;
 use db::connection::{init_database, DbConnection};
 use services::clipboard_history_service::ClipboardHistoryService;
-use services::scheduler_service::{SchedulerConfig, SchedulerService};
+use services::scheduler_service::SchedulerService;
 use services::activity_summary_service::ActivitySummaryService;
 use services::vlm_service::VlmService;
 use services::prompt_manager_service::PromptManager;
+use services::notification_service::NotificationService;
+use services::tips_service::TipsService;
+use services::ai_service::AiService;
 use chrono::{Duration, Local};
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
@@ -198,6 +201,61 @@ fn main() {
     let scheduler_clone = scheduler_service.clone();
     let db_path_for_scheduler = db_path_str.clone();
 
+    // 启动任务提醒定时检查（每分钟检查一次）
+    let db_path_for_task_reminder = db_path_str.clone();
+    tauri::async_runtime::spawn(async move {
+        use tokio::time::{interval, Duration as TokioDuration};
+        let mut ticker = interval(TokioDuration::from_secs(60)); // 每分钟检查一次
+
+        loop {
+            ticker.tick().await;
+
+            // 检查即将开始的任务（5分钟内）
+            if let Ok(conn) = rusqlite::Connection::open(&db_path_for_task_reminder) {
+                match services::task_service::TaskService::get_upcoming_tasks(&conn, 5) {
+                    Ok(tasks) => {
+                        for task in tasks {
+                            if let Some(task_id) = task.id {
+                                // 检查是否已经为该任务创建过提醒（通过标题唯一性）
+                                let reminder_title = format!("任务即将开始: {}", task.title);
+                                let exists: i64 = conn.query_row(
+                                    "SELECT COUNT(*) FROM notifications WHERE title = ? AND notification_type = 'task_reminder' AND created_at > datetime('now', 'localtime', '-1 hour')",
+                                    rusqlite::params![&reminder_title],
+                                    |row| row.get(0)
+                                ).unwrap_or(0);
+
+                                if exists > 0 {
+                                    // 已经提醒过，跳过
+                                    continue;
+                                }
+
+                                let content = if let Some(scheduled_time) = &task.scheduled_start_time {
+                                    format!("计划开始时间: {}\n{}", scheduled_time, task.description.unwrap_or_default())
+                                } else {
+                                    task.description.unwrap_or_else(|| "请准备开始此任务".to_string())
+                                };
+
+                                if let Err(e) = NotificationService::create(
+                                    &conn,
+                                    "task_reminder",
+                                    &reminder_title,
+                                    &content
+                                ) {
+                                    log::error!("创建任务提醒通知失败: {}", e);
+                                } else {
+                                    log::info!("任务提醒通知已创建: {}", task.title);
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("获取即将开始的任务失败: {}", e);
+                    }
+                }
+            }
+        }
+    });
+
     // 启动定时任务（使用 Tauri 的异步运行时）
     tauri::async_runtime::spawn(async move {
         // Activity 总结回调
@@ -219,6 +277,21 @@ fn main() {
                     match summary_service.generate_summary(start_time, end_time, &vlm_service).await {
                         Ok(summary) => {
                             log::info!("Activity 总结已生成: {}", summary.summary_text);
+
+                            // 创建通知推送到通知中心
+                            if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+                                let title = format!("{} - {} 活动总结", summary.start_time, summary.end_time);
+                                if let Err(e) = NotificationService::create(
+                                    &conn,
+                                    "activity_summary",
+                                    &title,
+                                    &summary.summary_text
+                                ) {
+                                    log::error!("创建活动总结通知失败: {}", e);
+                                } else {
+                                    log::info!("活动总结通知已创建");
+                                }
+                            }
                         }
                         Err(e) => {
                             log::warn!("生成 Activity 总结失败: {}", e);
@@ -228,9 +301,97 @@ fn main() {
             }
         };
 
-        // Tips 回调（暂时为空）
-        let on_tips = || {
-            log::info!("执行 Tips 提示任务");
+        // Tips 回调 - 基于活动分析的智能提示
+        let on_tips = {
+            let db_path = db_path_for_scheduler.clone();
+            move || {
+                log::info!("执行 Tips 智能提示任务");
+
+                let db_path = db_path.clone();
+                // 使用同步方式执行，避免 Connection 跨 await 的问题
+                std::thread::spawn(move || {
+                    let conn = match rusqlite::Connection::open(&db_path) {
+                        Ok(c) => c,
+                        Err(e) => {
+                            log::error!("打开数据库失败: {}", e);
+                            return;
+                        }
+                    };
+
+                    // 检查设置
+                    let settings = match NotificationService::get_settings(&conn) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            log::error!("获取通知设置失败: {}", e);
+                            return;
+                        }
+                    };
+
+                    if !settings.tips_enabled {
+                        log::info!("Tips 功能未启用，跳过");
+                        return;
+                    }
+
+                    // 检查今日数量限制
+                    if let Ok(today_count) = NotificationService::get_today_tips_count(&conn) {
+                        if today_count >= settings.tips_max_per_day {
+                            log::info!("今日 Tips 已达上限 ({}/{})", today_count, settings.tips_max_per_day);
+                            return;
+                        }
+                    }
+
+                    // 检查是否应该生成提示（避免重复生成）
+                    let interval_minutes = settings.tips_interval_minutes as i64;
+                    if let Ok(should_generate) = TipsService::should_generate_tip(&conn, interval_minutes) {
+                        if !should_generate {
+                            log::info!("距离上次提示时间不足，跳过生成");
+                            return;
+                        }
+                    }
+
+                    // 分析最近1小时的活动模式
+                    let pattern = match TipsService::analyze_recent_pattern(&conn, 1) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            log::warn!("分析活动模式失败: {}", e);
+                            return;
+                        }
+                    };
+
+                    // 如果没有活动数据，跳过生成
+                    if pattern.total_activities == 0 {
+                        log::info!("没有活动数据，跳过 Tips 生成");
+                        return;
+                    }
+
+                    log::info!("活动分析: 连续工作 {} 分钟, 主要活动: {:?}, 主要应用: {:?}",
+                        pattern.continuous_work_minutes,
+                        pattern.dominant_activity_type,
+                        pattern.dominant_app
+                    );
+
+                    // 生成智能提示（基于活动模式）
+                    let (tip_content, category, priority) = TipsService::generate_default_tip(&pattern);
+
+                    // 保存提示到 tips 表
+                    if let Err(e) = TipsService::save_tip(&conn, &tip_content, &category, &priority) {
+                        log::error!("保存 Tips 失败: {}", e);
+                    }
+
+                    // 同时创建通知推送到通知中心
+                    let title = match category {
+                        services::tips_service::TipCategory::Health => "💪 健康提醒",
+                        services::tips_service::TipCategory::Productivity => "📈 生产力建议",
+                        services::tips_service::TipCategory::Focus => "🎯 专注力提醒",
+                    };
+
+                    if let Err(e) = NotificationService::create(&conn, "tip", title, &tip_content) {
+                        log::error!("创建 Tips 通知失败: {}", e);
+                    } else {
+                        log::info!("智能提示已生成: [{}] {}", category.as_str(), &tip_content[..tip_content.len().min(50)]);
+                    }
+                });
+            }
         };
 
         // 启动调度器
@@ -436,6 +597,7 @@ fn main() {
             commands::task_commands::get_tasks_by_date_range,
             commands::task_commands::update_task_display_date,
             commands::task_commands::move_task_to_today,
+            commands::task_commands::get_upcoming_tasks,
             // SQL 相关命令
             commands::sql_commands::save_sql,
             commands::sql_commands::get_recent_sqls,

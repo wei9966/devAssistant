@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 pub enum AiProvider {
     DeepSeek,
     Qwen,
+    Custom,
 }
 
 impl Default for AiProvider {
@@ -41,24 +42,28 @@ impl SqlAiConfig {
     /// 获取 API 基础 URL
     pub fn get_base_url(&self) -> &str {
         if let Some(url) = &self.base_url {
-            url.as_str()
-        } else {
-            match self.provider {
-                AiProvider::DeepSeek => "https://api.deepseek.com",
-                AiProvider::Qwen => "https://dashscope.aliyuncs.com/compatible-mode",
+            if !url.is_empty() {
+                return url.as_str();
             }
+        }
+        match self.provider {
+            AiProvider::DeepSeek => "https://api.deepseek.com",
+            AiProvider::Qwen => "https://dashscope.aliyuncs.com/compatible-mode",
+            AiProvider::Custom => "", // 自定义提供商必须设置 base_url
         }
     }
 
     /// 获取模型名称
     pub fn get_model(&self) -> &str {
         if let Some(model) = &self.model {
-            model.as_str()
-        } else {
-            match self.provider {
-                AiProvider::DeepSeek => "deepseek-chat",
-                AiProvider::Qwen => "qwen-turbo",
+            if !model.is_empty() {
+                return model.as_str();
             }
+        }
+        match self.provider {
+            AiProvider::DeepSeek => "deepseek-chat",
+            AiProvider::Qwen => "qwen-turbo",
+            AiProvider::Custom => "", // 自定义提供商必须设置 model
         }
     }
 }

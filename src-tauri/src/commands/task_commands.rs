@@ -75,6 +75,7 @@ pub fn update_task(
     due_date: Option<String>,
     registered_at: Option<String>,
     display_date: Option<String>,
+    scheduled_start_time: Option<String>,
 ) -> Result<(), String> {
     // 添加调试日志
     eprintln!("=== update_task called ===");
@@ -89,6 +90,7 @@ pub fn update_task(
     eprintln!("due_date: {:?}", due_date);
     eprintln!("registered_at: {:?}", registered_at);
     eprintln!("display_date: {:?}", display_date);
+    eprintln!("scheduled_start_time: {:?}", scheduled_start_time);
 
     let conn = db.0.lock().map_err(|e| e.to_string())?;
 
@@ -113,6 +115,7 @@ pub fn update_task(
         due_date.as_deref(),
         registered_at.as_deref(),
         display_date.as_deref(),
+        scheduled_start_time.as_deref(),
     )
     .map_err(|e| e.to_string())
 }
@@ -212,4 +215,10 @@ pub fn update_task_display_date(
 pub fn move_task_to_today(db: State<DbConnection>, task_id: i64) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     TaskService::move_task_to_today(&conn, task_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_upcoming_tasks(db: State<DbConnection>, minutes: i64) -> Result<Vec<Task>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::get_upcoming_tasks(&conn, minutes).map_err(|e| e.to_string())
 }

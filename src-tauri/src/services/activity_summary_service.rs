@@ -3,6 +3,8 @@
 
 use crate::models::screen_context::ScreenContext;
 use crate::services::vlm_service::VlmService;
+use crate::services::ai_service::{AiService, ChatMessage};
+use crate::prompts::activity_prompts::ACTIVITY_SUMMARY_PROMPT;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Duration, Local};
 use rusqlite::Connection;
@@ -133,8 +135,17 @@ impl ActivitySummaryService {
 
         // 基于已有描述生成总结
         let summary_text = if !descriptions.is_empty() {
-            // 优先使用已有的描述合并生成总结
-            self.merge_descriptions(&descriptions)
+            // 优先尝试使用AI智能总结
+            match self.generate_ai_summary(&screenshots, &descriptions, &start_time, &end_time).await {
+                Ok(ai_summary) => {
+                    log::info!("使用AI生成了智能活动总结");
+                    ai_summary
+                }
+                Err(e) => {
+                    log::warn!("AI总结失败，回退到简单拼接: {}", e);
+                    self.merge_descriptions(&descriptions)
+                }
+            }
         } else {
             // 如果没有已有描述，尝试调用VLM分析（作为回退方案）
             log::info!("没有已分析的描述，尝试使用VLM分析第一张截图");
@@ -313,6 +324,93 @@ impl ActivitySummaryService {
         )
     }
 
+    /// 使用AI生成智能活动总结
+    ///
+    /// 调用AiService使用ACTIVITY_SUMMARY_PROMPT分析截图记录，生成智能总结
+    async fn generate_ai_summary(
+        &self,
+        screenshots: &[ScreenContext],
+        _descriptions: &[String],
+        start_time: &DateTime<Local>,
+        end_time: &DateTime<Local>,
+    ) -> Result<String> {
+        // 从数据库加载AI配置
+        let conn = self.get_connection()?;
+        let ai_config = AiService::load_config(&conn)?;
+
+        // 创建AI服务实例
+        let ai_service = AiService::new(ai_config);
+
+        // 检查AI服务是否已配置
+        if !ai_service.is_configured() {
+            return Err(anyhow!("AI服务未配置"));
+        }
+
+        // 构建输入数据
+        let input_data = serde_json::json!({
+            "timeRange": {
+                "start": start_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                "end": end_time.format("%Y-%m-%d %H:%M:%S").to_string()
+            },
+            "screenshots": screenshots.iter().map(|s| {
+                serde_json::json!({
+                    "capturedAt": s.captured_at,
+                    "appName": s.app_name,
+                    "windowTitle": s.window_title,
+                    "activityType": s.activity_type,
+                    "description": s.description
+                })
+            }).collect::<Vec<_>>()
+        });
+
+        // 构建消息
+        let messages = vec![
+            ChatMessage::system(ACTIVITY_SUMMARY_PROMPT.to_string()),
+            ChatMessage::user(input_data.to_string()),
+        ];
+
+        // 调用AI
+        let response = ai_service.chat(messages).await?;
+
+        // 解析JSON响应，提取有用字段
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response) {
+            // 优先提取description
+            if let Some(desc) = json.get("description").and_then(|v| v.as_str()) {
+                // 如果有title，组合使用
+                if let Some(title) = json.get("title").and_then(|v| v.as_str()) {
+                    return Ok(format!("**{}**\n{}", title, desc));
+                }
+                return Ok(desc.to_string());
+            }
+            // 尝试提取title
+            if let Some(title) = json.get("title").and_then(|v| v.as_str()) {
+                return Ok(title.to_string());
+            }
+        }
+
+        // 尝试清理被```json```包裹的响应
+        let cleaned = response
+            .trim()
+            .trim_start_matches("```json")
+            .trim_start_matches("```")
+            .trim_end_matches("```")
+            .trim();
+
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(cleaned) {
+            if let Some(desc) = json.get("description").and_then(|v| v.as_str()) {
+                return Ok(desc.to_string());
+            }
+        }
+
+        // 如果响应看起来像JSON，不要直接显示原始JSON
+        if response.trim().starts_with('{') || response.trim().starts_with('[') {
+            Ok("活动总结生成中...".to_string())
+        } else {
+            // 如果不是JSON，可能是普通文本，直接返回
+            Ok(response)
+        }
+    }
+
     /// 合并多个截图描述生成时间段总结
     ///
     /// 该方法从多个已分析的截图描述中提取关键信息并生成一个连贯的总结。
@@ -355,7 +453,8 @@ impl ActivitySummaryService {
 
         // 如果合并后的文本过长，截断并添加省略号
         // 使用字符边界安全截断，避免在多字节字符中间切片
-        const MAX_CHARS: usize = 200;  // 按字符数限制，不是字节数
+        // AI智能总结返回的内容通常是合理长度，因此增大限制到2000字符
+        const MAX_CHARS: usize = 2000;  // 按字符数限制，不是字节数
         let char_count = merged.chars().count();
         if char_count > MAX_CHARS {
             let truncated: String = merged.chars().take(MAX_CHARS).collect();

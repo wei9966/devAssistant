@@ -20,7 +20,8 @@ export const taskApi = {
     priority: number = 2,
     quadrant?: string,
     dueDate?: string,
-    registeredAt?: string
+    registeredAt?: string,
+    scheduledStartTime?: string
   ): Promise<number> {
     const taskId = await invoke<number>('create_task', {
       title,
@@ -30,7 +31,7 @@ export const taskApi = {
     });
 
     // 如果指定了四象限或日期字段,更新任务
-    if ((quadrant || dueDate || registeredAt) && taskId) {
+    if ((quadrant || dueDate || registeredAt || scheduledStartTime) && taskId) {
       await invoke('update_task', {
         taskId,
         title: null,
@@ -41,7 +42,9 @@ export const taskApi = {
         notes: null,
         quadrant: quadrant || null,
         dueDate: dueDate || null,
-        registeredAt: registeredAt || null
+        registeredAt: registeredAt || null,
+        displayDate: null,
+        scheduledStartTime: scheduledStartTime || null
       });
     }
 
@@ -82,6 +85,7 @@ export const taskApi = {
       dueDate?: string;
       registeredAt?: string;
       displayDate?: string;
+      scheduledStartTime?: string;
     }
   ): Promise<void> {
     await invoke('update_task', {
@@ -96,6 +100,7 @@ export const taskApi = {
       dueDate: updates.dueDate !== undefined ? updates.dueDate : null,
       registeredAt: updates.registeredAt !== undefined ? updates.registeredAt : null,
       displayDate: updates.displayDate !== undefined ? updates.displayDate : null,
+      scheduledStartTime: updates.scheduledStartTime !== undefined ? updates.scheduledStartTime : null,
     });
   },
 

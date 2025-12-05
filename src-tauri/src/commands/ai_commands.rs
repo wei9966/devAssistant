@@ -32,6 +32,7 @@ pub enum AiProvider {
     Claude,
     DeepSeek,
     Qwen,
+    Custom,
 }
 
 impl AiProvider {
@@ -40,6 +41,7 @@ impl AiProvider {
             "claude" => Ok(AiProvider::Claude),
             "deepseek" => Ok(AiProvider::DeepSeek),
             "qwen" => Ok(AiProvider::Qwen),
+            "custom" => Ok(AiProvider::Custom),
             _ => Err(format!("不支持的 AI 提供商: {}", s)),
         }
     }
@@ -49,6 +51,7 @@ impl AiProvider {
             AiProvider::Claude => "claude".to_string(),
             AiProvider::DeepSeek => "deepseek".to_string(),
             AiProvider::Qwen => "qwen".to_string(),
+            AiProvider::Custom => "custom".to_string(),
         }
     }
 }
@@ -96,6 +99,7 @@ pub async fn save_ai_config(
             AiProvider::DeepSeek => ServiceAiProvider::DeepSeek,
             AiProvider::Qwen => ServiceAiProvider::Qwen,
             AiProvider::Claude => ServiceAiProvider::DeepSeek, // Claude 暂不支持，使用 DeepSeek
+            AiProvider::Custom => ServiceAiProvider::Custom,
         };
 
         let ai_config = AiConfig {

@@ -71,7 +71,8 @@ const getIcon = (type: string): string => {
   const icons = {
     tip: '💡',
     daily_report: '📊',
-    weekly_report: '🌟'
+    weekly_report: '🌟',
+    activity_summary: '⏱️'
   }
   return icons[type as keyof typeof icons] || '📢'
 }
@@ -177,6 +178,11 @@ const handleViewDetail = () => {
 .icon-weekly_report {
   background: rgba(167, 139, 250, 0.1);
   border: 1px solid rgba(167, 139, 250, 0.2);
+}
+
+.icon-activity_summary {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 .title-section {

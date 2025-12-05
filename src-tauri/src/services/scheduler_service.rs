@@ -25,7 +25,7 @@ impl Default for SchedulerConfig {
             activity_summary_interval_minutes: 15,
             tips_interval_minutes: 60,
             enable_activity_summary: true,
-            enable_tips: false, // 默认关闭Tips，后续实现
+            enable_tips: true, // 启用 Tips 定时提醒
         }
     }
 }

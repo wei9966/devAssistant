@@ -1,4 +1,4 @@
-export type NotificationType = 'tip' | 'daily_report' | 'weekly_report'
+export type NotificationType = 'tip' | 'daily_report' | 'weekly_report' | 'activity_summary'
 
 export interface Notification {
   id: number

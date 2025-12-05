@@ -15,7 +15,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at, display_date
+                    due_date, registered_at, display_date, scheduled_start_time
              FROM tasks
              WHERE status != 'done'
              ORDER BY priority ASC, last_active_at DESC",
@@ -41,7 +41,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at, display_date
+                    due_date, registered_at, display_date, scheduled_start_time
              FROM tasks
              WHERE status = 'done'
                AND completed_at >= datetime('now', 'localtime', ? || ' days')
@@ -176,6 +176,7 @@ impl TaskService {
         due_date: Option<&str>,
         registered_at: Option<&str>,
         display_date: Option<&str>,
+        scheduled_start_time: Option<&str>,
     ) -> Result<()> {
         // 验证标题
         if let Some(t) = title {
@@ -269,6 +270,15 @@ impl TaskService {
                 Some(trimmed.to_string())
             }));
         }
+        if let Some(sst) = scheduled_start_time {
+            updates.push("scheduled_start_time = ?");
+            let trimmed = sst.trim();
+            params_vec.push(Box::new(if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }));
+        }
 
         if updates.is_empty() {
             return Ok(());
@@ -303,7 +313,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at, display_date
+                    due_date, registered_at, display_date, scheduled_start_time
              FROM tasks
              WHERE status = 'todo'
                AND created_at < datetime('now', 'localtime', ? || ' days')
@@ -470,7 +480,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at, display_date
+                    due_date, registered_at, display_date, scheduled_start_time
              FROM tasks
              WHERE status != 'done' AND quadrant = ?
              ORDER BY priority ASC, last_active_at DESC",
@@ -496,7 +506,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at, display_date
+                    due_date, registered_at, display_date, scheduled_start_time
              FROM tasks
              WHERE (
                  -- 已完成任务：使用完成日期
@@ -574,6 +584,36 @@ impl TaskService {
         Ok(stats)
     }
 
+    /// 获取即将开始的任务（在指定分钟内）
+    pub fn get_upcoming_tasks(conn: &Connection, minutes: i64) -> Result<Vec<Task>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, title, description, category, priority, status, git_branch,
+                    created_at, started_at, last_active_at, completed_at,
+                    estimated_hours, actual_hours, context_json, notes, quadrant,
+                    due_date, registered_at, display_date, scheduled_start_time
+             FROM tasks
+             WHERE status != 'done'
+               AND scheduled_start_time IS NOT NULL
+               AND datetime(scheduled_start_time) > datetime('now', 'localtime')
+               AND datetime(scheduled_start_time) <= datetime('now', 'localtime', '+' || ? || ' minutes')
+             ORDER BY scheduled_start_time ASC",
+        )?;
+
+        let mut tasks = stmt
+            .query_map(params![minutes], |row| Self::map_row_to_task(row))?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // 为每个任务加载标签
+        for task in tasks.iter_mut() {
+            if let Some(task_id) = task.id {
+                task.tags = crate::services::tag_service::TagService::get_task_tags(conn, task_id)
+                    .ok();
+            }
+        }
+
+        Ok(tasks)
+    }
+
     /// 安全截断字符串（按字符数，不是字节数）
     fn safe_truncate(s: &str, max_chars: usize, suffix: &str) -> String {
         let char_count = s.chars().count();
@@ -632,6 +672,7 @@ impl TaskService {
         let due_date: Option<String> = row.get(16)?;
         let registered_at: Option<String> = row.get(17)?;
         let display_date: Option<String> = row.get(18)?;
+        let scheduled_start_time: Option<String> = row.get(19)?;
 
         Ok(Task {
             id: Some(row.get(0)?),
@@ -648,6 +689,7 @@ impl TaskService {
             due_date,
             registered_at,
             display_date,
+            scheduled_start_time,
             estimated_hours: row.get(11)?,
             actual_hours: row.get(12)?,
             context,

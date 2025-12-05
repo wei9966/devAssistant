@@ -9,9 +9,10 @@ use chrono::{Local, Datelike};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationType {
-    Tip,           // 休息提醒
-    DailyReport,   // 日报
-    WeeklyReport,  // 周报
+    Tip,            // 休息提醒
+    DailyReport,    // 日报
+    WeeklyReport,   // 周报
+    ActivitySummary,// 活动总结
 }
 
 impl NotificationType {
@@ -20,6 +21,7 @@ impl NotificationType {
             NotificationType::Tip => "tip",
             NotificationType::DailyReport => "daily_report",
             NotificationType::WeeklyReport => "weekly_report",
+            NotificationType::ActivitySummary => "activity_summary",
         }
     }
 
@@ -28,6 +30,7 @@ impl NotificationType {
             "tip" => Some(NotificationType::Tip),
             "daily_report" => Some(NotificationType::DailyReport),
             "weekly_report" => Some(NotificationType::WeeklyReport),
+            "activity_summary" => Some(NotificationType::ActivitySummary),
             _ => None,
         }
     }
@@ -275,6 +278,23 @@ impl NotificationService {
         )
     }
 
+    /// 生成活动总结通知
+    pub fn generate_activity_summary_notification(
+        conn: &Connection,
+        date: &str,
+        summary: &str,
+    ) -> Result<i64> {
+        let title = format!("{} 活动总结", date);
+        let content = summary.to_string();
+
+        Self::create(
+            conn,
+            NotificationType::ActivitySummary.as_str(),
+            &title,
+            &content,
+        )
+    }
+
     /// 检查是否应该生成日报
     pub fn should_generate_daily_report(conn: &Connection) -> Result<bool> {
         let settings = Self::get_settings(conn)?;
@@ -348,6 +368,7 @@ mod tests {
         assert_eq!(NotificationType::Tip.as_str(), "tip");
         assert_eq!(NotificationType::DailyReport.as_str(), "daily_report");
         assert_eq!(NotificationType::WeeklyReport.as_str(), "weekly_report");
+        assert_eq!(NotificationType::ActivitySummary.as_str(), "activity_summary");
 
         assert!(matches!(
             NotificationType::from_str("tip"),
@@ -356,6 +377,10 @@ mod tests {
         assert!(matches!(
             NotificationType::from_str("daily_report"),
             Some(NotificationType::DailyReport)
+        ));
+        assert!(matches!(
+            NotificationType::from_str("activity_summary"),
+            Some(NotificationType::ActivitySummary)
         ));
     }
 }

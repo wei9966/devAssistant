@@ -107,6 +107,9 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     create_tips_table(conn)?;
     create_tips_indexes(conn)?;
 
+    // 迁移 tasks 表：添加 scheduled_start_time 字段（计划开始时间）
+    migrate_tasks_add_scheduled_start_time(conn)?;
+
     Ok(())
 }
 
@@ -1671,6 +1674,34 @@ fn create_tips_indexes(conn: &Connection) -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_tips_created_at ON tips(created_at DESC)",
         [],
     )?;
+
+    Ok(())
+}
+
+/// 迁移 tasks 表：添加 scheduled_start_time 字段（计划开始时间，精确到秒）
+fn migrate_tasks_add_scheduled_start_time(conn: &Connection) -> Result<()> {
+    // 检查 scheduled_start_time 列是否存在
+    let has_scheduled_start_time: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name='scheduled_start_time'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_scheduled_start_time == 0 {
+        conn.execute(
+            "ALTER TABLE tasks ADD COLUMN scheduled_start_time TEXT",
+            [],
+        )?;
+        println!("✓ 已添加 scheduled_start_time 列到 tasks 表");
+
+        // 创建索引以优化查询即将开始的任务
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tasks_scheduled_start_time ON tasks(scheduled_start_time)",
+            [],
+        )?;
+    }
 
     Ok(())
 }

@@ -15,6 +15,7 @@ export interface Task {
   dueDate?: string;      // 截止日期
   registeredAt?: string; // 登记日期（用户选择的任务日期）
   displayDate?: string;  // 日历显示日期（未完成任务可设置到任意日期显示）
+  scheduledStartTime?: string; // 计划开始时间（精确到秒，用于提醒）
   estimatedHours?: number;
   actualHours?: number;
   context?: WorkContext;

@@ -153,13 +153,15 @@ const filterTabs = computed(() => {
   const tipCount = notifications.value.filter(n => n.notificationType === 'tip').length
   const dailyCount = notifications.value.filter(n => n.notificationType === 'daily_report').length
   const weeklyCount = notifications.value.filter(n => n.notificationType === 'weekly_report').length
+  const activityCount = notifications.value.filter(n => n.notificationType === 'activity_summary').length
 
   return [
     { label: '全部', value: 'all' as FilterValue, count: notifications.value.length },
     { label: '未读', value: 'unread' as FilterValue, count: unreadCount },
     { label: 'Tips', value: 'tip' as FilterValue, count: tipCount },
     { label: '日报', value: 'daily_report' as FilterValue, count: dailyCount },
-    { label: '周报', value: 'weekly_report' as FilterValue, count: weeklyCount }
+    { label: '周报', value: 'weekly_report' as FilterValue, count: weeklyCount },
+    { label: '活动总结', value: 'activity_summary' as FilterValue, count: activityCount }
   ]
 })
 
@@ -297,6 +299,8 @@ function getEmptyMessage(): string {
     return '暂无日报'
   } else if (activeFilter.value === 'weekly_report') {
     return '暂无周报'
+  } else if (activeFilter.value === 'activity_summary') {
+    return '暂无活动总结'
   }
   return '暂时没有任何通知'
 }
@@ -305,7 +309,8 @@ function getTypeLabel(type?: NotificationType): string {
   const labels = {
     tip: '💡 工作提示',
     daily_report: '📊 每日报告',
-    weekly_report: '🌟 每周总结'
+    weekly_report: '🌟 每周总结',
+    activity_summary: '⏱️ 活动总结'
   }
   return type ? labels[type] : ''
 }
@@ -441,6 +446,7 @@ function formatContent(content?: string): string {
 /* 通知容器 */
 .notifications-container {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -449,8 +455,10 @@ function formatContent(content?: string): string {
   flex-direction: column;
   gap: 12px;
   height: 100%;
+  max-height: 100%;
   overflow-y: auto;
   padding-right: 8px;
+  padding-bottom: 20px;
 }
 
 /* 自定义滚动条 */
@@ -527,6 +535,8 @@ function formatContent(content?: string): string {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 .detail-meta {
@@ -562,6 +572,12 @@ function formatContent(content?: string): string {
   border: 1px solid rgba(167, 139, 250, 0.2);
 }
 
+.type-activity_summary {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
 .detail-time {
   font-size: 12px;
   color: rgb(100, 116, 139);
@@ -573,6 +589,31 @@ function formatContent(content?: string): string {
   line-height: 1.8;
   white-space: pre-wrap;
   word-break: break-word;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* 详情模态框滚动条样式 */
+.detail-content::-webkit-scrollbar,
+.detail-text::-webkit-scrollbar {
+  width: 6px;
+}
+
+.detail-content::-webkit-scrollbar-track,
+.detail-text::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.detail-content::-webkit-scrollbar-thumb,
+.detail-text::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 3px;
+}
+
+.detail-content::-webkit-scrollbar-thumb:hover,
+.detail-text::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.3);
 }
 
 /* Naive UI 样式覆盖 */
@@ -614,5 +655,14 @@ function formatContent(content?: string): string {
 
 :deep(.n-spin-container) {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.n-spin-content) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 </style>

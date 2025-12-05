@@ -17,6 +17,7 @@ pub struct Task {
     pub due_date: Option<String>,       // 截止日期
     pub registered_at: Option<String>,  // 登记日期
     pub display_date: Option<String>,   // 日历显示日期
+    pub scheduled_start_time: Option<String>, // 计划开始时间（精确到秒，用于提醒）
     pub estimated_hours: Option<f32>,
     pub actual_hours: Option<f32>,
     pub context: Option<WorkContext>,

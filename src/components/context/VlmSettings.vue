@@ -62,31 +62,47 @@
 
           <!-- 自定义配置 -->
           <div class="custom-config">
-            <div class="section-title">自定义配置（可选）</div>
+            <div class="section-title">
+              {{ vlmConfig.provider === 'custom' ? 'API 配置（必填）' : '自定义配置（可选）' }}
+            </div>
 
             <!-- Base URL -->
             <div class="setting-item-vertical">
               <div class="setting-info">
-                <div class="setting-label">Base URL</div>
-                <div class="setting-desc">留空使用默认地址：{{ currentPreset?.defaultBaseUrl || '无' }}</div>
+                <div class="setting-label">
+                  {{ vlmConfig.provider === 'custom' ? 'Base URL *' : 'Base URL' }}
+                </div>
+                <div class="setting-desc">
+                  {{ vlmConfig.provider === 'custom'
+                    ? '请输入完整的 API 地址（含 /v1），如 https://apis.iflow.cn/v1'
+                    : `留空使用默认地址：${currentPreset?.defaultBaseUrl || '无'}` }}
+                </div>
               </div>
               <n-input
                 v-model:value="vlmConfig.baseUrl"
-                :placeholder="currentPreset?.defaultBaseUrl || ''"
+                :placeholder="vlmConfig.provider === 'custom' ? '例如: https://apis.iflow.cn/v1' : (currentPreset?.defaultBaseUrl || '')"
                 :disabled="!vlmConfig.enabled"
+                :status="vlmConfig.provider === 'custom' && !vlmConfig.baseUrl ? 'error' : undefined"
               />
             </div>
 
             <!-- 模型名称 -->
             <div class="setting-item-vertical">
               <div class="setting-info">
-                <div class="setting-label">模型名称</div>
-                <div class="setting-desc">留空使用默认模型：{{ currentPreset?.defaultModel || '无' }}</div>
+                <div class="setting-label">
+                  {{ vlmConfig.provider === 'custom' ? '模型名称 *' : '模型名称' }}
+                </div>
+                <div class="setting-desc">
+                  {{ vlmConfig.provider === 'custom'
+                    ? '请输入支持视觉的模型名称'
+                    : `留空使用默认模型：${currentPreset?.defaultModel || '无'}` }}
+                </div>
               </div>
               <n-input
                 v-model:value="vlmConfig.model"
-                :placeholder="currentPreset?.defaultModel || ''"
+                :placeholder="vlmConfig.provider === 'custom' ? '例如: gpt-4o-mini' : (currentPreset?.defaultModel || '')"
                 :disabled="!vlmConfig.enabled"
+                :status="vlmConfig.provider === 'custom' && !vlmConfig.model ? 'error' : undefined"
               />
             </div>
           </div>
@@ -161,7 +177,7 @@
             <n-button
               @click="handleTest"
               :loading="testing"
-              :disabled="!vlmConfig.apiKey || !vlmConfig.enabled"
+              :disabled="!isVlmConfigValid || !vlmConfig.enabled"
             >
               测试连接
             </n-button>
@@ -169,7 +185,7 @@
               type="primary"
               @click="handleSave"
               :loading="saving"
-              :disabled="!vlmConfig.apiKey"
+              :disabled="!isVlmConfigValid"
             >
               保存配置
             </n-button>
@@ -235,6 +251,15 @@ const providerOptions = Object.entries(VLM_PROVIDER_PRESETS).map(([id, preset]) 
 
 const currentPreset = computed(() => {
   return VLM_PROVIDER_PRESETS[vlmConfig.value.provider];
+});
+
+// VLM 配置验证：自定义提供商需要填写 baseUrl 和 model
+const isVlmConfigValid = computed(() => {
+  if (!vlmConfig.value.apiKey) return false;
+  if (vlmConfig.value.provider === 'custom') {
+    return !!(vlmConfig.value.baseUrl && vlmConfig.value.model);
+  }
+  return true;
 });
 
 onMounted(async () => {

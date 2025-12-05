@@ -276,26 +276,36 @@
 
                 <div class="setting-item">
                   <div class="setting-info">
-                    <div class="setting-label">自定义 Base URL（可选）</div>
-                    <div class="setting-desc">留空使用默认地址</div>
+                    <div class="setting-label">
+                      {{ aiConfig.provider === 'custom' ? 'Base URL（必填）' : '自定义 Base URL（可选）' }}
+                    </div>
+                    <div class="setting-desc">
+                      {{ aiConfig.provider === 'custom' ? '请输入 OpenAI 兼容的 API 地址，如 https://apis.iflow.cn' : '留空使用默认地址' }}
+                    </div>
                   </div>
                   <div class="setting-control-wide">
                     <n-input
                       v-model:value="aiConfig.baseUrl"
-                      :placeholder="getDefaultBaseUrl()"
+                      :placeholder="aiConfig.provider === 'custom' ? '例如: https://apis.iflow.cn' : getDefaultBaseUrl()"
+                      :status="aiConfig.provider === 'custom' && !aiConfig.baseUrl ? 'error' : undefined"
                     />
                   </div>
                 </div>
 
                 <div class="setting-item">
                   <div class="setting-info">
-                    <div class="setting-label">自定义模型（可选）</div>
-                    <div class="setting-desc">留空使用默认模型</div>
+                    <div class="setting-label">
+                      {{ aiConfig.provider === 'custom' ? '模型名称（必填）' : '自定义模型（可选）' }}
+                    </div>
+                    <div class="setting-desc">
+                      {{ aiConfig.provider === 'custom' ? '请输入要使用的模型名称' : '留空使用默认模型' }}
+                    </div>
                   </div>
                   <div class="setting-control-wide">
                     <n-input
                       v-model:value="aiConfig.model"
-                      :placeholder="getDefaultModel()"
+                      :placeholder="aiConfig.provider === 'custom' ? '例如: gpt-4o-mini' : getDefaultModel()"
+                      :status="aiConfig.provider === 'custom' && !aiConfig.model ? 'error' : undefined"
                     />
                   </div>
                 </div>
@@ -304,7 +314,7 @@
                   <n-button
                     @click="testAiConnection"
                     :loading="testingAi"
-                    :disabled="!aiConfig.apiKey"
+                    :disabled="!isAiConfigValid"
                   >
                     测试连接
                   </n-button>
@@ -312,7 +322,7 @@
                     type="primary"
                     @click="saveAiConfig"
                     :loading="savingAi"
-                    :disabled="!aiConfig.apiKey"
+                    :disabled="!isAiConfigValid"
                   >
                     保存配置
                   </n-button>
@@ -601,6 +611,15 @@ const aiProviderOptions = AI_PROVIDERS.map(p => ({
   label: p.name,
   value: p.id,
 }));
+
+// AI 配置验证：自定义提供商需要填写 baseUrl 和 model
+const isAiConfigValid = computed(() => {
+  if (!aiConfig.value.apiKey) return false;
+  if (aiConfig.value.provider === 'custom') {
+    return !!(aiConfig.value.baseUrl && aiConfig.value.model);
+  }
+  return true;
+});
 
 // AI 日志相关
 const aiLogs = ref<AiLog[]>([]);

@@ -1,5 +1,5 @@
 // AI 提供商类型
-export type AiProvider = 'deepseek' | 'qwen';
+export type AiProvider = 'deepseek' | 'qwen' | 'custom';
 
 // AI 配置
 export interface AiConfig {
@@ -40,6 +40,12 @@ export const AI_PROVIDERS: AiProviderInfo[] = [
     name: '通义千问 (Qwen)',
     defaultUrl: 'https://dashscope.aliyuncs.com/compatible-mode',
     defaultModel: 'qwen-turbo',
+  },
+  {
+    id: 'custom',
+    name: '自定义 (OpenAI 兼容)',
+    defaultUrl: '',
+    defaultModel: '',
   },
 ];
 
