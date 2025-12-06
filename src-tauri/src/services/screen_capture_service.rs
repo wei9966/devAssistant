@@ -22,11 +22,14 @@ pub struct ActiveWindowInfo {
 
 /// 采集状态
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CaptureStatus {
     pub is_running: bool,
     pub last_capture_at: Option<String>,
     pub total_captures_today: u32,
     pub skipped_count: u32,
+    pub is_paused_by_idle: bool,  // 新增：是否因空闲而暂停
+    pub idle_seconds: u64,        // 新增：当前空闲秒数
 }
 
 /// 屏幕截图服务

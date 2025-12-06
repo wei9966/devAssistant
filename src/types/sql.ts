@@ -50,3 +50,44 @@ export interface SqlAiConfig {
   baseUrl?: string;
   model?: string;
 }
+
+// SQL模板
+export interface SqlTemplate {
+  id: number;
+  templateText: string;
+  templateHash: string;
+  originalSqlSample?: string;
+  tableNames: string[];
+  sqlType?: string;
+  businessScene?: string;
+  usageCount: number;
+  variantCount: number;
+  isFavorite: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// 整合结果
+export interface ConsolidateResult {
+  totalProcessed: number;
+  templatesCreated: number;
+  templatesUpdated: number;
+  errors: string[];
+}
+
+// 分组统计
+export interface TemplateGroupStats {
+  byScene: GroupCount[];
+  byType: GroupCount[];
+  byTable: GroupCount[];
+  totalTemplates: number;
+  totalVariants: number;
+}
+
+export interface GroupCount {
+  name: string;
+  count: number;
+}
+
+// 分组类型
+export type TemplateGroupBy = 'business_scene' | 'sql_type' | 'table' | null;

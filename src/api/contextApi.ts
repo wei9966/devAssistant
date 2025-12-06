@@ -8,6 +8,7 @@ export interface ContextSettings {
   excludedApps: string[];
   saveScreenshots: boolean;
   screenshotDir: string | null;  // 截图保存目录
+  idleTimeoutSecs: number;  // 空闲超时时间（秒），默认300
 }
 
 export interface CaptureStatus {
@@ -15,6 +16,8 @@ export interface CaptureStatus {
   lastCaptureAt: string | null;
   totalCapturesToday: number;
   skippedCount: number;
+  isPausedByIdle: boolean;  // 是否因空闲而暂停
+  idleSeconds: number;      // 当前空闲秒数
 }
 
 export interface ScreenContext {

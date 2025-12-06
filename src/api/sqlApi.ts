@@ -1,5 +1,14 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { SqlRecord, SqlCategory, SqlClassifyResult, AiProvider } from '@/types/sql';
+import type {
+  SqlRecord,
+  SqlCategory,
+  SqlClassifyResult,
+  AiProvider,
+  SqlTemplate,
+  ConsolidateResult,
+  TemplateGroupBy,
+  TemplateGroupStats
+} from '@/types/sql';
 
 export const sqlApi = {
   // 保存 SQL
@@ -159,5 +168,47 @@ export const sqlApi = {
     categoryIds?: number[]
   ): Promise<void> {
     await invoke('manual_classify_sql', { sqlId, name, categoryIds });
+  },
+
+  // === SQL 模板相关 API ===
+
+  // 智能整合SQL历史
+  async consolidateSqlTemplates(): Promise<ConsolidateResult> {
+    return await invoke('consolidate_sql_templates');
+  },
+
+  // 获取模板列表
+  async getSqlTemplates(groupBy?: TemplateGroupBy, limit?: number): Promise<SqlTemplate[]> {
+    return await invoke('get_sql_templates', { groupBy, limit });
+  },
+
+  // 获取热门模板
+  async getHotSqlTemplates(limit?: number): Promise<SqlTemplate[]> {
+    return await invoke('get_hot_sql_templates', { limit });
+  },
+
+  // 获取模板的变体SQL
+  async getTemplateVariants(templateId: number): Promise<SqlRecord[]> {
+    return await invoke('get_template_variants', { templateId });
+  },
+
+  // 按表名获取模板
+  async getTemplatesByTable(tableName: string): Promise<SqlTemplate[]> {
+    return await invoke('get_templates_by_table', { tableName });
+  },
+
+  // AI识别业务场景
+  async identifyTemplateScenes(templateIds?: number[]): Promise<number> {
+    return await invoke('identify_template_scenes', { templateIds });
+  },
+
+  // 切换模板收藏
+  async toggleTemplateFavorite(templateId: number): Promise<boolean> {
+    return await invoke('toggle_template_favorite', { templateId });
+  },
+
+  // 获取分组统计
+  async getTemplateGroupStats(): Promise<TemplateGroupStats> {
+    return await invoke('get_template_group_stats');
   },
 };

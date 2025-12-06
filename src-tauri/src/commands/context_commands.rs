@@ -164,6 +164,7 @@ pub async fn context_start_capture(
             similarity_threshold: settings.similarity_threshold,
             save_screenshots: settings.save_screenshots,
             screenshot_dir: settings.screenshot_dir,
+            idle_timeout_secs: settings.idle_timeout_secs,  // 新增
         }
     };
 
@@ -337,6 +338,13 @@ pub struct ContextSettings {
     pub excluded_apps: Vec<String>,
     pub save_screenshots: bool,
     pub screenshot_dir: Option<String>,  // 截图保存目录
+    #[serde(default = "default_idle_timeout")]
+    pub idle_timeout_secs: u64,  // 空闲超时时间（秒），默认300秒（5分钟）
+}
+
+/// 空闲超时默认值：300秒（5分钟）
+fn default_idle_timeout() -> u64 {
+    300
 }
 
 /// 从数据库加载上下文设置
@@ -384,6 +392,7 @@ impl Default for ContextSettings {
             excluded_apps: vec![],
             save_screenshots: true,
             screenshot_dir: None,
+            idle_timeout_secs: 300,  // 默认5分钟
         }
     }
 }
@@ -428,6 +437,7 @@ pub async fn context_update_settings(
         similarity_threshold: settings.similarity_threshold,
         save_screenshots: settings.save_screenshots,
         screenshot_dir: settings.screenshot_dir,
+        idle_timeout_secs: settings.idle_timeout_secs,  // 新增
     };
 
     manager.update_config(config).await.map_err(|e| e.to_string())

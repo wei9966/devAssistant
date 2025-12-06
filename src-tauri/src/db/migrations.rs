@@ -116,6 +116,13 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     // 迁移 ai_config 表：添加 max_tokens 字段
     migrate_ai_config_add_max_tokens(conn)?;
 
+    // 创建 SQL 模板表
+    create_sql_templates_table(conn)?;
+    create_sql_templates_indexes(conn)?;
+
+    // 迁移 sql_history 表：添加 template_id 字段
+    migrate_sql_history_add_template_id(conn)?;
+
     Ok(())
 }
 
@@ -1751,6 +1758,81 @@ fn migrate_ai_config_add_max_tokens(conn: &Connection) -> Result<()> {
             [],
         )?;
         println!("✓ 已添加 max_tokens 列到 ai_config 表");
+    }
+
+    Ok(())
+}
+
+/// 创建 sql_templates 表（SQL 模板）
+fn create_sql_templates_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS sql_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            template_text TEXT NOT NULL,
+            template_hash TEXT UNIQUE NOT NULL,
+            original_sql_sample TEXT,
+            table_names TEXT,
+            sql_type TEXT,
+            business_scene TEXT,
+            usage_count INTEGER DEFAULT 0,
+            variant_count INTEGER DEFAULT 0,
+            is_favorite INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 sql_templates 表索引
+fn create_sql_templates_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sql_templates_hash ON sql_templates(template_hash)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sql_templates_business_scene ON sql_templates(business_scene)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sql_templates_table_names ON sql_templates(table_names)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sql_templates_usage_count ON sql_templates(usage_count DESC)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 迁移 sql_history 表：添加 template_id 字段
+fn migrate_sql_history_add_template_id(conn: &Connection) -> Result<()> {
+    // 检查 template_id 列是否存在
+    let has_template_id: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('sql_history') WHERE name='template_id'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_template_id == 0 {
+        conn.execute(
+            "ALTER TABLE sql_history ADD COLUMN template_id INTEGER",
+            [],
+        )?;
+        println!("✓ 已添加 template_id 列到 sql_history 表");
+
+        // 创建外键索引以优化关联查询
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sql_history_template_id ON sql_history(template_id)",
+            [],
+        )?;
     }
 
     Ok(())

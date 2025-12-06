@@ -15,6 +15,7 @@ pub mod settings_commands;
 pub mod shortcut_commands;
 pub mod sql_ai_commands;
 pub mod sql_commands;
+pub mod sql_template_commands;
 pub mod tips_commands;
 pub mod statistics_commands;
 pub mod system_commands;

@@ -4,6 +4,7 @@
 use super::ai_service::{AiService, ChatMessage};
 use super::context_store_service::ContextStoreService;
 use super::screen_capture_service::{CaptureStatus, ScreenCaptureService};
+use super::user_activity_service::UserActivityService;
 use crate::models::screen_context::ScreenContext;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveDateTime};
@@ -50,6 +51,8 @@ pub struct ContextConfig {
     pub save_screenshots: bool,
     /// 截图保存目录（为空则使用默认目录）
     pub screenshot_dir: Option<String>,
+    /// 空闲超时时间（秒）
+    pub idle_timeout_secs: u64,
 }
 
 impl Default for ContextConfig {
@@ -59,6 +62,7 @@ impl Default for ContextConfig {
             similarity_threshold: 0.95,
             save_screenshots: true,
             screenshot_dir: None, // 使用默认目录
+            idle_timeout_secs: 300,  // 默认5分钟
         }
     }
 }
@@ -87,6 +91,8 @@ struct ContextManagerState {
     total_captures_today: u32,
     skipped_count: u32,
     config: ContextConfig,
+    is_paused_by_idle: bool,  // 新增：是否因空闲而暂停
+    idle_seconds: u64,        // 新增：当前空闲秒数
 }
 
 /// 上下文管理器
@@ -106,6 +112,8 @@ impl ContextManager {
                 total_captures_today: 0,
                 skipped_count: 0,
                 config: ContextConfig::default(),
+                is_paused_by_idle: false,  // 新增：初始为未暂停
+                idle_seconds: 0,           // 新增：初始空闲时间为0
             })),
             capture_service: Arc::new(ScreenCaptureService::new()),
         }
@@ -121,6 +129,8 @@ impl ContextManager {
                 total_captures_today: 0,
                 skipped_count: 0,
                 config,
+                is_paused_by_idle: false,  // 新增：初始为未暂停
+                idle_seconds: 0,           // 新增：初始空闲时间为0
             })),
             capture_service: Arc::new(ScreenCaptureService::new()),
         }
@@ -141,7 +151,15 @@ impl ContextManager {
         let interval_secs = state.config.capture_interval_secs;
         let save_screenshots = state.config.save_screenshots;
         let screenshot_dir = state.config.get_screenshot_dir();
+        let idle_timeout_secs = state.config.idle_timeout_secs;
         drop(state); // 释放锁
+
+        // 输出启动配置日志
+        println!("屏幕采集已启动 - 间隔: {}秒, 空闲超时: {}秒 ({}分钟)",
+            interval_secs,
+            idle_timeout_secs,
+            idle_timeout_secs / 60
+        );
 
         let state_clone = Arc::clone(&self.state);
         let capture_service = Arc::clone(&self.capture_service);
@@ -149,6 +167,7 @@ impl ContextManager {
 
         tokio::spawn(async move {
             let mut ticker = interval(Duration::from_secs(interval_secs));
+            let user_activity = UserActivityService::new();
 
             loop {
                 ticker.tick().await;
@@ -161,6 +180,31 @@ impl ContextManager {
 
                 if !should_continue {
                     break;
+                }
+
+                // 检查用户活动状态
+                let idle_seconds = user_activity.get_idle_seconds().unwrap_or(0);
+                let idle_timeout = {
+                    let state = state_clone.lock().await;
+                    state.config.idle_timeout_secs
+                };
+
+                // 更新空闲状态
+                {
+                    let mut state = state_clone.lock().await;
+                    state.idle_seconds = idle_seconds;
+
+                    // 如果空闲超时设置为0，表示禁用空闲检测
+                    if idle_timeout > 0 && idle_seconds >= idle_timeout {
+                        if !state.is_paused_by_idle {
+                            state.is_paused_by_idle = true;
+                            println!("用户空闲 {} 秒（阈值: {} 秒），暂停采集", idle_seconds, idle_timeout);
+                        }
+                        continue; // 跳过本次采集
+                    } else if state.is_paused_by_idle {
+                        state.is_paused_by_idle = false;
+                        println!("检测到用户活动（空闲 {} 秒），恢复采集", idle_seconds);
+                    }
                 }
 
                 // 执行截图采集（支持保存截图文件）
@@ -224,6 +268,8 @@ impl ContextManager {
             last_capture_at: state.last_capture_at.clone(),
             total_captures_today: state.total_captures_today,
             skipped_count: state.skipped_count,
+            is_paused_by_idle: state.is_paused_by_idle,  // 新增
+            idle_seconds: state.idle_seconds,            // 新增
         }
     }
 
@@ -270,6 +316,8 @@ impl ContextManager {
         let mut state = self.state.lock().await;
         state.total_captures_today = 0;
         state.skipped_count = 0;
+        state.is_paused_by_idle = false;  // 新增：重置空闲暂停状态
+        state.idle_seconds = 0;           // 新增：重置空闲时间
     }
 
     /// 智能合并上下文项
@@ -461,6 +509,9 @@ mod tests {
         let new_config = ContextConfig {
             capture_interval_secs: 5,
             similarity_threshold: 0.9,
+            save_screenshots: true,
+            screenshot_dir: None,
+            idle_timeout_secs: 300,
         };
         manager.update_config(new_config.clone()).await.unwrap();
 

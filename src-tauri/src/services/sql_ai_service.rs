@@ -78,6 +78,16 @@ pub struct SqlClassifyResult {
     pub confidence: f32,
 }
 
+/// 业务场景识别结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BusinessSceneResult {
+    pub template_id: i64,
+    pub scene: String,           // 业务场景名称
+    pub confidence: f32,         // 置信度
+    pub description: String,     // 场景描述
+}
+
 /// 分类信息（包含 AI 提示词）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CategoryWithPrompt {
@@ -353,6 +363,160 @@ impl SqlAiService {
 
         Ok(response.status().is_success())
     }
+
+    /// 识别SQL模板的业务场景
+    pub async fn identify_business_scenes(
+        &self,
+        templates: Vec<(i64, String)>  // (template_id, template_text)
+    ) -> Result<Vec<BusinessSceneResult>> {
+        if self.config.api_key.is_empty() {
+            return Err(anyhow!("API Key 未配置"));
+        }
+
+        if templates.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let prompt = self.build_scene_prompt(&templates);
+        let base_url = self.config.get_base_url();
+        let model = self.config.get_model();
+
+        let request = ChatRequest {
+            model: model.to_string(),
+            messages: vec![Message {
+                role: "user".to_string(),
+                content: prompt,
+            }],
+            temperature: 0.3,
+            max_tokens: 4096,
+        };
+
+        let url = format!("{}/v1/chat/completions", base_url);
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.config.api_key))
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| anyhow!("API 请求失败: {}", e))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("API 返回错误 {}: {}", status, error_text));
+        }
+
+        let chat_response: ChatResponse = response
+            .json()
+            .await
+            .map_err(|e| anyhow!("解析响应失败: {}", e))?;
+
+        let content = chat_response
+            .choices
+            .first()
+            .map(|c| c.message.content.clone())
+            .unwrap_or_default();
+
+        // 解析 AI 返回的场景识别结果
+        Ok(self.parse_scene_response(&content))
+    }
+
+    /// 构建场景识别提示词
+    fn build_scene_prompt(&self, templates: &[(i64, String)]) -> String {
+        let templates_json: Vec<serde_json::Value> = templates
+            .iter()
+            .map(|(id, sql)| {
+                serde_json::json!({
+                    "id": id,
+                    "sql": sql.chars().take(1000).collect::<String>()
+                })
+            })
+            .collect();
+
+        format!(
+            r#"你是一个 SQL 分析专家。请分析以下 SQL 模板，识别每个模板的业务场景。
+
+常见业务场景包括：
+- 用户管理：涉及用户、账号、权限、角色、登录、注册等相关操作
+- 订单处理：涉及订单、购物、交易、购买、结算等订单相关操作
+- 数据统计：包含 COUNT、SUM、AVG、MAX、MIN 等聚合函数，用于统计分析和报表
+- 库存管理：涉及库存、商品、产品、仓库、入库、出库等库存相关操作
+- 日志记录：涉及日志、操作记录、审计、追踪等记录类操作
+- 配置管理：涉及配置、设置、参数、系统配置等配置相关操作
+- 支付相关：涉及支付、金额、账单、交易、退款等支付相关操作
+- 数据查询：主要是 SELECT 查询操作，不属于上述特定业务场景
+- 数据修改：主要是 INSERT、UPDATE、DELETE 等修改操作，不属于上述特定业务场景
+- 其他：无法归类到上述场景的 SQL 操作
+
+分析要求：
+1. 根据 SQL 中的表名、字段名、操作类型来判断业务场景
+2. 置信度范围 0.0-1.0，越接近 1.0 表示越确定
+3. 描述要简洁明了，说明该 SQL 的主要功能
+4. 如果 SQL 包含多个业务场景特征，选择最主要的场景
+5. 对于通用的 CRUD 操作，根据具体表名和字段判断业务场景
+
+请以 JSON 格式返回结果，不要包含任何其他文字：
+[
+  {{"id": 1, "scene": "用户管理", "confidence": 0.95, "description": "查询用户登录信息"}},
+  {{"id": 2, "scene": "订单处理", "confidence": 0.90, "description": "创建新订单并初始化状态"}},
+  {{"id": 3, "scene": "数据统计", "confidence": 0.98, "description": "统计每日订单总额"}}
+]
+
+以下是需要分析的 SQL 模板：
+{templates}
+"#,
+            templates = serde_json::to_string_pretty(&templates_json).unwrap_or_default()
+        )
+    }
+
+    /// 解析场景识别响应
+    fn parse_scene_response(&self, response: &str) -> Vec<BusinessSceneResult> {
+        // 尝试提取 JSON 数组
+        let json_str = if let Some(start) = response.find('[') {
+            if let Some(end) = response.rfind(']') {
+                &response[start..=end]
+            } else {
+                response
+            }
+        } else {
+            response
+        };
+
+        #[derive(Deserialize)]
+        struct RawSceneResult {
+            id: i64,
+            scene: String,
+            #[serde(default = "default_confidence")]
+            confidence: f32,
+            #[serde(default)]
+            description: String,
+        }
+
+        fn default_confidence() -> f32 {
+            0.5
+        }
+
+        match serde_json::from_str::<Vec<RawSceneResult>>(json_str) {
+            Ok(raw_results) => {
+                raw_results
+                    .into_iter()
+                    .map(|r| BusinessSceneResult {
+                        template_id: r.id,
+                        scene: r.scene,
+                        confidence: r.confidence.clamp(0.0, 1.0), // 确保置信度在有效范围内
+                        description: r.description,
+                    })
+                    .collect()
+            }
+            Err(e) => {
+                eprintln!("解析场景识别结果失败: {} - 原始内容: {}", e, response);
+                vec![] // 返回空结果而不是错误，保证调用方能继续执行
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -435,5 +599,123 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].categories, vec!["查询"]);
+    }
+
+    #[test]
+    fn test_build_scene_prompt() {
+        let config = SqlAiConfig::default();
+        let service = SqlAiService::new(config);
+
+        let templates = vec![
+            (1, "SELECT * FROM users WHERE username = ?".to_string()),
+            (2, "INSERT INTO orders (user_id, total) VALUES (?, ?)".to_string()),
+            (3, "SELECT COUNT(*) FROM sales WHERE date > ?".to_string()),
+        ];
+
+        let prompt = service.build_scene_prompt(&templates);
+
+        // 验证提示词包含关键信息
+        assert!(prompt.contains("SQL 分析专家"));
+        assert!(prompt.contains("用户管理"));
+        assert!(prompt.contains("订单处理"));
+        assert!(prompt.contains("数据统计"));
+        assert!(prompt.contains("SELECT * FROM users"));
+        assert!(prompt.contains("INSERT INTO orders"));
+        assert!(prompt.contains("COUNT"));
+    }
+
+    #[test]
+    fn test_parse_scene_response() {
+        let config = SqlAiConfig::default();
+        let service = SqlAiService::new(config);
+
+        let content = r#"[
+            {"id": 1, "scene": "用户管理", "confidence": 0.95, "description": "查询用户登录信息"},
+            {"id": 2, "scene": "订单处理", "confidence": 0.90, "description": "创建新订单"},
+            {"id": 3, "scene": "数据统计", "confidence": 0.98, "description": "统计销售总额"}
+        ]"#;
+
+        let results = service.parse_scene_response(content);
+
+        assert_eq!(results.len(), 3);
+
+        assert_eq!(results[0].template_id, 1);
+        assert_eq!(results[0].scene, "用户管理");
+        assert_eq!(results[0].confidence, 0.95);
+        assert_eq!(results[0].description, "查询用户登录信息");
+
+        assert_eq!(results[1].template_id, 2);
+        assert_eq!(results[1].scene, "订单处理");
+        assert_eq!(results[1].confidence, 0.90);
+
+        assert_eq!(results[2].scene, "数据统计");
+        assert_eq!(results[2].confidence, 0.98);
+    }
+
+    #[test]
+    fn test_parse_scene_response_with_extra_text() {
+        let config = SqlAiConfig::default();
+        let service = SqlAiService::new(config);
+
+        // 测试 AI 返回的内容包含额外文字的情况
+        let content = r#"根据分析，以下是识别结果：
+        [
+            {"id": 1, "scene": "用户管理", "confidence": 0.95, "description": "查询用户信息"}
+        ]
+        以上是分析结果。"#;
+
+        let results = service.parse_scene_response(content);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].scene, "用户管理");
+    }
+
+    #[test]
+    fn test_parse_scene_response_missing_fields() {
+        let config = SqlAiConfig::default();
+        let service = SqlAiService::new(config);
+
+        // 测试缺少 confidence 和 description 字段的情况
+        let content = r#"[
+            {"id": 1, "scene": "用户管理"}
+        ]"#;
+
+        let results = service.parse_scene_response(content);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].scene, "用户管理");
+        assert_eq!(results[0].confidence, 0.5); // 默认值
+        assert_eq!(results[0].description, ""); // 默认值
+    }
+
+    #[test]
+    fn test_parse_scene_response_invalid_json() {
+        let config = SqlAiConfig::default();
+        let service = SqlAiService::new(config);
+
+        let content = "这不是有效的 JSON";
+
+        let results = service.parse_scene_response(content);
+
+        // 应该返回空数组而不是崩溃
+        assert_eq!(results.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_scene_response_confidence_clamping() {
+        let config = SqlAiConfig::default();
+        let service = SqlAiService::new(config);
+
+        // 测试置信度超出范围的情况
+        let content = r#"[
+            {"id": 1, "scene": "用户管理", "confidence": 1.5, "description": "测试"},
+            {"id": 2, "scene": "订单处理", "confidence": -0.5, "description": "测试"}
+        ]"#;
+
+        let results = service.parse_scene_response(content);
+
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].confidence, 1.0); // 被限制在 1.0
+        assert_eq!(results[1].confidence, 0.0); // 被限制在 0.0
     }
 }

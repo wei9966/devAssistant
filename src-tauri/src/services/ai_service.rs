@@ -572,7 +572,19 @@ impl AiService {
             max_tokens: self.config.get_max_tokens() as i32,
         };
 
-        let url = format!("{}/v1/chat/completions", base_url);
+        // 自定义提供商：如果 base_url 已包含版本路径（如 /v3、/v1），则直接追加 /chat/completions
+        // 否则按标准 OpenAI 格式追加 /v1/chat/completions
+        let url = if self.config.provider == AiProvider::Custom {
+            let trimmed_url = base_url.trim_end_matches('/');
+            // 检查是否已包含版本路径（如 /v1, /v2, /v3 等）
+            if trimmed_url.contains("/v1") || trimmed_url.contains("/v2") || trimmed_url.contains("/v3") {
+                format!("{}/chat/completions", trimmed_url)
+            } else {
+                format!("{}/v1/chat/completions", trimmed_url)
+            }
+        } else {
+            format!("{}/v1/chat/completions", base_url)
+        };
 
         let response = self
             .client
@@ -620,7 +632,17 @@ impl AiService {
             max_tokens: 10,
         };
 
-        let url = format!("{}/v1/chat/completions", base_url);
+        // 自定义提供商：如果 base_url 已包含版本路径（如 /v3、/v1），则直接追加 /chat/completions
+        let url = if self.config.provider == AiProvider::Custom {
+            let trimmed_url = base_url.trim_end_matches('/');
+            if trimmed_url.contains("/v1") || trimmed_url.contains("/v2") || trimmed_url.contains("/v3") {
+                format!("{}/chat/completions", trimmed_url)
+            } else {
+                format!("{}/v1/chat/completions", trimmed_url)
+            }
+        } else {
+            format!("{}/v1/chat/completions", base_url)
+        };
 
         let response = self
             .client

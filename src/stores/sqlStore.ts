@@ -1,7 +1,16 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { sqlApi } from '@/api/sqlApi';
-import type { SqlRecord, SqlCategory, SqlClassifyResult, AiProvider } from '@/types/sql';
+import type {
+  SqlRecord,
+  SqlCategory,
+  SqlClassifyResult,
+  AiProvider,
+  SqlTemplate,
+  ConsolidateResult,
+  TemplateGroupBy,
+  TemplateGroupStats,
+} from '@/types/sql';
 
 export const useSqlStore = defineStore('sql', () => {
   // 状态
@@ -12,6 +21,15 @@ export const useSqlStore = defineStore('sql', () => {
   const loading = ref(false);
   const aiConfigured = ref(false);
   const aiClassifying = ref(false);
+
+  // 模板相关状态
+  const templates = ref<SqlTemplate[]>([]);
+  const hotTemplates = ref<SqlTemplate[]>([]);
+  const templateGroupStats = ref<TemplateGroupStats | null>(null);
+  const currentGroupBy = ref<TemplateGroupBy>(null);
+  const isConsolidating = ref(false);
+  const isIdentifyingScenes = ref(false);
+  const lastConsolidateResult = ref<ConsolidateResult | null>(null);
 
   // 计算属性
   const totalRecentCount = computed(() => recentSqls.value.length);
@@ -57,6 +75,39 @@ export const useSqlStore = defineStore('sql', () => {
     return recentSqls.value.filter(
       (sql) => !sql.categories || sql.categories.length === 0 || !sql.name
     ).length;
+  });
+
+  // 模板相关计算属性
+  // 按业务场景分组的模板
+  const templatesByScene = computed(() => {
+    const result: Record<string, SqlTemplate[]> = {};
+    templates.value.forEach((template) => {
+      const scene = template.businessScene || '未分类';
+      if (!result[scene]) {
+        result[scene] = [];
+      }
+      result[scene].push(template);
+    });
+    return result;
+  });
+
+  // 按表名分组的模板
+  const templatesByTable = computed(() => {
+    const result: Record<string, SqlTemplate[]> = {};
+    templates.value.forEach((template) => {
+      template.tableNames.forEach((tableName) => {
+        if (!result[tableName]) {
+          result[tableName] = [];
+        }
+        result[tableName].push(template);
+      });
+    });
+    return result;
+  });
+
+  // 未分类场景的模板数量
+  const unclassifiedTemplateCount = computed(() => {
+    return templates.value.filter((template) => !template.businessScene).length;
   });
 
   // 操作
@@ -292,6 +343,123 @@ export const useSqlStore = defineStore('sql', () => {
     );
   }
 
+  // 模板相关操作
+  // 加载模板列表
+  async function loadTemplates(groupBy?: TemplateGroupBy, limit?: number) {
+    loading.value = true;
+    try {
+      templates.value = await sqlApi.getSqlTemplates(groupBy, limit);
+      currentGroupBy.value = groupBy || null;
+    } catch (error) {
+      console.error('加载模板列表失败:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  // 加载热门模板
+  async function loadHotTemplates(limit?: number) {
+    loading.value = true;
+    try {
+      hotTemplates.value = await sqlApi.getHotSqlTemplates(limit);
+    } catch (error) {
+      console.error('加载热门模板失败:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  // 加载分组统计
+  async function loadTemplateGroupStats() {
+    try {
+      templateGroupStats.value = await sqlApi.getTemplateGroupStats();
+    } catch (error) {
+      console.error('加载分组统计失败:', error);
+      throw error;
+    }
+  }
+
+  // 执行智能整合
+  async function consolidateTemplates(): Promise<ConsolidateResult> {
+    isConsolidating.value = true;
+    try {
+      const result = await sqlApi.consolidateSqlTemplates();
+      lastConsolidateResult.value = result;
+      // 整合后重新加载模板列表
+      await loadTemplates(currentGroupBy.value);
+      await loadTemplateGroupStats();
+      return result;
+    } catch (error) {
+      console.error('智能整合失败:', error);
+      throw error;
+    } finally {
+      isConsolidating.value = false;
+    }
+  }
+
+  // AI识别业务场景
+  async function identifyScenes(templateIds?: number[]): Promise<number> {
+    isIdentifyingScenes.value = true;
+    try {
+      const count = await sqlApi.identifyTemplateScenes(templateIds);
+      // 识别后重新加载模板列表
+      await loadTemplates(currentGroupBy.value);
+      await loadTemplateGroupStats();
+      return count;
+    } catch (error) {
+      console.error('AI识别业务场景失败:', error);
+      throw error;
+    } finally {
+      isIdentifyingScenes.value = false;
+    }
+  }
+
+  // 切换模板收藏
+  async function toggleTemplateFavorite(templateId: number) {
+    try {
+      await sqlApi.toggleTemplateFavorite(templateId);
+      // 更新本地状态
+      const template = templates.value.find((t) => t.id === templateId);
+      if (template) {
+        template.isFavorite = !template.isFavorite;
+      }
+      const hotTemplate = hotTemplates.value.find((t) => t.id === templateId);
+      if (hotTemplate) {
+        hotTemplate.isFavorite = !hotTemplate.isFavorite;
+      }
+    } catch (error) {
+      console.error('切换模板收藏失败:', error);
+      throw error;
+    }
+  }
+
+  // 获取模板变体
+  async function getTemplateVariants(templateId: number): Promise<SqlRecord[]> {
+    try {
+      return await sqlApi.getTemplateVariants(templateId);
+    } catch (error) {
+      console.error('获取模板变体失败:', error);
+      throw error;
+    }
+  }
+
+  // 按表名获取模板
+  async function getTemplatesByTable(tableName: string): Promise<SqlTemplate[]> {
+    try {
+      return await sqlApi.getTemplatesByTable(tableName);
+    } catch (error) {
+      console.error('按表名获取模板失败:', error);
+      throw error;
+    }
+  }
+
+  // 设置分组方式
+  function setGroupBy(groupBy: TemplateGroupBy) {
+    currentGroupBy.value = groupBy;
+  }
+
   return {
     recentSqls,
     favoriteSqls,
@@ -324,5 +492,25 @@ export const useSqlStore = defineStore('sql', () => {
     aiClassifySqls,
     searchSqls,
     filterSqlsByCategory,
+    // 模板相关状态和方法
+    templates,
+    hotTemplates,
+    templateGroupStats,
+    currentGroupBy,
+    isConsolidating,
+    isIdentifyingScenes,
+    lastConsolidateResult,
+    templatesByScene,
+    templatesByTable,
+    unclassifiedTemplateCount,
+    loadTemplates,
+    loadHotTemplates,
+    loadTemplateGroupStats,
+    consolidateTemplates,
+    identifyScenes,
+    toggleTemplateFavorite,
+    getTemplateVariants,
+    getTemplatesByTable,
+    setGroupBy,
   };
 });

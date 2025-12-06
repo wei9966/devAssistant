@@ -3,7 +3,27 @@
     <div class="history-header">
       <h2 class="history-title">SQL 执行记录</h2>
       <div class="header-actions">
-        <div class="search-box">
+        <!-- 视图切换按钮组 -->
+        <n-button-group>
+          <n-button
+            size="small"
+            :type="currentView === 'list' ? 'primary' : 'default'"
+            @click="currentView = 'list'"
+          >
+            <template #icon><n-icon :component="ListIcon" /></template>
+            列表
+          </n-button>
+          <n-button
+            size="small"
+            :type="currentView === 'template' ? 'primary' : 'default'"
+            @click="currentView = 'template'"
+          >
+            <template #icon><n-icon :component="GridIcon" /></template>
+            整合
+          </n-button>
+        </n-button-group>
+
+        <div class="search-box" v-if="currentView === 'list'">
           <n-icon class="search-icon" :component="SearchIcon" />
           <input
             v-model="searchKeyword"
@@ -13,6 +33,7 @@
           />
         </div>
         <n-select
+          v-if="currentView === 'list'"
           v-model:value="selectedType"
           size="small"
           :options="typeOptions"
@@ -20,6 +41,7 @@
           placeholder="SQL类型"
         />
         <n-select
+          v-if="currentView === 'list'"
           v-model:value="selectedCategory"
           size="small"
           :options="categoryOptions"
@@ -27,6 +49,7 @@
           placeholder="分类"
         />
         <n-button
+          v-if="currentView === 'list'"
           size="small"
           :class="showFavorites ? 'primary-button' : ''"
           @click="showFavorites = !showFavorites"
@@ -34,6 +57,7 @@
           {{ showFavorites ? '仅收藏' : '全部' }}
         </n-button>
         <n-button
+          v-if="currentView === 'list'"
           size="small"
           @click="goToAiSettings"
           :type="aiStore.isEnabled ? 'success' : 'default'"
@@ -41,6 +65,7 @@
           {{ aiStore.isEnabled ? 'AI已配置' : 'AI配置' }}
         </n-button>
         <n-button
+          v-if="currentView === 'list'"
           size="small"
           :loading="sqlStore.aiClassifying"
           :disabled="!aiStore.isEnabled || sqlStore.uncategorizedCount === 0"
@@ -49,12 +74,22 @@
           AI分类 ({{ sqlStore.uncategorizedCount }})
         </n-button>
         <n-button
+          v-if="currentView === 'list'"
           size="small"
           @click="showCategoryModal = true"
         >
           分类管理
         </n-button>
         <n-button
+          v-if="currentView === 'list'"
+          size="small"
+          @click="currentView = 'template'"
+        >
+          <template #icon><n-icon :component="FlashIcon" /></template>
+          智能整合
+        </n-button>
+        <n-button
+          v-if="currentView === 'list'"
           size="small"
           class="primary-button"
           @click="showAddModal = true"
@@ -64,7 +99,8 @@
       </div>
     </div>
 
-    <div class="table-container">
+    <!-- 列表视图 -->
+    <div v-if="currentView === 'list'" class="table-container">
       <div class="table-wrapper">
         <table class="sql-table">
           <thead class="table-head">
@@ -219,6 +255,11 @@
           <span v-if="searchKeyword"> · 搜索关键词: "{{ searchKeyword }}"</span>
         </span>
       </div>
+    </div>
+
+    <!-- 整合视图 -->
+    <div v-else-if="currentView === 'template'" class="template-view-container">
+      <SqlTemplateView @copy-sql="handleCopySql" />
     </div>
 
     <!-- 新增SQL对话框 -->
@@ -429,7 +470,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { NButton, NEmpty, NModal, NForm, NFormItem, NInput, NIcon, NSelect, NTag, NColorPicker, useMessage } from 'naive-ui';
+import { NButton, NEmpty, NModal, NForm, NFormItem, NInput, NIcon, NSelect, NTag, NColorPicker, NButtonGroup, useMessage } from 'naive-ui';
 import type { FormInst, FormRules } from 'naive-ui';
 import { useSqlStore } from '@/stores/sqlStore';
 import { useAiStore } from '@/stores/aiStore';
@@ -444,8 +485,12 @@ import {
   Trash,
   Search,
   Expand,
-  Create
+  Create,
+  ListOutline,
+  GridOutline,
+  Flash
 } from '@vicons/ionicons5';
+import SqlTemplateView from '@/components/sql/SqlTemplateView.vue';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
@@ -508,6 +553,12 @@ const TrashIcon = Trash;
 const SearchIcon = Search;
 const ExpandIcon = Expand;
 const EditIcon = Create;
+const ListIcon = ListOutline;
+const GridIcon = GridOutline;
+const FlashIcon = Flash;
+
+// 当前视图状态
+const currentView = ref<'list' | 'template'>('list');
 
 // 编辑表单（支持多标签）
 const editForm = ref({
@@ -902,6 +953,12 @@ async function handleDeleteCategory(categoryId: number | undefined) {
   } catch (error) {
     message.error('删除分类失败');
   }
+}
+
+// 处理复制SQL事件
+function handleCopySql(sql: string) {
+  navigator.clipboard.writeText(sql);
+  message.success('已复制SQL');
 }
 </script>
 
@@ -1430,6 +1487,43 @@ async function handleDeleteCategory(categoryId: number | undefined) {
   background: #475569;
 }
 
+/* 整合视图容器 */
+.template-view-container {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 20px;
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+:deep(.template-view-container .sql-template-view) {
+  width: 100%;
+  padding: 0;
+  background: transparent;
+}
+
+/* 按钮组样式 */
+:deep(.n-button-group) {
+  display: inline-flex;
+}
+
+:deep(.n-button-group .n-button) {
+  border-radius: 0;
+}
+
+:deep(.n-button-group .n-button:first-child) {
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+:deep(.n-button-group .n-button:last-child) {
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
 /* Responsive adjustments */
 @media (max-width: 1024px) {
   .search-input {
@@ -1438,6 +1532,10 @@ async function handleDeleteCategory(categoryId: number | undefined) {
 
   .sql-code {
     max-width: 300px;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
   }
 }
 </style>

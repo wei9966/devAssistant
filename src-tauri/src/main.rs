@@ -654,6 +654,15 @@ fn main() {
             commands::sql_ai_commands::test_sql_ai_connection,
             commands::sql_ai_commands::ai_classify_sqls,
             commands::sql_ai_commands::manual_classify_sql,
+            // SQL 模板相关命令
+            commands::sql_template_commands::consolidate_sql_templates,
+            commands::sql_template_commands::get_sql_templates,
+            commands::sql_template_commands::get_hot_sql_templates,
+            commands::sql_template_commands::get_template_variants,
+            commands::sql_template_commands::get_templates_by_table,
+            commands::sql_template_commands::identify_template_scenes,
+            commands::sql_template_commands::toggle_template_favorite,
+            commands::sql_template_commands::get_template_group_stats,
             // AI 相关命令
             commands::ai_commands::save_ai_config,
             commands::ai_commands::get_ai_config,

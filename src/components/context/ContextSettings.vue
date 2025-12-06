@@ -64,6 +64,26 @@
             </div>
           </div>
 
+          <!-- 空闲超时时间 -->
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">空闲暂停</div>
+              <div class="setting-desc">用户无操作超过此时间后暂停采集，设为0禁用此功能</div>
+            </div>
+            <div class="slider-control">
+              <n-slider
+                v-model:value="settings.idleTimeoutSecs"
+                :min="0"
+                :max="600"
+                :step="30"
+                :marks="{ 0: '禁用', 300: '5分钟', 600: '10分钟' }"
+                :format-tooltip="formatIdleTimeout"
+                :disabled="!settings.captureEnabled"
+              />
+              <span class="slider-value">{{ formatIdleTimeout(settings.idleTimeoutSecs) }}</span>
+            </div>
+          </div>
+
           <!-- 数据保留天数 -->
           <div class="setting-item">
             <div class="setting-info">
@@ -140,13 +160,19 @@
 
           <!-- 当前状态信息 -->
           <div v-if="captureStatus && settings.captureEnabled" class="status-info">
-            <n-alert type="info" :bordered="false">
+            <n-alert :type="captureStatus.isPausedByIdle ? 'warning' : 'info'" :bordered="false">
               <div class="status-details">
+                <p v-if="captureStatus.isPausedByIdle" class="paused-warning">
+                  <strong>⏸️ 已暂停:</strong> 用户空闲 {{ formatIdleTimeout(captureStatus.idleSeconds) }}，等待活动恢复
+                </p>
                 <p v-if="captureStatus.lastCaptureAt">
                   <strong>最后采集:</strong> {{ formatTime(captureStatus.lastCaptureAt) }}
                 </p>
                 <p><strong>今日采集:</strong> {{ captureStatus.totalCapturesToday }} 次</p>
                 <p><strong>今日跳过:</strong> {{ captureStatus.skippedCount }} 次（相似截图）</p>
+                <p v-if="!captureStatus.isPausedByIdle && captureStatus.idleSeconds > 0">
+                  <strong>当前空闲:</strong> {{ formatIdleTimeout(captureStatus.idleSeconds) }}
+                </p>
               </div>
             </n-alert>
           </div>
@@ -186,6 +212,7 @@ const defaultSettings: ContextSettings = {
   excludedApps: [],
   saveScreenshots: false,
   screenshotDir: null,
+  idleTimeoutSecs: 300,  // 默认5分钟
 };
 
 const settings = ref<ContextSettings>({ ...defaultSettings });
@@ -286,6 +313,15 @@ function formatTime(timestamp: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function formatIdleTimeout(secs: number): string {
+  if (secs === 0) return '禁用';
+  if (secs < 60) return `${secs}秒`;
+  const mins = Math.floor(secs / 60);
+  const remainSecs = secs % 60;
+  if (remainSecs === 0) return `${mins}分钟`;
+  return `${mins}分${remainSecs}秒`;
 }
 </script>
 
@@ -420,6 +456,14 @@ function formatTime(timestamp: string): string {
 
 .status-details strong {
   color: rgb(203, 213, 225);
+}
+
+.paused-warning {
+  color: rgb(251, 191, 36);
+}
+
+.paused-warning strong {
+  color: rgb(251, 191, 36);
 }
 
 .default-dir-hint {
