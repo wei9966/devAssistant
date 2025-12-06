@@ -381,6 +381,33 @@ pub async fn screenshot_get_activities(
     // 注意：使用直接字符串比较避免 date() 函数的时区转换问题
     log::info!("查询活动列表，日期: {}", date);
 
+    // 1. 先查询该日期已有的小时总结（来自 activity_summaries 表）
+    let mut hourly_summaries: std::collections::HashMap<String, (String, String)> = std::collections::HashMap::new();
+    {
+        let summary_sql = "
+            SELECT
+                substr(start_time, 12, 2) as hour,
+                summary_text,
+                activity_type
+            FROM activity_summaries
+            WHERE substr(start_time, 1, 10) = ?
+        ";
+        if let Ok(mut summary_stmt) = conn.prepare(summary_sql) {
+            if let Ok(rows) = summary_stmt.query_map([&date], |row| {
+                let hour: String = row.get(0)?;
+                let summary_text: String = row.get(1)?;
+                let activity_type: String = row.get(2)?;
+                Ok((hour, summary_text, activity_type))
+            }) {
+                for row in rows.flatten() {
+                    hourly_summaries.insert(row.0, (row.1, row.2));
+                }
+            }
+        }
+        log::info!("找到 {} 个已有的小时总结", hourly_summaries.len());
+    }
+
+    // 2. 查询截图数据
     let sql = "
         SELECT
             CASE
@@ -403,79 +430,94 @@ pub async fn screenshot_get_activities(
 
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
 
-    let activities = stmt
+    // 收集原始数据
+    let raw_activities: Vec<(String, String, String, String, String, String, String, String, String)> = stmt
         .query_map([&date], |row| {
-            let hour: String = row.get(0)?;
-            let ids: String = row.get(1)?;
-            let times: String = row.get(2)?;
-            let paths: String = row.get(3)?;
-            let apps: String = row.get(4)?;
-            let descriptions: String = row.get(5)?;
-            let types: String = row.get(6)?;
-            let start_time: String = row.get(7)?;
-            let end_time: String = row.get(8)?;
+            Ok((
+                row.get::<_, String>(0)?,  // hour
+                row.get::<_, String>(1)?,  // ids
+                row.get::<_, String>(2)?,  // times
+                row.get::<_, String>(3)?,  // paths
+                row.get::<_, String>(4)?,  // apps
+                row.get::<_, String>(5)?,  // descriptions
+                row.get::<_, String>(6)?,  // types
+                row.get::<_, String>(7)?,  // start_time
+                row.get::<_, String>(8)?,  // end_time
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
-            // 解析ID列表
-            let id_list: Vec<i64> = ids
-                .split(',')
-                .filter_map(|s| s.parse().ok())
-                .collect();
+    // 3. 处理每个小时的数据，结合已有的小时总结
+    let mut activities = Vec::new();
+    for (hour, ids, times, paths, apps, descriptions, types, start_time, end_time) in raw_activities {
+        // 解析ID列表
+        let id_list: Vec<i64> = ids
+            .split(',')
+            .filter_map(|s| s.parse().ok())
+            .collect();
 
-            // 解析时间列表
-            let time_list: Vec<String> = times
-                .split("|||")
-                .map(|s| s.to_string())
-                .collect();
+        // 解析时间列表
+        let time_list: Vec<String> = times
+            .split("|||")
+            .map(|s| s.to_string())
+            .collect();
 
-            // 解析路径列表
-            let path_list: Vec<Option<String>> = paths
-                .split("|||")
-                .map(|s| if s.is_empty() { None } else { Some(s.to_string()) })
-                .collect();
+        // 解析路径列表
+        let path_list: Vec<Option<String>> = paths
+            .split("|||")
+            .map(|s| if s.is_empty() { None } else { Some(s.to_string()) })
+            .collect();
 
-            // 解析应用名列表
-            let app_list: Vec<Option<String>> = apps
-                .split("|||")
-                .map(|s| if s.is_empty() { None } else { Some(s.to_string()) })
-                .collect();
+        // 解析应用名列表
+        let app_list: Vec<Option<String>> = apps
+            .split("|||")
+            .map(|s| if s.is_empty() { None } else { Some(s.to_string()) })
+            .collect();
 
-            // 解析描述列表（保持与其他字段同样的顺序）
-            let desc_list: Vec<Option<String>> = descriptions
-                .split("|||")
-                .map(|s| if s.is_empty() { None } else { Some(s.to_string()) })
-                .collect();
+        // 解析描述列表（保持与其他字段同样的顺序）
+        let desc_list: Vec<Option<String>> = descriptions
+            .split("|||")
+            .map(|s| if s.is_empty() { None } else { Some(s.to_string()) })
+            .collect();
 
-            // 解析活动类型列表
-            let type_list: Vec<String> = types
-                .split("|||")
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_string())
-                .collect();
+        // 解析活动类型列表
+        let type_list: Vec<String> = types
+            .split("|||")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+            .collect();
 
-            // 统计出现次数最多的活动类型
-            let mut type_counts = std::collections::HashMap::new();
-            for t in &type_list {
-                *type_counts.entry(t.clone()).or_insert(0) += 1;
-            }
-            let activity_type = type_counts
-                .into_iter()
-                .max_by_key(|(_, count)| *count)
-                .map(|(t, _)| t)
-                .unwrap_or_else(|| "other".to_string());
+        // 统计出现次数最多的活动类型（用作回退）
+        let mut type_counts = std::collections::HashMap::new();
+        for t in &type_list {
+            *type_counts.entry(t.clone()).or_insert(0) += 1;
+        }
+        let fallback_activity_type = type_counts
+            .into_iter()
+            .max_by_key(|(_, count)| *count)
+            .map(|(t, _)| t)
+            .unwrap_or_else(|| "other".to_string());
 
-            // 构建截图资源列表（每张截图有自己的描述）
-            let screenshots: Vec<ScreenshotResource> = id_list
-                .iter()
-                .enumerate()
-                .map(|(i, &id)| ScreenshotResource {
-                    id,
-                    path: path_list.get(i).and_then(|p| p.clone()),
-                    captured_at: time_list.get(i).cloned().unwrap_or_default(),
-                    app_name: app_list.get(i).and_then(|a| a.clone()),
-                    description: desc_list.get(i).and_then(|d| d.clone()),
-                })
-                .collect();
+        // 构建截图资源列表（每张截图有自己的描述）
+        let screenshots: Vec<ScreenshotResource> = id_list
+            .iter()
+            .enumerate()
+            .map(|(i, &id)| ScreenshotResource {
+                id,
+                path: path_list.get(i).and_then(|p| p.clone()),
+                captured_at: time_list.get(i).cloned().unwrap_or_default(),
+                app_name: app_list.get(i).and_then(|a| a.clone()),
+                description: desc_list.get(i).and_then(|d| d.clone()),
+            })
+            .collect();
 
+        // 优先使用已有的小时总结，否则拼接截图描述
+        let (description, activity_type) = if let Some((summary_text, summary_type)) = hourly_summaries.get(&hour) {
+            log::debug!("使用已有的小时总结: hour={}", hour);
+            (summary_text.clone(), summary_type.clone())
+        } else {
             // 生成活动组的简洁摘要（去重并截取前几个）
             let unique_descs: Vec<&str> = desc_list
                 .iter()
@@ -486,7 +528,7 @@ pub async fn screenshot_get_activities(
                 .take(3)  // 最多取3个不同的描述
                 .collect();
 
-            let description = if unique_descs.is_empty() {
+            let desc = if unique_descs.is_empty() {
                 "暂无描述".to_string()
             } else {
                 // 每个描述截取前50个字符
@@ -503,26 +545,25 @@ pub async fn screenshot_get_activities(
                     .collect::<Vec<_>>()
                     .join("；")
             };
+            (desc, fallback_activity_type)
+        };
 
-            // 生成标题：HH:00 - HH:59
-            let title = format!("{}:00 - {}:59", hour, hour);
+        // 生成标题：HH:00 - HH:59
+        let title = format!("{}:00 - {}:59", hour, hour);
 
-            // 使用开始时间戳作为ID
-            let id = start_time.clone();
+        // 使用开始时间戳作为ID
+        let id = start_time.clone();
 
-            Ok(ActivityGroup {
-                id,
-                start_time,
-                end_time,
-                title,
-                description,
-                activity_type,
-                screenshots,
-            })
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
+        activities.push(ActivityGroup {
+            id,
+            start_time,
+            end_time,
+            title,
+            description,
+            activity_type,
+            screenshots,
+        });
+    }
 
     log::info!("查询到 {} 个活动分组", activities.len());
     for act in &activities {

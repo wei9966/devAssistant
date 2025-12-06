@@ -604,6 +604,140 @@ fn main() {
             }
 
             log_runtime("应用 setup 完成");
+
+            // 自动恢复屏幕采集（如果之前开启了）
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                // 延迟一点启动，确保所有服务初始化完成
+                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+                // 获取数据库连接检查设置
+                let db_path = dirs::data_local_dir()
+                    .unwrap_or_else(|| std::path::PathBuf::from("."))
+                    .join("dev-assistant")
+                    .join("dev_assistant.db");
+
+                if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+                    // 读取设置
+                    let settings_json: Option<String> = conn
+                        .query_row(
+                            "SELECT value FROM app_settings WHERE key = 'context_settings'",
+                            [],
+                            |row| row.get(0),
+                        )
+                        .ok();
+
+                    if let Some(json) = settings_json {
+                        if let Ok(settings) = serde_json::from_str::<serde_json::Value>(&json) {
+                            let capture_enabled = settings.get("captureEnabled")
+                                .and_then(|v| v.as_bool())
+                                .unwrap_or(false);
+
+                            if capture_enabled {
+                                log::info!("检测到屏幕采集已启用，正在自动恢复...");
+
+                                // 通过调用命令来启动采集
+                                if let Some(context_state) = app_handle.try_state::<ContextManagerState>() {
+                                    if let Some(batch_state) = app_handle.try_state::<BatchProcessorState>() {
+                                        if let Some(db_state) = app_handle.try_state::<DbConnection>() {
+                                            // 加载配置
+                                            let config = {
+                                                if let Ok(conn) = db_state.0.lock() {
+                                                    let settings = commands::context_commands::load_context_settings_internal(&conn);
+                                                    services::context_manager_service::ContextConfig {
+                                                        capture_interval_secs: settings.capture_interval,
+                                                        similarity_threshold: settings.similarity_threshold,
+                                                        save_screenshots: settings.save_screenshots,
+                                                        screenshot_dir: settings.screenshot_dir,
+                                                        idle_timeout_secs: settings.idle_timeout_secs,
+                                                    }
+                                                } else {
+                                                    services::context_manager_service::ContextConfig::default()
+                                                }
+                                            };
+
+                                            let manager = context_state.get_or_init().await;
+                                            let _ = manager.update_config(config).await;
+
+                                            // 准备回调所需的状态
+                                            let db_arc = db_state.0.clone();
+                                            let batch_state_clone = batch_state.inner().clone();
+                                            let db_path_str = db_path.to_string_lossy().to_string();
+
+                                            // 自动启动批处理器
+                                            let batch_processor = batch_state_clone.get_or_init(db_path_str.clone()).await;
+                                            let processor_state = batch_processor.get_state().await;
+                                            if !processor_state.is_running {
+                                                if let Err(e) = batch_processor.start().await {
+                                                    log::warn!("启动批处理器失败: {}", e);
+                                                } else {
+                                                    let processor_clone = batch_processor.clone();
+                                                    tauri::async_runtime::spawn(async move {
+                                                        if let Err(e) = processor_clone.run_processing_loop().await {
+                                                            log::error!("批量处理循环出错: {}", e);
+                                                        }
+                                                    });
+                                                }
+                                            }
+
+                                            // 启动采集
+                                            let db_path_for_batch = db_path_str.clone();
+                                            if let Err(e) = manager.start_capture(move |context| {
+                                                // 保存到数据库
+                                                let saved_id = match db_arc.lock() {
+                                                    Ok(conn) => {
+                                                        match services::context_store_service::ContextStoreService::save_context(&conn, &context) {
+                                                            Ok(id) => {
+                                                                println!("截图采集成功并已保存: {} - {:?}, ID: {}",
+                                                                    context.captured_at, context.app_name, id);
+                                                                Some(id)
+                                                            }
+                                                            Err(e) => {
+                                                                eprintln!("保存截图上下文失败: {}", e);
+                                                                None
+                                                            }
+                                                        }
+                                                    }
+                                                    Err(e) => {
+                                                        eprintln!("获取数据库连接失败: {}", e);
+                                                        None
+                                                    }
+                                                };
+
+                                                // 保存成功后，加入批量处理队列
+                                                if let Some(id) = saved_id {
+                                                    if let Some(ref path) = context.screenshot_path {
+                                                        let batch_state_inner = batch_state_clone.clone();
+                                                        let db_path_inner = db_path_for_batch.clone();
+                                                        let screenshot_path = path.clone();
+
+                                                        tokio::spawn(async move {
+                                                            let processor = batch_state_inner.get_or_init(db_path_inner).await;
+                                                            let batch_item = services::screenshot_batch_processor_service::BatchItem {
+                                                                context_id: id,
+                                                                screenshot_path,
+                                                            };
+
+                                                            if let Err(e) = processor.enqueue(batch_item).await {
+                                                                eprintln!("加入批量处理队列失败: {}", e);
+                                                            }
+                                                        });
+                                                    }
+                                                }
+                                            }).await {
+                                                log::error!("自动恢复屏幕采集失败: {}", e);
+                                            } else {
+                                                log::info!("屏幕采集已自动恢复");
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

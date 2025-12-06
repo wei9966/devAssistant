@@ -304,13 +304,17 @@ impl ScreenshotBatchProcessor {
                 };
 
                 // 更新数据库
-                let description = format!(
-                    "{}\n应用: {}\n活动: {}",
-                    analysis.summary,
-                    analysis.app_name,
-                    analysis.activity_type
-                );
+                // 保留纯净的 summary 作为 description，activity_type 单独存储
+                let description = analysis.summary.clone();
                 let key_content = Some(analysis.keywords.join(", "));
+                // 获取 VLM 分析返回的 activity_type（如果有效则使用，否则保持原值）
+                let activity_type = if !analysis.activity_type.is_empty()
+                    && analysis.activity_type != "other"
+                {
+                    Some(analysis.activity_type.clone())
+                } else {
+                    None  // 保持数据库中原有的 activity_type
+                };
 
                 // 打开数据库连接并更新
                 let conn = Connection::open(&db_path_owned)
@@ -321,6 +325,7 @@ impl ScreenshotBatchProcessor {
                     item.context_id,
                     &description,
                     key_content.as_deref(),
+                    activity_type.as_deref(),
                 ).context("更新数据库失败")?;
 
                 log::debug!("截图分析完成 (ID: {})", item.context_id);

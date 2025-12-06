@@ -154,11 +154,27 @@ impl ContextStoreService {
     }
 
     /// 更新上下文描述（用于VLM分析后更新）
-    pub fn update_description(conn: &Connection, id: i64, description: &str, key_content: Option<&str>) -> Result<()> {
-        conn.execute(
-            "UPDATE screen_contexts SET description = ?, key_content = ? WHERE id = ?",
-            params![description, key_content, id],
-        )?;
+    /// 同时更新 activity_type（如果VLM分析返回了更准确的分类）
+    pub fn update_description(
+        conn: &Connection,
+        id: i64,
+        description: &str,
+        key_content: Option<&str>,
+        activity_type: Option<&str>,
+    ) -> Result<()> {
+        if let Some(activity) = activity_type {
+            // 如果提供了 activity_type，同时更新
+            conn.execute(
+                "UPDATE screen_contexts SET description = ?, key_content = ?, activity_type = ? WHERE id = ?",
+                params![description, key_content, activity, id],
+            )?;
+        } else {
+            // 保持原有逻辑，只更新 description 和 key_content
+            conn.execute(
+                "UPDATE screen_contexts SET description = ?, key_content = ? WHERE id = ?",
+                params![description, key_content, id],
+            )?;
+        }
         Ok(())
     }
 

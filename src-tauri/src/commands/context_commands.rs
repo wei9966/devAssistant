@@ -27,7 +27,7 @@ impl ContextManagerState {
     }
 
     /// 获取或初始化管理器
-    async fn get_or_init(&self) -> ContextManager {
+    pub async fn get_or_init(&self) -> ContextManager {
         let mut guard = self.manager.lock().await;
         if guard.is_none() {
             *guard = Some(ContextManager::new());
@@ -134,7 +134,7 @@ async fn analyze_screenshot_with_vlm(
         Ok(description) => {
             // 更新数据库
             if let Ok(conn) = rusqlite::Connection::open(&db_path) {
-                if let Err(e) = ContextStoreService::update_description(&conn, context_id, &description, None) {
+                if let Err(e) = ContextStoreService::update_description(&conn, context_id, &description, None, None) {
                     eprintln!("更新VLM分析结果失败: {}", e);
                 } else {
                     println!("VLM分析完成, ID: {}, 描述: {}", context_id, description);
@@ -347,7 +347,7 @@ fn default_idle_timeout() -> u64 {
     300
 }
 
-/// 从数据库加载上下文设置
+/// 从数据库加载上下文设置（内部使用）
 fn load_context_settings_from_db(conn: &rusqlite::Connection) -> ContextSettings {
     let settings_json: Option<String> = conn
         .query_row(
@@ -362,6 +362,11 @@ fn load_context_settings_from_db(conn: &rusqlite::Connection) -> ContextSettings
     } else {
         ContextSettings::default()
     }
+}
+
+/// 从数据库加载上下文设置（公开接口，供 main.rs 自动恢复采集使用）
+pub fn load_context_settings_internal(conn: &rusqlite::Connection) -> ContextSettings {
+    load_context_settings_from_db(conn)
 }
 
 /// 保存上下文设置到数据库

@@ -246,16 +246,23 @@ impl ScreenCaptureService {
     }
 
     /// 保存截图到文件（直接从 xcap 截图保存）
+    /// 截图会保存到 dir/YYYY-MM-DD/ 子目录中，按日期分类存储
     pub fn save_screenshot_to_file(&self, dir: &PathBuf) -> Result<String> {
-        // 确保目录存在
-        std::fs::create_dir_all(dir).context("创建截图目录失败")?;
+        // 生成当前日期和时间
+        let now = chrono::Local::now();
+
+        // 创建日期子文件夹 (格式: YYYY-MM-DD)
+        let date_folder = now.format("%Y-%m-%d").to_string();
+        let full_dir = dir.join(&date_folder);
+
+        // 确保日期目录存在
+        std::fs::create_dir_all(&full_dir).context("创建截图日期目录失败")?;
 
         // 生成文件名
-        let now = chrono::Local::now();
         let timestamp = now.format("%Y%m%d_%H%M%S").to_string();
         let nanos = now.timestamp_subsec_micros() % 1000000;
         let filename = format!("screenshot_{}_{:06}.png", timestamp, nanos);
-        let file_path = dir.join(&filename);
+        let file_path = full_dir.join(&filename);
 
         // 直接截图并保存（使用 xcap 的原生保存功能）
         // 优先截取鼠标所在的屏幕
