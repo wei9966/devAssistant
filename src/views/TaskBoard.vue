@@ -34,6 +34,14 @@
           </template>
           {{ isCalendarFloatVisible ? '关闭日历' : '日历' }}
         </n-button>
+        <n-badge :value="pendingPredictionCount" :max="99" :offset="[-5, 5]">
+          <n-button @click="showPredictionDrawer = true">
+            <template #icon>
+              <n-icon><BulbOutline /></n-icon>
+            </template>
+            AI 预测
+          </n-button>
+        </n-badge>
       </n-space>
     </div>
 
@@ -365,6 +373,17 @@
       @update="handleUpdateTag"
       @delete="handleDeleteTag"
     />
+
+    <!-- AI 预测任务列表抽屉 -->
+    <n-drawer v-model:show="showPredictionDrawer" width="450" placement="right">
+      <n-drawer-content title="AI 预测任务" closable>
+        <PredictedTaskList
+          ref="predictionListRef"
+          @task-accepted="handlePredictionAccepted"
+          @refresh="updatePredictionCount"
+        />
+      </n-drawer-content>
+    </n-drawer>
   </div>
 </template>
 
@@ -372,9 +391,9 @@
 import { ref, reactive, onMounted, computed, onUnmounted } from 'vue';
 import { Window } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
-import { NCard, NSpace, NButton, NIcon, NEmpty, NCollapse, NCollapseItem, NModal, NForm, NFormItem, NInput, NSelect, NDatePicker, useMessage } from 'naive-ui';
+import { NCard, NSpace, NButton, NIcon, NEmpty, NCollapse, NCollapseItem, NModal, NForm, NFormItem, NInput, NSelect, NDatePicker, NDrawer, NDrawerContent, NBadge, useMessage } from 'naive-ui';
 import dayjs from 'dayjs';
-import { AddOutline, RefreshOutline, CloudUploadOutline, GridOutline, PricetagsOutline, CloseCircleOutline, LayersOutline, CalendarOutline } from '@vicons/ionicons5';
+import { AddOutline, RefreshOutline, CloudUploadOutline, GridOutline, PricetagsOutline, CloseCircleOutline, LayersOutline, CalendarOutline, BulbOutline } from '@vicons/ionicons5';
 import { useTaskStore } from '@/stores/taskStore';
 import { tagApi } from '@/api/tagApi';
 import { aiApi } from '@/api/aiApi';
@@ -386,6 +405,7 @@ import TagSelector from '@/components/TagSelector.vue';
 import TagManager from '@/components/TagManager.vue';
 import PrioritySelector from '@/components/PrioritySelector.vue';
 import CategorySelector from '@/components/CategorySelector.vue';
+import PredictedTaskList from '@/components/PredictedTaskList.vue';
 import { CATEGORY_LABELS, PRIORITY_LABELS, QUADRANT_LABELS } from '@/types/task';
 import type { Task, TaskQuadrant, Tag } from '@/types/task';
 
@@ -410,6 +430,11 @@ const isCreating = ref(false); // 创建任务中状态
 // 悬浮窗状态
 const isTaskFloatVisible = ref(false);
 const isCalendarFloatVisible = ref(false);
+
+// 预测任务列表状态
+const showPredictionDrawer = ref(false);
+const predictionListRef = ref<InstanceType<typeof PredictedTaskList> | null>(null);
+const pendingPredictionCount = ref(0);
 
 // 切换悬浮窗显示
 async function toggleTaskFloat() {
@@ -603,6 +628,11 @@ onMounted(async () => {
   unlistenCalendarHidden = await listen('task-calendar-hidden', () => {
     isCalendarFloatVisible.value = false;
   });
+
+  // 加载预测任务数量 (延迟加载，等组件就绪)
+  setTimeout(() => {
+    updatePredictionCount();
+  }, 500);
 });
 
 let unlistenFloatHidden: (() => void) | null = null;
@@ -868,6 +898,18 @@ async function handleRefresh() {
 function handleImportSuccess() {
   message.success('任务导入成功');
   handleRefresh();
+}
+
+// 预测任务被接受后刷新任务列表
+function handlePredictionAccepted(_taskId: number) {
+  handleRefresh();
+}
+
+// 更新预测任务数量
+function updatePredictionCount() {
+  if (predictionListRef.value) {
+    pendingPredictionCount.value = predictionListRef.value.pendingCount;
+  }
 }
 
 function handleTaskClick(task: Task) {

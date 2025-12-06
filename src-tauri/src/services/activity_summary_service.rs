@@ -4,11 +4,13 @@
 use crate::models::screen_context::ScreenContext;
 use crate::services::vlm_service::VlmService;
 use crate::services::ai_service::{AiService, ChatMessage};
+use crate::services::prompt_db_service::PromptDbService;
 use crate::prompts::activity_prompts::ACTIVITY_SUMMARY_PROMPT;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Duration, Local};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::time::Instant;
 
 /// 活动总结类型
@@ -327,7 +329,7 @@ impl ActivitySummaryService {
 
     /// 使用AI生成智能活动总结
     ///
-    /// 调用AiService使用ACTIVITY_SUMMARY_PROMPT分析截图记录，生成智能总结
+    /// 优先从数据库加载 activity_summary 提示词，如果失败则回退到硬编码提示词
     async fn generate_ai_summary(
         &self,
         screenshots: &[ScreenContext],
@@ -366,11 +368,30 @@ impl ActivitySummaryService {
             }).collect::<Vec<_>>()
         });
 
-        // 构建消息
-        let messages = vec![
-            ChatMessage::system(ACTIVITY_SUMMARY_PROMPT.to_string()),
-            ChatMessage::user(input_data.to_string()),
-        ];
+        // 优先从数据库加载提示词，如果失败则使用硬编码提示词
+        let mut vars = HashMap::new();
+        vars.insert("input_data".to_string(), input_data.to_string());
+
+        let messages = match PromptDbService::render_prompt_cached("activity_summary", &vars) {
+            Ok(rendered) => {
+                log::info!("[活动总结] 使用数据库提示词");
+                if let Some(system) = rendered.system {
+                    vec![
+                        ChatMessage::system(system),
+                        ChatMessage::user(rendered.user),
+                    ]
+                } else {
+                    vec![ChatMessage::user(rendered.user)]
+                }
+            }
+            Err(e) => {
+                log::warn!("[活动总结] 加载数据库提示词失败，使用硬编码提示词: {}", e);
+                vec![
+                    ChatMessage::system(ACTIVITY_SUMMARY_PROMPT.to_string()),
+                    ChatMessage::user(input_data.to_string()),
+                ]
+            }
+        };
 
         let prompt_summary = format!(
             "[活动总结] {} - {}, {} 条截图",
@@ -430,19 +451,9 @@ impl ActivitySummaryService {
         let response = response_result?;
 
         // 解析JSON响应，提取有用字段
+        // 优化：包含 potentialTodos 信息，用于后续 TODO 预测
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response) {
-            // 优先提取description
-            if let Some(desc) = json.get("description").and_then(|v| v.as_str()) {
-                // 如果有title，组合使用
-                if let Some(title) = json.get("title").and_then(|v| v.as_str()) {
-                    return Ok(format!("**{}**\n{}", title, desc));
-                }
-                return Ok(desc.to_string());
-            }
-            // 尝试提取title
-            if let Some(title) = json.get("title").and_then(|v| v.as_str()) {
-                return Ok(title.to_string());
-            }
+            return Ok(self.format_summary_from_json(&json));
         }
 
         // 尝试清理被```json```包裹的响应
@@ -454,9 +465,7 @@ impl ActivitySummaryService {
             .trim();
 
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(cleaned) {
-            if let Some(desc) = json.get("description").and_then(|v| v.as_str()) {
-                return Ok(desc.to_string());
-            }
+            return Ok(self.format_summary_from_json(&json));
         }
 
         // 如果响应看起来像JSON，不要直接显示原始JSON
@@ -465,6 +474,73 @@ impl ActivitySummaryService {
         } else {
             // 如果不是JSON，可能是普通文本，直接返回
             Ok(response)
+        }
+    }
+
+    /// 从 JSON 响应中格式化活动总结
+    ///
+    /// 将 AI 返回的结构化 JSON 转换为易于阅读和分析的文本格式
+    /// 包含：标题、描述、关键洞察、潜在待办任务
+    fn format_summary_from_json(&self, json: &serde_json::Value) -> String {
+        let mut parts = Vec::new();
+
+        // 1. 标题和描述
+        if let Some(title) = json.get("title").and_then(|v| v.as_str()) {
+            parts.push(format!("**{}**", title));
+        }
+
+        if let Some(desc) = json.get("description").and_then(|v| v.as_str()) {
+            parts.push(desc.to_string());
+        }
+
+        // 2. 关键洞察（可选）
+        if let Some(insights) = json.get("keyInsights").and_then(|v| v.as_array()) {
+            let insight_texts: Vec<String> = insights
+                .iter()
+                .filter_map(|v| v.as_str())
+                .map(|s| format!("• {}", s))
+                .collect();
+
+            if !insight_texts.is_empty() {
+                parts.push(format!("\n📌 关键洞察：\n{}", insight_texts.join("\n")));
+            }
+        }
+
+        // 3. 潜在待办任务（用于 TODO 预测）
+        if let Some(todos) = json.get("potentialTodos").and_then(|v| v.as_array()) {
+            if !todos.is_empty() {
+                let todo_texts: Vec<String> = todos
+                    .iter()
+                    .filter_map(|todo| {
+                        let task = todo.get("task").and_then(|v| v.as_str())?;
+                        let priority = todo.get("priority").and_then(|v| v.as_str()).unwrap_or("medium");
+                        let reason = todo.get("reason").and_then(|v| v.as_str()).unwrap_or("");
+
+                        let priority_icon = match priority {
+                            "high" => "🔴",
+                            "medium" => "🟡",
+                            "low" => "🟢",
+                            _ => "⚪",
+                        };
+
+                        if reason.is_empty() {
+                            Some(format!("{} {}", priority_icon, task))
+                        } else {
+                            Some(format!("{} {} ({})", priority_icon, task, reason))
+                        }
+                    })
+                    .collect();
+
+                if !todo_texts.is_empty() {
+                    parts.push(format!("\n📋 潜在待办：\n{}", todo_texts.join("\n")));
+                }
+            }
+        }
+
+        if parts.is_empty() {
+            "活动总结生成中...".to_string()
+        } else {
+            parts.join("\n")
         }
     }
 

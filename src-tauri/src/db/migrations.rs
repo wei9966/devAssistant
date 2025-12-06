@@ -128,6 +128,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     create_ai_prompts_indexes(conn)?;
     init_default_prompts(conn)?;
 
+    // 创建预测任务表
+    create_predicted_tasks_table(conn)?;
+    create_predicted_tasks_indexes(conn)?;
+
     Ok(())
 }
 
@@ -1877,6 +1881,46 @@ fn create_ai_prompts_indexes(conn: &Connection) -> Result<()> {
     )?;
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_ai_prompts_enabled ON ai_prompts(enabled)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 predicted_tasks 表（AI 预测的待办任务）
+fn create_predicted_tasks_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS predicted_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            description TEXT NOT NULL,
+            reason TEXT,
+            priority TEXT NOT NULL DEFAULT 'medium',
+            due_date TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            task_id INTEGER,
+            created_at TEXT DEFAULT (datetime('now', 'localtime')),
+            processed_at TEXT,
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 predicted_tasks 表索引
+fn create_predicted_tasks_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_predicted_tasks_status ON predicted_tasks(status)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_predicted_tasks_created_at ON predicted_tasks(created_at DESC)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_predicted_tasks_priority ON predicted_tasks(priority)",
         [],
     )?;
 

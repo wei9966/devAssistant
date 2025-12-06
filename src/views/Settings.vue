@@ -527,6 +527,113 @@
                 </div>
               </div>
             </section>
+
+            <!-- 定时任务设置 -->
+            <section class="settings-card">
+              <div class="card-header">
+                <h3 class="card-title">定时任务</h3>
+                <span class="status-badge" :class="{ 'status-active': schedulerConfig.enableActivitySummary || schedulerConfig.enableTips || schedulerConfig.enableTodoPrediction }">
+                  {{ (schedulerConfig.enableActivitySummary || schedulerConfig.enableTips || schedulerConfig.enableTodoPrediction) ? '已启用' : '全部关闭' }}
+                </span>
+              </div>
+              <div class="card-content">
+                <!-- Activity 总结 -->
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">Activity 总结</div>
+                    <div class="setting-desc">定时分析屏幕截图生成活动总结</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-switch v-model:value="schedulerConfig.enableActivitySummary" />
+                  </div>
+                </div>
+
+                <div v-if="schedulerConfig.enableActivitySummary" class="setting-item sub-setting">
+                  <div class="setting-info">
+                    <div class="setting-label">执行间隔</div>
+                    <div class="setting-desc">每隔多少分钟执行一次</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-input-number
+                      v-model:value="schedulerConfig.activitySummaryIntervalMinutes"
+                      :min="5"
+                      :max="120"
+                      :step="5"
+                      style="width: 120px"
+                    >
+                      <template #suffix>分钟</template>
+                    </n-input-number>
+                  </div>
+                </div>
+
+                <!-- 智能提示 Tips -->
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">智能提示 (Tips)</div>
+                    <div class="setting-desc">基于 AI 分析用户活动，生成工作建议和提醒</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-switch v-model:value="schedulerConfig.enableTips" />
+                  </div>
+                </div>
+
+                <div v-if="schedulerConfig.enableTips" class="setting-item sub-setting">
+                  <div class="setting-info">
+                    <div class="setting-label">执行间隔</div>
+                    <div class="setting-desc">每隔多少分钟执行一次</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-input-number
+                      v-model:value="schedulerConfig.tipsIntervalMinutes"
+                      :min="15"
+                      :max="240"
+                      :step="15"
+                      style="width: 120px"
+                    >
+                      <template #suffix>分钟</template>
+                    </n-input-number>
+                  </div>
+                </div>
+
+                <!-- TODO 预测 -->
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">TODO 预测</div>
+                    <div class="setting-desc">AI 分析截图内容，智能预测可能需要处理的待办任务</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-switch v-model:value="schedulerConfig.enableTodoPrediction" />
+                  </div>
+                </div>
+
+                <div v-if="schedulerConfig.enableTodoPrediction" class="setting-item sub-setting">
+                  <div class="setting-info">
+                    <div class="setting-label">执行间隔</div>
+                    <div class="setting-desc">每隔多少分钟执行一次</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-input-number
+                      v-model:value="schedulerConfig.todoPredictionIntervalMinutes"
+                      :min="30"
+                      :max="480"
+                      :step="30"
+                      style="width: 120px"
+                    >
+                      <template #suffix>分钟</template>
+                    </n-input-number>
+                  </div>
+                </div>
+
+                <div class="scheduler-actions">
+                  <n-button @click="saveSchedulerConfig" :loading="savingScheduler">
+                    保存定时任务设置
+                  </n-button>
+                  <n-text depth="3" style="font-size: 12px;">
+                    注意：修改设置后需要重启应用才能生效
+                  </n-text>
+                </div>
+              </div>
+            </section>
           </div>
         </n-tab-pane>
 
@@ -665,7 +772,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, h } from 'vue';
 import { useRoute } from 'vue-router';
-import { NTabs, NTabPane, NSpace, NSwitch, NSelect, NInput, NInputNumber, NButton, NIcon, NSpin, NAlert, NDataTable, NTag, NEmpty, NStatistic, NGrid, NGi, NProgress, useMessage, useDialog } from 'naive-ui';
+import { NTabs, NTabPane, NSpace, NSwitch, NSelect, NInput, NInputNumber, NButton, NIcon, NSpin, NAlert, NDataTable, NTag, NEmpty, NStatistic, NGrid, NGi, NProgress, NText, useMessage, useDialog } from 'naive-ui';
 import { TimeOutline, RefreshOutline, InformationCircleOutline, TrashOutline, ReloadOutline, DownloadOutline } from '@vicons/ionicons5';
 import { marked } from 'marked';
 import { check } from '@tauri-apps/plugin-updater';
@@ -734,6 +841,17 @@ const aiConfig = ref({
 const testingAi = ref(false);
 const savingAi = ref(false);
 const aiTestResult = ref<boolean | null>(null);
+
+// 定时任务调度器配置
+const schedulerConfig = ref({
+  activitySummaryIntervalMinutes: 30,
+  tipsIntervalMinutes: 60,
+  todoPredictionIntervalMinutes: 120,
+  enableActivitySummary: false,
+  enableTips: false,
+  enableTodoPrediction: false,
+});
+const savingScheduler = ref(false);
 
 // 更新相关变量
 const appVersion = ref('');
@@ -949,6 +1067,7 @@ onMounted(async () => {
   await loadDatabasePath();
   await loadAutostartStatus();
   await loadAlwaysOnTopStatus();
+  await loadSchedulerConfig();
 });
 
 async function loadSettings() {
@@ -1294,6 +1413,53 @@ async function saveAiConfig() {
     message.error(error || '保存失败');
   } finally {
     savingAi.value = false;
+  }
+}
+
+// 加载定时任务调度器配置
+async function loadSchedulerConfig() {
+  try {
+    const config = await invoke<{
+      activity_summary_interval_minutes: number;
+      tips_interval_minutes: number;
+      todo_prediction_interval_minutes: number;
+      enable_activity_summary: boolean;
+      enable_tips: boolean;
+      enable_todo_prediction: boolean;
+    }>('get_scheduler_config');
+
+    schedulerConfig.value = {
+      activitySummaryIntervalMinutes: config.activity_summary_interval_minutes,
+      tipsIntervalMinutes: config.tips_interval_minutes,
+      todoPredictionIntervalMinutes: config.todo_prediction_interval_minutes,
+      enableActivitySummary: config.enable_activity_summary,
+      enableTips: config.enable_tips,
+      enableTodoPrediction: config.enable_todo_prediction,
+    };
+  } catch (error) {
+    console.error('加载定时任务配置失败:', error);
+  }
+}
+
+// 保存定时任务调度器配置
+async function saveSchedulerConfig() {
+  savingScheduler.value = true;
+  try {
+    await invoke('save_scheduler_config', {
+      config: {
+        activity_summary_interval_minutes: schedulerConfig.value.activitySummaryIntervalMinutes,
+        tips_interval_minutes: schedulerConfig.value.tipsIntervalMinutes,
+        todo_prediction_interval_minutes: schedulerConfig.value.todoPredictionIntervalMinutes,
+        enable_activity_summary: schedulerConfig.value.enableActivitySummary,
+        enable_tips: schedulerConfig.value.enableTips,
+        enable_todo_prediction: schedulerConfig.value.enableTodoPrediction,
+      },
+    });
+    message.success('定时任务配置已保存，重启应用后生效');
+  } catch (error: any) {
+    message.error(error || '保存定时任务配置失败');
+  } finally {
+    savingScheduler.value = false;
   }
 }
 
@@ -1965,5 +2131,22 @@ async function handleDownloadUpdate() {
 
 .update-notes::-webkit-scrollbar-thumb:hover {
   background: rgba(71, 85, 105, 0.7);
+}
+
+/* 子设置项缩进 */
+.sub-setting {
+  padding-left: 24px;
+  border-left: 2px solid rgba(51, 65, 85, 0.6);
+  margin-left: 8px;
+}
+
+/* 定时任务操作区 */
+.scheduler-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(51, 65, 85, 0.4);
+  margin-top: 8px;
 }
 </style>

@@ -2,21 +2,26 @@
 // 定时任务调度服务 - 管理Activity总结和Tips提示
 
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{interval, Duration};
 
 /// 定时任务配置
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchedulerConfig {
     /// Activity总结间隔（分钟）
     pub activity_summary_interval_minutes: u64,
     /// Tips提示间隔（分钟）
     pub tips_interval_minutes: u64,
+    /// TODO预测间隔（分钟）
+    pub todo_prediction_interval_minutes: u64,
     /// 是否启用Activity总结
     pub enable_activity_summary: bool,
     /// 是否启用Tips提示
     pub enable_tips: bool,
+    /// 是否启用TODO预测
+    pub enable_todo_prediction: bool,
 }
 
 impl Default for SchedulerConfig {
@@ -24,8 +29,10 @@ impl Default for SchedulerConfig {
         Self {
             activity_summary_interval_minutes: 15,
             tips_interval_minutes: 60,
+            todo_prediction_interval_minutes: 120, // 每2小时执行一次
             enable_activity_summary: true,
             enable_tips: true, // 启用 Tips 定时提醒
+            enable_todo_prediction: true, // 启用 TODO 预测
         }
     }
 }
@@ -63,10 +70,11 @@ impl SchedulerService {
     }
 
     /// 启动定时任务
-    pub async fn start<F1, F2>(&self, on_activity_summary: F1, on_tips: F2) -> Result<()>
+    pub async fn start<F1, F2, F3>(&self, on_activity_summary: F1, on_tips: F2, on_todo_prediction: F3) -> Result<()>
     where
         F1: Fn() + Send + Sync + 'static,
         F2: Fn() + Send + Sync + 'static,
+        F3: Fn() + Send + Sync + 'static,
     {
         let mut state = self.state.lock().await;
 
@@ -81,6 +89,7 @@ impl SchedulerService {
         let state_clone = Arc::clone(&self.state);
         let on_activity_summary = Arc::new(on_activity_summary);
         let on_tips = Arc::new(on_tips);
+        let on_todo_prediction = Arc::new(on_todo_prediction);
 
         // 启动Activity总结定时任务
         if config.enable_activity_summary {
@@ -141,6 +150,37 @@ impl SchedulerService {
                 }
 
                 log::info!("Tips提示定时任务已停止");
+            });
+        }
+
+        // 启动TODO预测定时任务
+        if config.enable_todo_prediction {
+            let state_ref = Arc::clone(&state_clone);
+            let callback = Arc::clone(&on_todo_prediction);
+            let interval_minutes = config.todo_prediction_interval_minutes;
+
+            tokio::spawn(async move {
+                let mut ticker = interval(Duration::from_secs(interval_minutes * 60));
+
+                loop {
+                    ticker.tick().await;
+
+                    // 检查是否应该停止
+                    let should_continue = {
+                        let state = state_ref.lock().await;
+                        state.is_running && state.config.enable_todo_prediction
+                    };
+
+                    if !should_continue {
+                        break;
+                    }
+
+                    // 执行TODO预测回调
+                    log::info!("触发TODO预测任务");
+                    callback();
+                }
+
+                log::info!("TODO预测定时任务已停止");
             });
         }
 
@@ -237,8 +277,10 @@ mod tests {
         let config = SchedulerConfig {
             activity_summary_interval_minutes: 0, // 0表示最小间隔
             tips_interval_minutes: 0,
+            todo_prediction_interval_minutes: 0,
             enable_activity_summary: true,
             enable_tips: false,
+            enable_todo_prediction: false,
         };
         scheduler.update_config(config).await.unwrap();
 
@@ -248,6 +290,7 @@ mod tests {
                 move || {
                     counter_clone.fetch_add(1, Ordering::SeqCst);
                 },
+                || {},
                 || {},
             )
             .await

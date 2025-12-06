@@ -23,6 +23,7 @@ use services::prompt_manager_service::PromptManager;
 use services::notification_service::NotificationService;
 use services::tips_service::TipsService;
 use services::ai_service::AiService;
+use services::todo_prediction_service::TodoPredictionService;
 use chrono::{Duration, Local};
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
@@ -347,94 +348,272 @@ fn main() {
                 log::info!("执行 Tips 智能提示任务");
 
                 let db_path = db_path.clone();
-                // 使用同步方式执行，避免 Connection 跨 await 的问题
-                std::thread::spawn(move || {
-                    let conn = match rusqlite::Connection::open(&db_path) {
-                        Ok(c) => c,
-                        Err(e) => {
-                            log::error!("打开数据库失败: {}", e);
+                // 使用 Tauri 的异步运行时执行异步任务
+                tauri::async_runtime::spawn(async move {
+                    // 第一步：检查设置和准备数据（使用 Connection 但不跨 await）
+                    let (pattern, ai_config, use_ai) = {
+                        let conn = match rusqlite::Connection::open(&db_path) {
+                            Ok(c) => c,
+                            Err(e) => {
+                                log::error!("打开数据库失败: {}", e);
+                                return;
+                            }
+                        };
+
+                        // 检查设置
+                        let settings = match NotificationService::get_settings(&conn) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                log::error!("获取通知设置失败: {}", e);
+                                return;
+                            }
+                        };
+
+                        if !settings.tips_enabled {
+                            log::info!("Tips 功能未启用，跳过");
                             return;
                         }
+
+                        // 检查今日数量限制
+                        if let Ok(today_count) = NotificationService::get_today_tips_count(&conn) {
+                            if today_count >= settings.tips_max_per_day {
+                                log::info!("今日 Tips 已达上限 ({}/{})", today_count, settings.tips_max_per_day);
+                                return;
+                            }
+                        }
+
+                        // 检查是否应该生成提示（避免重复生成）
+                        let interval_minutes = settings.tips_interval_minutes as i64;
+                        if let Ok(should_generate) = TipsService::should_generate_tip(&conn, interval_minutes) {
+                            if !should_generate {
+                                log::info!("距离上次提示时间不足，跳过生成");
+                                return;
+                            }
+                        }
+
+                        // 分析最近1小时的活动模式
+                        let pattern = match TipsService::analyze_recent_pattern(&conn, 1) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                log::warn!("分析活动模式失败: {}", e);
+                                return;
+                            }
+                        };
+
+                        // 如果没有活动数据，跳过生成
+                        if pattern.total_activities == 0 {
+                            log::info!("没有活动数据，跳过 Tips 生成");
+                            return;
+                        }
+
+                        log::info!("活动分析: 连续工作 {} 分钟, 主要活动: {:?}, 主要应用: {:?}",
+                            pattern.continuous_work_minutes,
+                            pattern.dominant_activity_type,
+                            pattern.dominant_app
+                        );
+
+                        // 加载 AI 配置
+                        let ai_config = AiService::load_config(&conn).ok();
+                        let use_ai = ai_config.is_some();
+
+                        // Connection 在这里被 drop，不会跨越 await 边界
+                        (pattern, ai_config, use_ai)
                     };
 
-                    // 检查设置
-                    let settings = match NotificationService::get_settings(&conn) {
-                        Ok(s) => s,
-                        Err(e) => {
-                            log::error!("获取通知设置失败: {}", e);
-                            return;
+                    // 第二步：使用 AI 生成提示（使用 spawn_blocking 避免 Connection 跨 await）
+                    let (tip_content, category, priority) = if use_ai {
+                        let ai_config_owned = ai_config.unwrap();
+                        let ai_service = AiService::new(ai_config_owned.clone());
+
+                        if !ai_service.is_configured() {
+                            log::info!("AI 未配置，使用默认提示生成");
+                            TipsService::generate_default_tip(&pattern)
+                        } else {
+                            let db_path_for_ai = db_path.clone();
+                            let pattern_for_ai = pattern.clone();
+
+                            // 使用 spawn_blocking 在单独的线程中运行包含 Connection 的异步代码
+                            match tokio::task::spawn_blocking(move || {
+                                let ai_service_inner = AiService::new(ai_config_owned);
+                                tokio::runtime::Handle::current().block_on(async move {
+                                    let conn = match rusqlite::Connection::open(&db_path_for_ai) {
+                                        Ok(c) => c,
+                                        Err(e) => {
+                                            log::error!("打开数据库失败: {}", e);
+                                            return Err(anyhow::anyhow!("打开数据库失败: {}", e));
+                                        }
+                                    };
+
+                                    TipsService::generate_tip_with_ai(&conn, &ai_service_inner, &pattern_for_ai).await
+                                })
+                            }).await {
+                                Ok(Ok(result)) => {
+                                    log::info!("AI 智能提示生成成功");
+                                    result
+                                }
+                                Ok(Err(e)) => {
+                                    log::warn!("AI 生成 Tips 失败，使用默认方式: {}", e);
+                                    TipsService::generate_default_tip(&pattern)
+                                }
+                                Err(e) => {
+                                    log::error!("spawn_blocking 失败: {}", e);
+                                    TipsService::generate_default_tip(&pattern)
+                                }
+                            }
                         }
-                    };
-
-                    if !settings.tips_enabled {
-                        log::info!("Tips 功能未启用，跳过");
-                        return;
-                    }
-
-                    // 检查今日数量限制
-                    if let Ok(today_count) = NotificationService::get_today_tips_count(&conn) {
-                        if today_count >= settings.tips_max_per_day {
-                            log::info!("今日 Tips 已达上限 ({}/{})", today_count, settings.tips_max_per_day);
-                            return;
-                        }
-                    }
-
-                    // 检查是否应该生成提示（避免重复生成）
-                    let interval_minutes = settings.tips_interval_minutes as i64;
-                    if let Ok(should_generate) = TipsService::should_generate_tip(&conn, interval_minutes) {
-                        if !should_generate {
-                            log::info!("距离上次提示时间不足，跳过生成");
-                            return;
-                        }
-                    }
-
-                    // 分析最近1小时的活动模式
-                    let pattern = match TipsService::analyze_recent_pattern(&conn, 1) {
-                        Ok(p) => p,
-                        Err(e) => {
-                            log::warn!("分析活动模式失败: {}", e);
-                            return;
-                        }
-                    };
-
-                    // 如果没有活动数据，跳过生成
-                    if pattern.total_activities == 0 {
-                        log::info!("没有活动数据，跳过 Tips 生成");
-                        return;
-                    }
-
-                    log::info!("活动分析: 连续工作 {} 分钟, 主要活动: {:?}, 主要应用: {:?}",
-                        pattern.continuous_work_minutes,
-                        pattern.dominant_activity_type,
-                        pattern.dominant_app
-                    );
-
-                    // 生成智能提示（基于活动模式）
-                    let (tip_content, category, priority) = TipsService::generate_default_tip(&pattern);
-
-                    // 保存提示到 tips 表
-                    if let Err(e) = TipsService::save_tip(&conn, &tip_content, &category, &priority) {
-                        log::error!("保存 Tips 失败: {}", e);
-                    }
-
-                    // 同时创建通知推送到通知中心
-                    let title = match category {
-                        services::tips_service::TipCategory::Health => "💪 健康提醒",
-                        services::tips_service::TipCategory::Productivity => "📈 生产力建议",
-                        services::tips_service::TipCategory::Focus => "🎯 专注力提醒",
-                    };
-
-                    if let Err(e) = NotificationService::create(&conn, "tip", title, &tip_content) {
-                        log::error!("创建 Tips 通知失败: {}", e);
                     } else {
-                        log::info!("智能提示已生成: [{}] {}", category.as_str(), &tip_content[..tip_content.len().min(50)]);
+                        log::info!("AI 配置未加载，使用默认提示生成");
+                        TipsService::generate_default_tip(&pattern)
+                    };
+
+                    // 第三步：保存结果（重新打开连接）
+                    if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+                        // 保存提示到 tips 表
+                        if let Err(e) = TipsService::save_tip(&conn, &tip_content, &category, &priority) {
+                            log::error!("保存 Tips 失败: {}", e);
+                            return;
+                        }
+
+                        // 同时创建通知推送到通知中心
+                        let title = match category {
+                            services::tips_service::TipCategory::Health => "💪 健康提醒",
+                            services::tips_service::TipCategory::Productivity => "📈 生产力建议",
+                            services::tips_service::TipCategory::Focus => "🎯 专注力提醒",
+                        };
+
+                        if let Err(e) = NotificationService::create(&conn, "tip", title, &tip_content) {
+                            log::error!("创建 Tips 通知失败: {}", e);
+                        } else {
+                            log::info!("智能提示已生成: [{}] {}", category.as_str(), &tip_content[..tip_content.len().min(50)]);
+                        }
+                    }
+                });
+            }
+        };
+
+        // TODO 预测回调 - 从截图上下文智能推断任务
+        let on_todo_prediction = {
+            let db_path = db_path_for_scheduler.clone();
+            move || {
+                log::info!("执行 TODO 预测任务");
+
+                let db_path = db_path.clone();
+                tauri::async_runtime::spawn(async move {
+                    // 使用 spawn_blocking 避免 Connection 跨越 await 边界
+                    match tokio::task::spawn_blocking(move || {
+                        tokio::runtime::Handle::current().block_on(async move {
+                            // 1. 加载 AI 配置
+                            let conn = match rusqlite::Connection::open(&db_path) {
+                                Ok(c) => c,
+                                Err(e) => {
+                                    log::error!("打开数据库失败: {}", e);
+                                    return;
+                                }
+                            };
+
+                            let ai_config = match AiService::load_config(&conn) {
+                                Ok(config) => config,
+                                Err(e) => {
+                                    log::warn!("加载 AI 配置失败，跳过 TODO 预测: {}", e);
+                                    return;
+                                }
+                            };
+
+                            // 2. 检查 AI 是否配置
+                            let ai_service = AiService::new(ai_config);
+                            if !ai_service.is_configured() {
+                                log::info!("AI 未配置，跳过 TODO 预测");
+                                return;
+                            }
+
+                            // 2.5 读取调度器配置获取预测间隔时间
+                            let interval_minutes: Option<i64> = conn
+                                .query_row(
+                                    "SELECT value FROM app_settings WHERE key = 'scheduler_config'",
+                                    [],
+                                    |row| row.get::<_, String>(0),
+                                )
+                                .ok()
+                                .and_then(|json| serde_json::from_str::<serde_json::Value>(&json).ok())
+                                .and_then(|v| v.get("todo_prediction_interval_minutes")?.as_i64());
+
+                            log::info!(
+                                "[TODO预测] 使用间隔时间: {} 分钟",
+                                interval_minutes.unwrap_or(120)
+                            );
+
+                            // Connection 在这里被 drop
+                            drop(conn);
+
+                            // 3. 创建 TodoPredictionService 实例
+                            let prediction_service = TodoPredictionService::new(db_path.clone());
+
+                            // 4. 调用 predict_and_save() 方法（保存到 predicted_tasks 表，不直接创建任务）
+                            // 传入从配置读取的间隔时间
+                            match prediction_service.predict_and_save(&ai_service, interval_minutes).await {
+                                Ok(result) => {
+                                    log::info!("TODO 预测完成: 分析了 {} 条上下文，预测了 {} 个任务",
+                                        result.analyzed_contexts, result.tasks.len());
+
+                                    // 5. 如果有预测结果，创建通知提醒用户查看
+                                    if !result.tasks.is_empty() {
+                                        let conn = match rusqlite::Connection::open(&db_path) {
+                                            Ok(c) => c,
+                                            Err(e) => {
+                                                log::error!("打开数据库失败: {}", e);
+                                                return;
+                                            }
+                                        };
+
+                                        // 构建通知内容
+                                        let task_list: Vec<String> = result.tasks.iter()
+                                            .take(3)  // 最多显示前3个任务
+                                            .enumerate()
+                                            .map(|(i, task)| format!("{}. {} ({})", i + 1, task.description, task.priority))
+                                            .collect();
+
+                                        let notification_content = if result.tasks.len() > 3 {
+                                            format!("{}\n\n...还有 {} 个任务建议，点击查看完整列表",
+                                                task_list.join("\n"),
+                                                result.tasks.len() - 3)
+                                        } else {
+                                            format!("{}\n\n点击查看详情并选择是否添加到任务面板", task_list.join("\n"))
+                                        };
+
+                                        let title = format!("AI 发现 {} 个待办任务建议", result.tasks.len());
+
+                                        // 6. 通知用户查看预测任务列表
+                                        if let Err(e) = NotificationService::create(
+                                            &conn,
+                                            "todo_prediction",
+                                            &title,
+                                            &notification_content
+                                        ) {
+                                            log::error!("创建 TODO 预测通知失败: {}", e);
+                                        } else {
+                                            log::info!("TODO 预测通知已创建，共 {} 个待处理建议", result.tasks.len());
+                                        }
+                                    } else {
+                                        log::info!("暂无待办任务建议");
+                                    }
+                                }
+                                Err(e) => {
+                                    log::warn!("TODO 预测失败: {}", e);
+                                }
+                            }
+                        })
+                    }).await {
+                        Ok(_) => {},
+                        Err(e) => {
+                            log::error!("spawn_blocking 失败: {}", e);
+                        }
                     }
                 });
             }
         };
 
         // 启动调度器
-        if let Err(e) = scheduler_clone.start(on_activity_summary, on_tips).await {
+        if let Err(e) = scheduler_clone.start(on_activity_summary, on_tips, on_todo_prediction).await {
             log::error!("启动定时任务调度器失败: {}", e);
         } else {
             log::info!("定时任务调度器已启动");
@@ -1041,6 +1220,19 @@ fn main() {
             commands::tips_commands::tips_analyze_pattern,
             commands::tips_commands::tips_should_generate,
             commands::tips_commands::tips_cleanup_old,
+            // 调度器相关命令
+            commands::scheduler_commands::get_scheduler_config,
+            commands::scheduler_commands::save_scheduler_config,
+            commands::scheduler_commands::get_scheduler_status,
+            // 预测任务相关命令
+            commands::prediction_commands::get_pending_predictions,
+            commands::prediction_commands::get_all_predictions,
+            commands::prediction_commands::accept_prediction,
+            commands::prediction_commands::ignore_prediction,
+            commands::prediction_commands::accept_predictions,
+            commands::prediction_commands::ignore_predictions,
+            commands::prediction_commands::get_pending_prediction_count,
+            commands::prediction_commands::cleanup_old_predictions,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");

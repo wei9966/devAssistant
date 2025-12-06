@@ -23,6 +23,7 @@ pub mod sql_template_service;
 pub mod tag_service;
 pub mod task_service;
 pub mod tips_service;
+pub mod todo_prediction_service;
 pub mod user_activity_service;
 pub mod vlm_service;
 pub mod weekly_plan_service;
@@ -57,6 +58,7 @@ pub use sql_template_service::{ConsolidateResult, SqlTemplate, SqlTemplateServic
 pub use tag_service::TagService;
 pub use task_service::TaskService;
 pub use tips_service::{ActivityPattern, Tip, TipCategory, TipPriority, TipsService};
+pub use todo_prediction_service::{PredictedTask, PredictionResult, TodoPredictionService};
 pub use user_activity_service::UserActivityService;
 pub use vlm_service::{ScreenshotAnalysisResponse, VlmConfig, VlmConfigResponse, VlmService};
 pub use weekly_plan_service::WeeklyPlanService;
