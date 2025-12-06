@@ -24,6 +24,7 @@ export interface UpdateInfo {
   version?: string
   notes?: string
   date?: string
+  update?: Update  // 原始 Update 对象，用于下载安装
 }
 
 export interface UpdateProgress {
@@ -76,7 +77,8 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
       available: true,
       version: update.version,
       notes: update.body,
-      date: update.date
+      date: update.date,
+      update: update  // 返回原始 Update 对象
     }
   } catch (error: any) {
     await logUpdate(`检查更新失败: ${error?.message || error}`)

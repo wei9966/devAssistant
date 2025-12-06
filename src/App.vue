@@ -159,7 +159,6 @@ import {
   shouldCheckUpdate,
   type UpdateInfo
 } from '@/services/updater'
-import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 
 interface SystemInfo {
@@ -241,15 +240,10 @@ const checkAppUpdate = async () => {
     const info = await checkForUpdate()
     setLastCheckTime()
 
-    if (info.available && info.version) {
+    if (info.available && info.version && info.update) {
       updateInfo.value = info
-
-      // 获取原始 Update 对象用于下载
-      const update = await check()
-      if (update) {
-        currentUpdate.value = update
-      }
-
+      // 直接使用 checkForUpdate 返回的 Update 对象
+      currentUpdate.value = info.update
       showUpdateDialog.value = true
     }
   } catch (error) {
@@ -259,12 +253,25 @@ const checkAppUpdate = async () => {
 
 // 处理立即更新
 const handleUpdate = async () => {
-  if (!currentUpdate.value || isUpdating.value) return
+  console.log('[更新] 点击立即更新按钮')
+  console.log('[更新] currentUpdate:', currentUpdate.value)
+  console.log('[更新] isUpdating:', isUpdating.value)
+
+  if (!currentUpdate.value) {
+    console.error('[更新] currentUpdate 为空，无法执行更新')
+    return
+  }
+
+  if (isUpdating.value) {
+    console.log('[更新] 已在更新中，跳过')
+    return
+  }
 
   isUpdating.value = true
   updateProgress.value = 0
 
   try {
+    console.log('[更新] 开始下载并安装更新...')
     let downloaded = 0
     let contentLength = 0
 
