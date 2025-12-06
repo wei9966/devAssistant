@@ -17,6 +17,17 @@
           刷新
         </n-button>
         <n-button
+          v-if="predictions.length > 0"
+          size="small"
+          :type="isAllSelected ? 'primary' : 'default'"
+          @click="toggleSelectAll"
+        >
+          <template #icon>
+            <n-icon :component="isAllSelected ? CheckboxOutline : SquareOutline" />
+          </template>
+          {{ isAllSelected ? '取消全选' : '全选' }}
+        </n-button>
+        <n-button
           v-if="selectedIds.length > 0"
           size="small"
           type="primary"
@@ -133,9 +144,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { NIcon, NBadge, NButton, NCheckbox, NTag, NTooltip, NSpin, NEmpty, NText, useMessage } from 'naive-ui';
-import { BulbOutline, RefreshOutline, CheckmarkOutline, CloseOutline, TimeOutline, InformationCircleOutline } from '@vicons/ionicons5';
+import { BulbOutline, RefreshOutline, CheckmarkOutline, CloseOutline, TimeOutline, InformationCircleOutline, CheckboxOutline, SquareOutline } from '@vicons/ionicons5';
 import { invoke } from '@tauri-apps/api/core';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -170,6 +181,25 @@ const acceptingId = ref<number | null>(null);
 const ignoringId = ref<number | null>(null);
 const batchAccepting = ref(false);
 const batchIgnoring = ref(false);
+
+// 是否全选
+const isAllSelected = computed(() => {
+  return predictions.value.length > 0 && selectedIds.value.length === predictions.value.length;
+});
+
+// 是否部分选中
+const isIndeterminate = computed(() => {
+  return selectedIds.value.length > 0 && selectedIds.value.length < predictions.value.length;
+});
+
+// 全选/取消全选
+function toggleSelectAll() {
+  if (isAllSelected.value) {
+    selectedIds.value = [];
+  } else {
+    selectedIds.value = predictions.value.map(item => item.id!).filter(id => id !== undefined);
+  }
+}
 
 // 加载预测任务
 async function loadPredictions() {
@@ -353,7 +383,9 @@ onMounted(() => {
 
 .header-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  justify-content: flex-end;
 }
 
 .loading-state,

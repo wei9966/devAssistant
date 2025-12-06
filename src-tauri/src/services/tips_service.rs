@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::ai_service::{AiService, ChatMessage};
-use super::prompt_manager_service::PromptManager;
+use crate::services::prompt_db_service::PromptDbService;
 
 /// 提示类别
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -244,17 +244,12 @@ impl TipsService {
         }
     }
 
-    /// 使用PromptManager生成提示
+    /// 使用数据库提示词生成提示
     async fn generate_tip_with_prompt_manager(
         conn: &Connection,
         ai_service: &AiService,
         pattern: &ActivityPattern,
     ) -> Result<(String, TipCategory, TipPriority)> {
-        // 加载提示词配置（使用新的PromptManager）
-        let manager = PromptManager::get_instance()
-            .map_err(|e| anyhow!("获取PromptManager失败: {}", e))?;
-        let prompt_config = manager.get_tips_prompt().clone();
-
         // 准备变量
         let now = Local::now();
         let mut vars = HashMap::new();
@@ -289,15 +284,34 @@ impl TipsService {
         let context_data = Self::get_recent_context_summary(conn, 10)?;
         vars.insert("context_data".to_string(), context_data);
 
-        // 渲染提示词（使用PromptManager的render方法）
-        let system_prompt = PromptManager::render_prompt(&prompt_config.system, &vars);
-        let user_prompt = PromptManager::render_prompt(&prompt_config.user, &vars);
-
-        // 调用AI
-        let messages = vec![
-            ChatMessage::system(system_prompt),
-            ChatMessage::user(user_prompt),
-        ];
+        // 优先从数据库获取提示词
+        let messages = match PromptDbService::render_prompt_cached("smart_tip_generation", &vars) {
+            Ok(rendered) => {
+                log::info!("[智能提示] 使用数据库提示词");
+                if let Some(system) = rendered.system {
+                    vec![
+                        ChatMessage::system(system),
+                        ChatMessage::user(rendered.user),
+                    ]
+                } else {
+                    vec![ChatMessage::user(rendered.user)]
+                }
+            }
+            Err(e) => {
+                log::warn!("[智能提示] 加载数据库提示词失败，使用简单提示词: {}", e);
+                // 使用简单的硬编码 fallback 提示词
+                let fallback_system = "你是一个智能的个人助手，负责根据用户活动模式生成有价值的提醒和建议。";
+                let fallback_user = format!(
+                    "当前时间: {}\n活动模式: {}\n\n请根据用户活动生成一条简洁实用的建议（不超过100字）。如果没有有价值的建议，返回\"暂无重要提醒\"。",
+                    vars.get("current_timestamp").unwrap_or(&"未知".to_string()),
+                    vars.get("activity_patterns_info").unwrap_or(&"无数据".to_string())
+                );
+                vec![
+                    ChatMessage::system(fallback_system.to_string()),
+                    ChatMessage::user(fallback_user),
+                ]
+            }
+        };
         let content = ai_service.chat_with_log(conn, "tips", "generate", messages).await?;
 
         // 解析响应

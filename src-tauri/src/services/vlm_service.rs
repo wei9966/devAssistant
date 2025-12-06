@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use crate::services::prompt_manager_service::PromptManager;
+use crate::services::prompt_db_service::PromptDbService;
+use crate::services::prompt_db_service::RenderedPrompt;
 use crate::services::ai_service::AiService;
 
 /// VLM Provider type
@@ -469,15 +470,6 @@ impl VlmService {
             return Err(anyhow!("VLM is not enabled or configuration is invalid"));
         }
 
-        // 尝试从 PromptManager 加载单张截图分析提示词
-        let prompt_config = match PromptManager::get_instance() {
-            Ok(manager) => manager.get_screenshot_single_prompt().clone(),
-            Err(e) => {
-                log::warn!("Failed to load PromptManager, using fallback: {}", e);
-                return self.analyze_screenshot_fallback(&config, image_base64, history).await;
-            }
-        };
-
         // 准备变量
         let now = chrono::Local::now();
         let mut vars = HashMap::new();
@@ -490,9 +482,24 @@ impl VlmService {
             history.unwrap_or("无历史记录").to_string(),
         );
 
+        // 尝试预加载提示词到缓存（如果还没加载的话）
+        if let Ok(conn) = self.get_connection() {
+            let _ = PromptDbService::preload_prompts(&conn, &["screenshot_single"]);
+        }
+
+        // 获取提示词 - 从数据库获取，失败则使用 fallback
+        let prompt = match PromptDbService::render_prompt_cached("screenshot_single", &vars) {
+            Ok(p) => p,
+            Err(e) => {
+                log::warn!("Failed to get prompt from database (screenshot_single): {}, using fallback", e);
+                // 如果数据库获取失败，使用硬编码的 fallback
+                return self.analyze_screenshot_fallback(&config, image_base64, history).await;
+            }
+        };
+
         // 渲染提示词
-        let system_prompt = PromptManager::render_prompt(&prompt_config.system, &vars);
-        let user_prompt = PromptManager::render_prompt(&prompt_config.user, &vars);
+        let system_prompt = prompt.system.unwrap_or_default();
+        let user_prompt = prompt.user;
         let prompt_summary = format!("[截图分析] {}", safe_truncate(&user_prompt, 200));
 
         // 调用 VLM API

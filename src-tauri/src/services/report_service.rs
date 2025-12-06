@@ -3,7 +3,7 @@
 
 use super::ai_service::{AiService, ChatMessage};
 use super::context_store_service::ContextStoreService;
-use super::prompt_service::PromptService;
+use super::prompt_db_service::PromptDbService;
 use crate::models::screen_context::ScreenContext;
 use anyhow::{anyhow, Result};
 use chrono::{NaiveDateTime, Timelike};
@@ -188,13 +188,28 @@ impl ReportService {
             })
             .collect();
 
-        // 尝试使用 PromptService 获取配置的提示词
-        let prompt = match Self::build_hour_summary_prompt(block, &simplified_contexts) {
-            Ok(p) => p,
+        let activities_json = serde_json::to_string_pretty(&simplified_contexts)?;
+
+        // 构建变量映射
+        let mut vars = HashMap::new();
+        vars.insert("hour".to_string(), block.hour.to_string());
+        vars.insert("count".to_string(), block.contexts.len().to_string());
+        vars.insert("activities_json".to_string(), activities_json.clone());
+
+        // 尝试使用数据库提示词
+        let messages = match PromptDbService::render_prompt_cached("hour_summary", &vars) {
+            Ok(rendered) => {
+                let mut msgs = Vec::new();
+                if let Some(system) = rendered.system {
+                    msgs.push(ChatMessage::system(system));
+                }
+                msgs.push(ChatMessage::user(rendered.user));
+                msgs
+            }
             Err(e) => {
                 // 如果获取配置失败，使用硬编码的提示词作为后备
-                log::warn!("使用PromptService失败，回退到默认提示词: {}", e);
-                format!(
+                log::warn!("使用数据库提示词失败，回退到默认提示词: {}", e);
+                let prompt = format!(
                     r#"请总结以下{}点的工作活动（约{}条记录）：
 
 活动记录：
@@ -207,46 +222,14 @@ impl ReportService {
 4. 只返回摘要文本，不要添加标题或额外说明"#,
                     block.hour,
                     block.contexts.len(),
-                    serde_json::to_string_pretty(&simplified_contexts)?
-                )
+                    activities_json
+                );
+                vec![ChatMessage::user(prompt)]
             }
         };
 
-        let messages = vec![ChatMessage::user(prompt)];
         let summary = ai_service.chat(messages).await?;
-
         Ok(summary.trim().to_string())
-    }
-
-    /// 构建小时摘要提示词（使用PromptService）
-    fn build_hour_summary_prompt(
-        block: &HourlyBlock,
-        simplified_contexts: &[serde_json::Value],
-    ) -> Result<String> {
-        // 暂时使用简化的提示词，等待专门的hour_summary配置
-        // 这里可以复用daily_report的系统提示词理念
-        let _prompt_config = PromptService::get_template("daily_report")
-            .map_err(|e| anyhow!("无法获取提示词配置: {}", e))?;
-
-        let activities_json = serde_json::to_string_pretty(simplified_contexts)?;
-
-        let user_prompt = format!(
-            r#"请总结以下{}点的工作活动（约{}条记录）：
-
-活动记录：
-{}
-
-要求：
-1. 用2-3句话简要概括该时段的主要活动
-2. 突出关键工作内容和使用的工具
-3. 语言简洁专业
-4. 只返回摘要文本，不要添加标题或额外说明"#,
-            block.hour,
-            block.contexts.len(),
-            activities_json
-        );
-
-        Ok(user_prompt)
     }
 
     /// 合并小时摘要，生成完整日报（异步，不使用Connection）
@@ -256,27 +239,23 @@ impl ReportService {
         stats_text: &str,
         date: &str,
     ) -> Result<(String, Vec<ReportHighlight>, Vec<ReportInsight>)> {
-        // 尝试使用 PromptService 生成日报
-        match Self::generate_report_with_prompt_service(ai_service, block_summaries, stats_text, date).await {
+        // 尝试使用数据库提示词生成日报
+        match Self::generate_report_with_db_prompt(ai_service, block_summaries, stats_text, date).await {
             Ok(result) => Ok(result),
             Err(e) => {
-                log::warn!("使用PromptService生成日报失败，回退到默认方式: {}", e);
+                log::warn!("使用数据库提示词生成日报失败，回退到默认方式: {}", e);
                 Self::generate_report_fallback(ai_service, block_summaries, stats_text, date).await
             }
         }
     }
 
-    /// 使用 PromptService 生成日报
-    async fn generate_report_with_prompt_service(
+    /// 使用数据库提示词生成日报
+    async fn generate_report_with_db_prompt(
         ai_service: &AiService,
         block_summaries: &[(i32, String)],
         _stats_text: &str,
         date: &str,
     ) -> Result<(String, Vec<ReportHighlight>, Vec<ReportInsight>)> {
-        // 获取日报提示词配置
-        let prompt_config = PromptService::get_template("daily_report")
-            .map_err(|e| anyhow!("无法获取日报提示词配置: {}", e))?;
-
         // 构建小时摘要文本
         let hourly_summaries = block_summaries
             .iter()
@@ -284,16 +263,21 @@ impl ReportService {
             .collect::<Vec<_>>()
             .join("\n\n");
 
-        // 替换用户提示词中的变量
-        let user_prompt = prompt_config.user
-            .replace("{date}", date)
-            .replace("{activities_json}", &hourly_summaries);
+        // 构建变量映射
+        let mut vars = HashMap::new();
+        vars.insert("date".to_string(), date.to_string());
+        vars.insert("activities_json".to_string(), hourly_summaries);
 
-        // 构建消息，使用系统提示词和用户提示词
-        let messages = vec![
-            ChatMessage::system(prompt_config.system),
-            ChatMessage::user(user_prompt),
-        ];
+        // 使用数据库提示词 generation_report
+        let rendered = PromptDbService::render_prompt_cached("generation_report", &vars)
+            .map_err(|e| anyhow!("无法获取日报提示词配置: {}", e))?;
+
+        // 构建消息
+        let mut messages = Vec::new();
+        if let Some(system) = rendered.system {
+            messages.push(ChatMessage::system(system));
+        }
+        messages.push(ChatMessage::user(rendered.user));
 
         let response = ai_service.chat(messages).await?;
 

@@ -5,7 +5,6 @@ use crate::models::screen_context::ScreenContext;
 use crate::services::vlm_service::VlmService;
 use crate::services::ai_service::{AiService, ChatMessage};
 use crate::services::prompt_db_service::PromptDbService;
-use crate::prompts::activity_prompts::ACTIVITY_SUMMARY_PROMPT;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Duration, Local};
 use rusqlite::Connection;
@@ -94,10 +93,11 @@ impl ActivitySummaryService {
         end_time: DateTime<Local>,
         vlm_service: &VlmService,
     ) -> Result<ActivitySummary> {
-        let conn = self.get_connection()?;
-
-        // 查询时间段内的截图记录
-        let screenshots = self.get_screenshots_in_range(&conn, &start_time, &end_time)?;
+        // 查询时间段内的截图记录（连接不跨 await）
+        let screenshots = {
+            let conn = self.get_connection()?;
+            self.get_screenshots_in_range(&conn, &start_time, &end_time)?
+        };
 
         if screenshots.is_empty() {
             log::warn!(
@@ -155,7 +155,7 @@ impl ActivitySummaryService {
 
             if let Some(first_screenshot) = screenshots.first() {
                 if let Some(ref screenshot_path) = first_screenshot.screenshot_path {
-                    let prompt = self.build_summary_prompt(&screenshots, &activity_type);
+                    let prompt = self.build_summary_prompt(&screenshots, &activity_type).await?;
 
                     // 读取截图文件并转换为base64
                     match self.load_screenshot_as_base64(screenshot_path) {
@@ -196,8 +196,11 @@ impl ActivitySummaryService {
             main_apps: Some(main_apps),
         };
 
-        // 保存到数据库
-        self.save_summary(&conn, &summary)?;
+        // 保存到数据库（重新打开连接，避免跨 await 持有连接）
+        {
+            let conn = self.get_connection()?;
+            self.save_summary(&conn, &summary)?;
+        }
 
         log::info!("活动总结已生成并保存");
         Ok(summary)
@@ -283,8 +286,8 @@ impl ActivitySummaryService {
         ActivityType::from_str(&most_common_type)
     }
 
-    /// 构建VLM分析提示词
-    fn build_summary_prompt(&self, screenshots: &[ScreenContext], activity_type: &ActivityType) -> String {
+    /// 构建VLM分析提示词 - 使用数据库中的提示词
+    async fn build_summary_prompt(&self, screenshots: &[ScreenContext], activity_type: &ActivityType) -> Result<String> {
         let time_range = format!(
             "{} - {}",
             screenshots.first().map(|s| s.captured_at.clone()).unwrap_or_default(),
@@ -293,17 +296,35 @@ impl ActivitySummaryService {
 
         let apps = self.extract_main_apps(screenshots);
 
-        format!(
-            "请分析这张截图，这是用户在 {} 时段的工作活动记录。\n\
-            主要使用的应用: {}\n\
-            活动类型: {}\n\
-            总共有 {} 次屏幕变化。\n\n\
-            请用1-2句话简洁总结用户在这段时间的主要工作内容，突出关键任务和成果。",
-            time_range,
-            apps,
-            activity_type.as_str(),
-            screenshots.len()
-        )
+        // 准备变量
+        let mut vars = HashMap::new();
+        vars.insert("time_range".to_string(), time_range);
+        vars.insert("main_apps".to_string(), apps);
+        vars.insert("activity_type".to_string(), activity_type.as_str().to_string());
+        vars.insert("screenshot_count".to_string(), screenshots.len().to_string());
+
+        // 优先从数据库获取提示词
+        match PromptDbService::render_prompt_cached("screenshot_single", &vars) {
+            Ok(rendered) => {
+                log::info!("[活动总结] 使用数据库提示词");
+                Ok(rendered.user)
+            }
+            Err(e) => {
+                log::warn!("[活动总结] 加载数据库提示词失败，使用默认提示词: {}", e);
+                // 回退到默认提示词
+                Ok(format!(
+                    "请分析这张截图，这是用户在 {} 时段的工作活动记录。\n\
+                    主要使用的应用: {}\n\
+                    活动类型: {}\n\
+                    总共有 {} 次屏幕变化。\n\n\
+                    请用1-2句话简洁总结用户在这段时间的主要工作内容，突出关键任务和成果。",
+                    vars["time_range"],
+                    vars["main_apps"],
+                    vars["activity_type"],
+                    vars["screenshot_count"]
+                ))
+            }
+        }
     }
 
     /// 基于规则生成总结（VLM不可用时的回退方案）
@@ -339,9 +360,11 @@ impl ActivitySummaryService {
     ) -> Result<String> {
         let api_start_time = Instant::now();
 
-        // 从数据库加载AI配置
-        let conn = self.get_connection()?;
-        let ai_config = AiService::load_config(&conn)?;
+        // 从数据库加载AI配置（不跨 await 持有连接）
+        let ai_config = {
+            let conn = self.get_connection()?;
+            AiService::load_config(&conn)?
+        };
 
         // 创建AI服务实例
         let ai_service = AiService::new(ai_config.clone());
@@ -385,10 +408,16 @@ impl ActivitySummaryService {
                 }
             }
             Err(e) => {
-                log::warn!("[活动总结] 加载数据库提示词失败，使用硬编码提示词: {}", e);
+                log::warn!("[活动总结] 加载数据库提示词失败，使用简单提示词: {}", e);
+                // 使用简单的硬编码 fallback 提示词
+                let fallback_system = "你是一个专业的活动分析助手。请分析用户活动并生成JSON格式的总结。";
+                let fallback_user = format!(
+                    "请分析以下活动记录并生成JSON格式总结：\n{}\n\n返回格式：{{\"title\":\"标题\",\"description\":\"描述\",\"keywords\":[],\"importance\":1-5}}",
+                    input_data
+                );
                 vec![
-                    ChatMessage::system(ACTIVITY_SUMMARY_PROMPT.to_string()),
-                    ChatMessage::user(input_data.to_string()),
+                    ChatMessage::system(fallback_system.to_string()),
+                    ChatMessage::user(fallback_user),
                 ]
             }
         };
@@ -404,47 +433,50 @@ impl ActivitySummaryService {
         let response_result = ai_service.chat(messages).await;
         let duration_ms = api_start_time.elapsed().as_millis() as u64;
 
-        // 记录日志
+        // 记录日志（重新打开连接，不跨 await）
         let provider_str = format!("{:?}", ai_config.provider);
         let model_str = ai_config.model.clone().unwrap_or_default();
         match &response_result {
             Ok(resp) => {
-                // 安全截取字符串，避免在多字节字符中间截断
                 let response_summary = if resp.chars().count() > 300 {
                     let truncated: String = resp.chars().take(300).collect();
                     format!("{}...", truncated)
                 } else {
                     resp.clone()
                 };
-                let _ = AiService::save_log(
-                    &conn,
-                    "activity_summary",
-                    "generate_summary",
-                    &provider_str,
-                    Some(model_str.as_str()),
-                    &prompt_summary,
-                    Some(response_summary.as_str()),
-                    None, // tokens_used
-                    Some(duration_ms as i64),
-                    "success",
-                    None,
-                );
+                if let Ok(conn) = self.get_connection() {
+                    let _ = AiService::save_log(
+                        &conn,
+                        "activity_summary",
+                        "generate_summary",
+                        &provider_str,
+                        Some(model_str.as_str()),
+                        &prompt_summary,
+                        Some(response_summary.as_str()),
+                        None,
+                        Some(duration_ms as i64),
+                        "success",
+                        None,
+                    );
+                }
             }
             Err(e) => {
                 let err_msg = e.to_string();
-                let _ = AiService::save_log(
-                    &conn,
-                    "activity_summary",
-                    "generate_summary",
-                    &provider_str,
-                    Some(model_str.as_str()),
-                    &prompt_summary,
-                    None,
-                    None, // tokens_used
-                    Some(duration_ms as i64),
-                    "error",
-                    Some(err_msg.as_str()),
-                );
+                if let Ok(conn) = self.get_connection() {
+                    let _ = AiService::save_log(
+                        &conn,
+                        "activity_summary",
+                        "generate_summary",
+                        &provider_str,
+                        Some(model_str.as_str()),
+                        &prompt_summary,
+                        None,
+                        None,
+                        Some(duration_ms as i64),
+                        "error",
+                        Some(err_msg.as_str()),
+                    );
+                }
             }
         }
 
@@ -480,11 +512,13 @@ impl ActivitySummaryService {
     /// 从 JSON 响应中格式化活动总结
     ///
     /// 将 AI 返回的结构化 JSON 转换为易于阅读和分析的文本格式
-    /// 包含：标题、描述、关键洞察、潜在待办任务
+    /// 支持多种 JSON 格式：
+    /// 1. 标准格式：title, description, keyInsights, potentialTodos
+    /// 2. 备用格式：activity, details, context
     fn format_summary_from_json(&self, json: &serde_json::Value) -> String {
         let mut parts = Vec::new();
 
-        // 1. 标题和描述
+        // 1. 标题和描述 - 支持多种字段名
         if let Some(title) = json.get("title").and_then(|v| v.as_str()) {
             parts.push(format!("**{}**", title));
         }
@@ -493,7 +527,57 @@ impl ActivitySummaryService {
             parts.push(desc.to_string());
         }
 
-        // 2. 关键洞察（可选）
+        // 2. 备用格式：activity + details（兼容旧格式的 AI 响应）
+        if parts.is_empty() {
+            if let Some(activity) = json.get("activity").and_then(|v| v.as_str()) {
+                parts.push(format!("**{}**", activity));
+            }
+
+            // 处理 details 数组
+            if let Some(details) = json.get("details").and_then(|v| v.as_array()) {
+                let detail_texts: Vec<String> = details
+                    .iter()
+                    .filter_map(|v| v.as_str())
+                    .map(|s| format!("• {}", s))
+                    .collect();
+
+                if !detail_texts.is_empty() {
+                    parts.push(detail_texts.join("\n"));
+                }
+            }
+
+            // 处理 context 对象
+            if let Some(context) = json.get("context").and_then(|v| v.as_object()) {
+                let mut context_parts = Vec::new();
+
+                if let Some(app) = context.get("application").and_then(|v| v.as_str()) {
+                    context_parts.push(format!("应用: {}", app));
+                }
+                if let Some(task) = context.get("primary_task").and_then(|v| v.as_str()) {
+                    context_parts.push(format!("主要任务: {}", task));
+                }
+                if let Some(env) = context.get("environment").and_then(|v| v.as_str()) {
+                    context_parts.push(format!("环境: {}", env));
+                }
+
+                // 处理 secondary_tasks 数组
+                if let Some(secondary) = context.get("secondary_tasks").and_then(|v| v.as_array()) {
+                    let tasks: Vec<&str> = secondary
+                        .iter()
+                        .filter_map(|v| v.as_str())
+                        .collect();
+                    if !tasks.is_empty() {
+                        context_parts.push(format!("其他任务: {}", tasks.join(", ")));
+                    }
+                }
+
+                if !context_parts.is_empty() {
+                    parts.push(format!("\n📋 上下文：\n{}", context_parts.join("\n")));
+                }
+            }
+        }
+
+        // 3. 关键洞察（可选）
         if let Some(insights) = json.get("keyInsights").and_then(|v| v.as_array()) {
             let insight_texts: Vec<String> = insights
                 .iter()
@@ -506,7 +590,7 @@ impl ActivitySummaryService {
             }
         }
 
-        // 3. 潜在待办任务（用于 TODO 预测）
+        // 4. 潜在待办任务（用于 TODO 预测）
         if let Some(todos) = json.get("potentialTodos").and_then(|v| v.as_array()) {
             if !todos.is_empty() {
                 let todo_texts: Vec<String> = todos
@@ -538,7 +622,22 @@ impl ActivitySummaryService {
         }
 
         if parts.is_empty() {
-            "活动总结生成中...".to_string()
+            // 如果所有已知字段都没有匹配到，尝试提取任意字符串字段作为描述
+            let mut fallback_parts = Vec::new();
+            if let Some(obj) = json.as_object() {
+                for (key, value) in obj {
+                    if let Some(s) = value.as_str() {
+                        if s.len() > 10 && s.len() < 500 {
+                            fallback_parts.push(format!("**{}**: {}", key, s));
+                        }
+                    }
+                }
+            }
+            if !fallback_parts.is_empty() {
+                fallback_parts.join("\n")
+            } else {
+                "活动总结生成中...".to_string()
+            }
         } else {
             parts.join("\n")
         }

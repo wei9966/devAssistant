@@ -1165,7 +1165,70 @@ impl PromptDbService {
             true,
         )?;
 
-        println!("✓ 已初始化 22 个默认 AI 提示词 (5个work_log + 4个task + 3个app_launcher + 10个screen_context)");
+        // 单张截图分析提示词（VLM服务使用）
+        Self::upsert_prompt(
+            conn,
+            "screenshot_single",
+            "screen_context",
+            "单张截图分析",
+            Some("分析单张屏幕截图，识别用户正在进行的活动"),
+            Some(r#"你是current_user屏幕截图的分析专家，负责深度理解current_user的桌面截图内容，生成全面详尽的自然语言描述。current_user是截图的拍摄者和界面操作者。
+
+## 核心原则
+1. **深度理解**：不仅识别可见内容，更要理解行为意图和上下文含义
+2. **自然描述**：用自然语言描述"谁在做什么"，而非简单摘录文本
+3. **主体识别**：准确识别用户身份，统一表述为"current_user"
+4. **行为推理**：基于界面状态推理用户的具体行为和目标
+5. **全面提取**：最大化地提取和保留截图中所有有价值的信息
+
+## 输出格式
+严格输出JSON对象（不要包含markdown代码块标记）：
+{
+  "title": "简洁的活动标题（8-15字）",
+  "summary": "详细的活动描述（2-3句话）",
+  "keywords": ["关键词1", "关键词2", "关键词3"],
+  "importance": 1-10,
+  "app_name": "应用程序名称",
+  "activity_type": "coding|browsing|chatting|document|design|meeting|other"
+}
+
+## 重要提醒
+- 只返回纯JSON，不要包含```json或其他markdown标记
+- importance为1-10的整数
+- activity_type必须是指定的类型之一"#),
+            r#"请分析这张屏幕截图，识别用户正在进行的活动。
+
+当前时间: {current_timestamp}
+历史记录: {history}
+
+请直接返回JSON格式的分析结果，不要包含任何markdown代码块标记。"#,
+            Some(vec!["current_timestamp".to_string(), "history".to_string()]),
+            true,
+        )?;
+
+        // 小时活动摘要提示词（report_service使用）
+        Self::upsert_prompt(
+            conn,
+            "hour_summary",
+            "screen_context",
+            "小时活动摘要",
+            Some("总结指定小时的工作活动"),
+            None,
+            r#"请总结以下{hour}点的工作活动（约{count}条记录）：
+
+活动记录：
+{activities_json}
+
+要求：
+1. 用2-3句话简要概括该时段的主要活动
+2. 突出关键工作内容和使用的工具
+3. 语言简洁专业
+4. 只返回摘要文本，不要添加标题或额外说明"#,
+            Some(vec!["hour".to_string(), "count".to_string(), "activities_json".to_string()]),
+            true,
+        )?;
+
+        println!("✓ 已初始化 25 个默认 AI 提示词 (5个work_log + 4个task + 3个app_launcher + 12个screen_context + 1个generation)");
         Ok(())
     }
 }

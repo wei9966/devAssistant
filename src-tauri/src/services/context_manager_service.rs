@@ -3,6 +3,7 @@
 
 use super::ai_service::{AiService, ChatMessage};
 use super::context_store_service::ContextStoreService;
+use super::prompt_db_service::PromptDbService;
 use super::screen_capture_service::{CaptureStatus, ScreenCaptureService};
 use super::user_activity_service::UserActivityService;
 use crate::models::screen_context::ScreenContext;
@@ -10,6 +11,7 @@ use anyhow::{anyhow, Result};
 use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveDateTime};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{interval, Duration};
@@ -330,10 +332,26 @@ impl ContextManager {
             return Ok(vec![]);
         }
 
-        // 构建提示词
+        // 构建提示词变量
         let contexts_json = serde_json::to_string_pretty(&items)?;
-        let prompt = format!(
-            r#"请分析以下屏幕上下文记录，将相似的活动合并在一起。
+        let mut vars = HashMap::new();
+        vars.insert("items".to_string(), contexts_json.clone());
+
+        // 尝试使用数据库提示词
+        let messages = match PromptDbService::render_prompt_cached("merge_batch_items", &vars) {
+            Ok(rendered) => {
+                let mut msgs = Vec::new();
+                if let Some(system) = rendered.system {
+                    msgs.push(ChatMessage::system(system));
+                }
+                msgs.push(ChatMessage::user(rendered.user));
+                msgs
+            }
+            Err(e) => {
+                // 如果获取配置失败，使用硬编码的提示词作为后备
+                log::warn!("使用数据库提示词失败，回退到默认提示词: {}", e);
+                let prompt = format!(
+                    r#"请分析以下屏幕上下文记录，将相似的活动合并在一起。
 
 上下文数据：
 {}
@@ -363,14 +381,11 @@ impl ContextManager {
 }}
 
 只返回JSON数组，不要其他说明文字。"#,
-            contexts_json
-        );
-
-        // 调用AI服务
-        let messages = vec![ChatMessage {
-            role: "user".to_string(),
-            content: prompt,
-        }];
+                    contexts_json
+                );
+                vec![ChatMessage::user(prompt)]
+            }
+        };
 
         let response = ai_service.chat(messages).await?;
 
@@ -446,9 +461,28 @@ impl ContextManager {
         // 构建日报生成提示词
         let contexts_json = serde_json::to_string_pretty(&contexts)?;
         let stats_json = serde_json::to_string_pretty(&stats)?;
+        let activities_json = format!("{}\n\n统计信息:\n{}", contexts_json, stats_json);
 
-        let prompt = format!(
-            r#"请根据以下数据生成一份详细的工作日报：
+        // 构建变量映射
+        let mut vars = HashMap::new();
+        vars.insert("date".to_string(), date.to_string());
+        vars.insert("activities_json".to_string(), activities_json.clone());
+
+        // 尝试使用数据库提示词
+        let messages = match PromptDbService::render_prompt_cached("generation_report", &vars) {
+            Ok(rendered) => {
+                let mut msgs = Vec::new();
+                if let Some(system) = rendered.system {
+                    msgs.push(ChatMessage::system(system));
+                }
+                msgs.push(ChatMessage::user(rendered.user));
+                msgs
+            }
+            Err(e) => {
+                // 如果获取配置失败，使用硬编码的提示词作为后备
+                log::warn!("使用数据库提示词失败，回退到默认提示词: {}", e);
+                let prompt = format!(
+                    r#"请根据以下数据生成一份详细的工作日报：
 
 日期: {}
 活动记录: {}
@@ -463,14 +497,11 @@ impl ContextManager {
 6. 改进建议（如有必要）
 
 请使用清晰的标题层次和列表格式，使日报易于阅读。"#,
-            date, contexts_json, stats_json
-        );
-
-        // 调用AI服务
-        let messages = vec![ChatMessage {
-            role: "user".to_string(),
-            content: prompt,
-        }];
+                    date, contexts_json, stats_json
+                );
+                vec![ChatMessage::user(prompt)]
+            }
+        };
 
         let report = ai_service.chat(messages).await?;
         Ok(report)
