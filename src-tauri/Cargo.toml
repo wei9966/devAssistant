@@ -1,6 +1,6 @@
 [package]
 name = "dev-assistant"
-version = "1.0.4"
+version = "1.0.5"
 description = "DevAssistant - 个人开发效率工具"
 authors = ["DevAssistant Team"]
 edition = "2021"
@@ -61,7 +61,13 @@ tauri-plugin-process = "2.0"
 
 [profile.release]
 panic = "abort"
-codegen-units = 1
-lto = true
+codegen-units = 4      # 4线程编译，比1快3-4倍
+lto = "thin"           # thin LTO，比 true 快5倍，体积只大5%左右
 opt-level = "s"
 strip = true
+
+# 正式发布用：体积最小但编译慢
+[profile.dist]
+inherits = "release"
+codegen-units = 1
+lto = true

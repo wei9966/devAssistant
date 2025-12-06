@@ -124,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, h, onMounted, onUnmounted } from 'vue'
+import { ref, shallowRef, h, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { MenuOption } from 'naive-ui'
 import {
@@ -189,7 +189,7 @@ const showUpdateDialog = ref(false)
 const updateInfo = ref<UpdateInfo>({ available: false })
 const isUpdating = ref(false)
 const updateProgress = ref(0)
-const currentUpdate = ref<any>(null)
+const currentUpdate = shallowRef<any>(null)
 
 // 打开赛博朋克启动器
 const openCyberpunkLauncher = () => {
