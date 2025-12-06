@@ -1,6 +1,6 @@
 [package]
 name = "dev-assistant"
-version = "1.0.6"
+version = "1.0.8"
 description = "DevAssistant - 个人开发效率工具"
 authors = ["DevAssistant Team"]
 edition = "2021"
@@ -18,7 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.0", features = ["protocol-asset", "devtools"] }
+tauri = { version = "2.0", features = ["protocol-asset", "devtools", "tray-icon"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }

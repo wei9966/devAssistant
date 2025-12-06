@@ -1,0 +1,30 @@
+<?xml version="1.0" standalone="no"?>
+<svg id="icon-nucleus" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="32" y="32" width="448" height="448" rx="80" fill="#0f172a" stroke="#334155" stroke-width="4"/>
+                    
+                    <!-- Orbit Paths -->
+                    <circle cx="256" cy="256" r="140" fill="none" stroke="#334155" stroke-width="4" stroke-dasharray="20 10"/>
+                    
+                    <!-- Core: AI Brain -->
+                    <circle cx="256" cy="256" r="60" fill="url(#core-grad)"/>
+                    <path d="M236 256 L256 276 L276 236" fill="none" stroke="white" stroke-width="8" stroke-linecap="round"/>
+                    
+                    <!-- Satellite 1: DB -->
+                    <circle cx="256" cy="116" r="30" fill="#f59e0b"/>
+                    <path d="M246 116 h20 M246 110 h20 M246 122 h20" stroke="#78350f" stroke-width="2"/>
+                    
+                    <!-- Satellite 2: Task -->
+                    <circle cx="378" cy="326" r="30" fill="#10b981"/>
+                    <path d="M370 326 l5 5 l10 -10" stroke="white" stroke-width="4" fill="none"/>
+                    
+                    <!-- Satellite 3: Code -->
+                    <circle cx="134" cy="326" r="30" fill="#3b82f6"/>
+                    <path d="M124 326 l-4 4 l4 4 M144 326 l4 -4 l-4 -4" stroke="white" stroke-width="3" fill="none"/>
+                    
+                    <defs>
+                        <radialGradient id="core-grad">
+                            <stop offset="0%" stop-color="#22d3ee"/>
+                            <stop offset="100%" stop-color="#0e7490"/>
+                        </radialGradient>
+                    </defs>
+                </svg>
