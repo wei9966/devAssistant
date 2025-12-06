@@ -2,7 +2,9 @@ use anyhow::{anyhow, Result};
 use reqwest::Client;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::time::Instant;
+use crate::services::prompt_db_service::PromptDbService;
 
 /// AI 提供商类型
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -731,80 +733,42 @@ impl AiService {
             String::new()
         };
 
-        let prompt = format!(
-            "请将以下工作内容整理成专业的 Markdown 格式工作日志。\n\n\
-            日期：{}\n\
-            {}{}{}{}\n\n\
-            要求：\n\
-            1. 直接输出 Markdown 格式，以 \"## {} 工作日志\" 开头\n\
-            2. 根据内容智能分组，使用 ### 作为分组标题（如：功能开发、Bug修复、代码优化、工作时间等）\n\
-            3. 每个任务用 \"- \" 开头的列表项展示\n\
-            4. 如果任务带有标签（括号内容），保留标签信息\n\
-            5. 如果有屏幕活动记录，在最后添加 \"### 工作时间\" 小节简要描述工作时间段和主要使用的工具\n\
-            6. 语言简洁专业，不要添加额外的总结或评价\n\
-            7. 只输出日志内容，不要输出其他说明文字",
-            input.date,
-            tasks_section,
-            sqls_section,
-            commits_section,
-            activity_section,
-            input.date
-        );
+        // 从数据库获取提示词并渲染
+        let mut vars = HashMap::new();
+        vars.insert("date".to_string(), input.date.clone());
+        vars.insert("tasks_section".to_string(), tasks_section);
+        vars.insert("sqls_section".to_string(), sqls_section);
+        vars.insert("commits_section".to_string(), commits_section);
+        vars.insert("activity_section".to_string(), activity_section);
 
-        let response = self.chat(vec![ChatMessage::user(prompt)]).await?;
+        let rendered = PromptDbService::render_prompt_cached("work_log_generate", &vars)
+            .map_err(|e| anyhow!("获取提示词失败: {}", e))?;
+
+        let response = self.chat(vec![ChatMessage::user(rendered.user)]).await?;
         Ok(response.trim().to_string())
     }
 
     /// 日志润色
     pub async fn polish_work_log(&self, content: &str) -> Result<String> {
-        let prompt = format!(
-            r#"请优化以下工作日志，使其更专业、条理更清晰：
+        let mut vars = HashMap::new();
+        vars.insert("content".to_string(), content.to_string());
 
-{}
+        let rendered = PromptDbService::render_prompt_cached("work_log_polish", &vars)
+            .map_err(|e| anyhow!("获取提示词失败: {}", e))?;
 
-要求：
-1. 保持原有内容的核心信息
-2. 改善语言表达
-3. 优化格式结构
-4. 使用 Markdown 格式
-
-直接返回优化后的日志内容。"#,
-            content
-        );
-
-        let response = self.chat(vec![ChatMessage::user(prompt)]).await?;
+        let response = self.chat(vec![ChatMessage::user(rendered.user)]).await?;
         Ok(response.trim().to_string())
     }
 
     /// 生成周报
     pub async fn generate_weekly_report(&self, logs: Vec<String>) -> Result<String> {
-        let prompt = format!(
-            r#"请根据以下工作日志生成周报：
+        let mut vars = HashMap::new();
+        vars.insert("logs".to_string(), logs.join("\n\n---\n\n"));
 
-日志内容：
-{}
+        let rendered = PromptDbService::render_prompt_cached("weekly_report_generate", &vars)
+            .map_err(|e| anyhow!("获取提示词失败: {}", e))?;
 
-要求：
-1. 总结本周主要工作成果
-2. 列出遇到的问题和解决方案
-3. 规划下周工作重点
-4. 使用 Markdown 格式
-
-生成格式：
-## 周报
-
-### 本周工作成果
-- ...
-
-### 遇到的问题与解决方案
-- ...
-
-### 下周工作计划
-- ..."#,
-            logs.join("\n\n---\n\n")
-        );
-
-        let response = self.chat(vec![ChatMessage::user(prompt)]).await?;
+        let response = self.chat(vec![ChatMessage::user(rendered.user)]).await?;
         Ok(response.trim().to_string())
     }
 
@@ -840,18 +804,15 @@ impl AiService {
             String::new()
         };
 
-        // 精简提示词，减少token消耗
-        let prompt = format!(
-            r#"任务分类。标题：{}{}{}
+        let mut vars = HashMap::new();
+        vars.insert("title".to_string(), title.to_string());
+        vars.insert("description".to_string(), if desc.is_empty() { String::new() } else { format!("\n描述：{}", desc) });
+        vars.insert("tags_hint".to_string(), tags_hint);
 
-返回JSON：{{"category":"backend|database|feature|docs|other","priority":1-3,"quadrant":"urgent_important|urgent_not_important|not_urgent_important|not_urgent_not_important","suggestedTags":["标签"],"confidence":0-1}}
-只返回JSON。任务描述保持100字符以下。"#,
-            title,
-            if desc.is_empty() { String::new() } else { format!("\n描述：{}", desc) },
-            tags_hint
-        );
+        let rendered = PromptDbService::render_prompt_cached("task_classify", &vars)
+            .map_err(|e| anyhow!("获取提示词失败: {}", e))?;
 
-        let response = self.chat(vec![ChatMessage::user(prompt)]).await?;
+        let response = self.chat(vec![ChatMessage::user(rendered.user)]).await?;
         self.parse_task_classify_response(&response)
     }
 
@@ -877,23 +838,15 @@ impl AiService {
         description: Option<&str>,
     ) -> Result<String> {
         let desc = description.unwrap_or("无");
-        let prompt = format!(
-            r#"请帮我完善以下任务的描述，使其更加清晰、具体、可执行：
 
-任务标题：{}
-当前描述：{}
+        let mut vars = HashMap::new();
+        vars.insert("title".to_string(), title.to_string());
+        vars.insert("description".to_string(), desc.to_string());
 
-请补充：
-1. 具体的实现步骤
-2. 需要注意的事项
-3. 可能的技术难点
-4. 验收标准
+        let rendered = PromptDbService::render_prompt_cached("task_description_enhance", &vars)
+            .map_err(|e| anyhow!("获取提示词失败: {}", e))?;
 
-直接返回优化后的描述文本，使用 Markdown 格式。"#,
-            title, desc
-        );
-
-        let response = self.chat(vec![ChatMessage::user(prompt)]).await?;
+        let response = self.chat(vec![ChatMessage::user(rendered.user)]).await?;
         Ok(response.trim().to_string())
     }
 
@@ -904,25 +857,15 @@ impl AiService {
         description: Option<&str>,
     ) -> Result<Vec<String>> {
         let desc = description.unwrap_or("无");
-        let prompt = format!(
-            r#"请将以下任务拆分为具体的子任务：
 
-任务标题：{}
-任务描述：{}
+        let mut vars = HashMap::new();
+        vars.insert("title".to_string(), title.to_string());
+        vars.insert("description".to_string(), desc.to_string());
 
-要求：
-1. 每个子任务应该是可独立完成的
-2. 子任务粒度适中（2-4小时可完成）
-3. 子任务之间有清晰的先后顺序
+        let rendered = PromptDbService::render_prompt_cached("task_subtasks_generate", &vars)
+            .map_err(|e| anyhow!("获取提示词失败: {}", e))?;
 
-返回 JSON 数组格式，只返回子任务标题：
-["子任务1", "子任务2", "子任务3"]
-
-只返回 JSON 数组，不要其他内容。"#,
-            title, desc
-        );
-
-        let response = self.chat(vec![ChatMessage::user(prompt)]).await?;
+        let response = self.chat(vec![ChatMessage::user(rendered.user)]).await?;
         self.parse_subtasks_response(&response)
     }
 
@@ -948,21 +891,13 @@ impl AiService {
             .collect::<Vec<_>>()
             .join("\n");
 
-        let prompt = format!(
-            r#"请根据以下任务列表生成工作总结：
+        let mut vars = HashMap::new();
+        vars.insert("tasks".to_string(), tasks_str);
 
-任务列表：
-{}
+        let rendered = PromptDbService::render_prompt_cached("task_summarize", &vars)
+            .map_err(|e| anyhow!("获取提示词失败: {}", e))?;
 
-要求：
-1. 总结完成的主要工作
-2. 分析工作重点和效率
-3. 提出改进建议
-4. 使用 Markdown 格式"#,
-            tasks_str
-        );
-
-        let response = self.chat(vec![ChatMessage::user(prompt)]).await?;
+        let response = self.chat(vec![ChatMessage::user(rendered.user)]).await?;
         Ok(response.trim().to_string())
     }
 
@@ -1005,21 +940,14 @@ impl AiService {
             })
         }).collect();
 
-        let prompt = format!(
-            r#"你是一个应用分类助手。请根据应用名称，为以下应用分配分类。
+        let mut vars = HashMap::new();
+        vars.insert("categories".to_string(), categories.join("、"));
+        vars.insert("apps".to_string(), serde_json::to_string(&simplified_apps).unwrap_or_default());
 
-可用分类：{}
+        let rendered = PromptDbService::render_prompt_cached("app_classify", &vars)
+            .map_err(|e| anyhow!("获取提示词失败: {}", e))?;
 
-应用列表：
-{}
-
-返回 JSON 数组格式（只返回JSON，不要其他内容）：
-[{{"appId": "id值", "category": "分类名", "tags": ["标签"], "confidence": 0.9}}]"#,
-            categories.join("、"),
-            serde_json::to_string(&simplified_apps).unwrap_or_default()
-        );
-
-        let response = self.chat(vec![ChatMessage::user(prompt)]).await?;
+        let response = self.chat(vec![ChatMessage::user(rendered.user)]).await?;
         self.parse_app_classify_response(&response)
     }
 
@@ -1044,31 +972,17 @@ impl AiService {
         apps: Vec<AppClassifyInput>,
         launch_history: Vec<(String, i64)>, // (app_id, launch_count)
     ) -> Result<Vec<WorkflowRecommendation>> {
-        let prompt = format!(
-            r#"根据以下应用启动历史，推荐可能的工作流组合：
+        let mut vars = HashMap::new();
+        vars.insert("apps".to_string(), serde_json::to_string_pretty(&apps).unwrap_or_default());
+        vars.insert("launch_history".to_string(), launch_history.iter()
+            .map(|(id, count)| format!("{}: {} 次", id, count))
+            .collect::<Vec<_>>()
+            .join("\n"));
 
-应用列表：
-{}
+        let rendered = PromptDbService::render_prompt_cached("workflow_recommend", &vars)
+            .map_err(|e| anyhow!("获取提示词失败: {}", e))?;
 
-启动历史（应用ID和启动次数）：
-{}
-
-请分析用户的使用习惯，推荐 3-5 个工作流组合，返回 JSON：
-[
-  {{
-    "name": "工作流名称",
-    "appIds": ["app1", "app2"],
-    "reason": "推荐理由"
-  }}
-]"#,
-            serde_json::to_string_pretty(&apps).unwrap_or_default(),
-            launch_history.iter()
-                .map(|(id, count)| format!("{}: {} 次", id, count))
-                .collect::<Vec<_>>()
-                .join("\n")
-        );
-
-        let response = self.chat(vec![ChatMessage::user(prompt)]).await?;
+        let response = self.chat(vec![ChatMessage::user(rendered.user)]).await?;
         self.parse_workflow_response(&response)
     }
 
@@ -1093,17 +1007,14 @@ impl AiService {
         app_name: &str,
         app_path: &str,
     ) -> Result<String> {
-        let prompt = format!(
-            r#"请为以下应用生成一个简短的中文描述（不超过50字）：
+        let mut vars = HashMap::new();
+        vars.insert("app_name".to_string(), app_name.to_string());
+        vars.insert("app_path".to_string(), app_path.to_string());
 
-应用名称：{}
-应用路径：{}
+        let rendered = PromptDbService::render_prompt_cached("app_description_generate", &vars)
+            .map_err(|e| anyhow!("获取提示词失败: {}", e))?;
 
-只返回描述文本，不要其他内容。"#,
-            app_name, app_path
-        );
-
-        let response = self.chat(vec![ChatMessage::user(prompt)]).await?;
+        let response = self.chat(vec![ChatMessage::user(rendered.user)]).await?;
         Ok(response.trim().to_string())
     }
 }

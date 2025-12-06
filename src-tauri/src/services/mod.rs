@@ -11,6 +11,7 @@ pub mod context_store_service;
 pub mod notification_service;
 pub mod prompt_service;
 pub mod prompt_manager_service;
+pub mod prompt_db_service;
 pub mod report_service;
 pub mod scheduler_service;
 pub mod screen_capture_service;
@@ -43,6 +44,7 @@ pub use prompt_manager_service::{
     PromptManager, PromptsConfig, ProcessingPrompts, GenerationPrompts,
     MergingPrompts, EntityPrompts, ExtractionPrompts
 };
+pub use prompt_db_service::{AiPrompt, PromptDbService, PromptUpdate, RenderedPrompt};
 pub use report_service::{DailyReport, ReportInputData, ReportService};
 pub use scheduler_service::{SchedulerConfig, SchedulerService};
 pub use screenshot_batch_processor_service::{

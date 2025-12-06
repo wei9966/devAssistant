@@ -703,6 +703,7 @@ import { useWorkLogStore } from '@/stores/workLogStore';
 import { useWeeklyPlanStore } from '@/stores/weeklyPlanStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { aiApi } from '@/api/aiApi';
+import { promptApi } from '@/api/promptApi';
 import type { WorkLog, WeeklyPlan } from '@/types/workLog';
 import type { Task } from '@/types/task';
 import { CATEGORY_LABELS } from '@/types/task';
@@ -1082,15 +1083,11 @@ async function handleGeneratePlan() {
       return `[截止:${dueDate}] [${category}] ${task.title}${task.description ? ': ' + task.description : ''}`;
     }).join('\n');
 
-    const prompt = `请根据以下任务列表生成一份简洁的工作计划，用于向领导汇报下周的工作安排：
-
-${taskSummary}
-
-要求：
-1. 按优先级或时间顺序整理任务
-2. 每个任务简要说明工作内容和预期目标
-3. 使用 Markdown 格式，条理清晰
-4. 语言简洁专业，适合汇报场景`;
+    // 从 API 获取提示词并渲染
+    const rendered = await promptApi.renderPromptPreview('weekly_plan_generate', {
+      task_summary: taskSummary
+    });
+    const prompt = rendered.user;
 
     const result = await aiApi.chat(prompt, 'weekly_plan');
     currentPlanContent.value = result;
@@ -1112,15 +1109,11 @@ async function handlePolishPlan() {
 
   generatingPlan.value = true;
   try {
-    const prompt = `请润色以下工作计划，使其更加专业、简洁，适合向领导汇报：
-
-${currentPlanContent.value}
-
-要求：
-1. 保持原有内容的核心信息
-2. 优化语言表达，使其更加专业
-3. 适当调整格式，使结构更清晰
-4. 使用 Markdown 格式`;
+    // 从 API 获取提示词并渲染
+    const rendered = await promptApi.renderPromptPreview('weekly_plan_polish', {
+      content: currentPlanContent.value
+    });
+    const prompt = rendered.user;
 
     const result = await aiApi.chat(prompt, 'weekly_plan');
     currentPlanContent.value = result;

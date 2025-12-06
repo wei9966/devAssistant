@@ -125,6 +125,16 @@ fn main() {
         }
     };
 
+    // 初始化 AI 提示词缓存
+    {
+        use services::prompt_db_service::PromptDbService;
+        if let Err(e) = PromptDbService::refresh_cache(&conn) {
+            log_runtime(&format!("AI 提示词缓存初始化失败: {}, 将在首次使用时加载", e));
+        } else {
+            log_runtime("AI 提示词缓存初始化成功");
+        }
+    }
+
     // 尝试从数据库加载快捷键配置（在将 conn 移动到 Arc 之前）
     let saved_config = {
         use commands::shortcut_commands::ShortcutConfig;
@@ -988,6 +998,16 @@ fn main() {
             commands::prompt_commands::reset_prompt_config,
             commands::prompt_commands::get_prompt_template,
             commands::prompt_commands::update_prompt_template,
+            // 提示词数据库相关命令
+            commands::prompt_db_commands::get_all_prompts,
+            commands::prompt_db_commands::get_prompt,
+            commands::prompt_db_commands::get_prompts_by_module,
+            commands::prompt_db_commands::update_prompt,
+            commands::prompt_db_commands::reset_prompt,
+            commands::prompt_db_commands::reset_all_prompts,
+            commands::prompt_db_commands::render_prompt_preview,
+            commands::prompt_db_commands::get_prompt_variables,
+            commands::prompt_db_commands::refresh_prompt_cache,
             // 通知中心相关命令
             commands::notification_commands::notification_list,
             commands::notification_commands::notification_get_unread_count,

@@ -479,6 +479,13 @@
           </div>
         </n-tab-pane>
 
+        <!-- AI 提示词管理标签 -->
+        <n-tab-pane name="prompts" tab="提示词">
+          <div class="tab-content">
+            <PromptManager />
+          </div>
+        </n-tab-pane>
+
         <!-- 通知设置标签 -->
         <n-tab-pane name="notifications" tab="通知">
           <div class="tab-content">
@@ -669,6 +676,7 @@ import { aiApi } from '@/api/aiApi';
 import { AI_PROVIDERS } from '@/types/ai';
 import type { AiProvider, AiLog, AiLogStats } from '@/types/ai';
 import ContextManager from '@/components/context/ContextManager.vue';
+import PromptManager from '@/components/settings/PromptManager.vue';
 
 const route = useRoute();
 const message = useMessage();

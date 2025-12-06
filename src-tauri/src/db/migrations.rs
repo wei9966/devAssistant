@@ -123,6 +123,11 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     // 迁移 sql_history 表：添加 template_id 字段
     migrate_sql_history_add_template_id(conn)?;
 
+    // 创建 AI 提示词表
+    create_ai_prompts_table(conn)?;
+    create_ai_prompts_indexes(conn)?;
+    init_default_prompts(conn)?;
+
     Ok(())
 }
 
@@ -1836,4 +1841,59 @@ fn migrate_sql_history_add_template_id(conn: &Connection) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// 创建 ai_prompts 表（AI 提示词）
+fn create_ai_prompts_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS ai_prompts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            prompt_key TEXT NOT NULL UNIQUE,
+            module TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            system_prompt TEXT,
+            user_prompt TEXT NOT NULL,
+            variables TEXT,
+            is_system INTEGER DEFAULT 0,
+            enabled INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now', 'localtime')),
+            updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 ai_prompts 表索引
+fn create_ai_prompts_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ai_prompts_module ON ai_prompts(module)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ai_prompts_key ON ai_prompts(prompt_key)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ai_prompts_enabled ON ai_prompts(enabled)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 初始化默认提示词数据
+fn init_default_prompts(conn: &Connection) -> Result<()> {
+    use crate::services::PromptDbService;
+
+    // 调用 PromptDbService 的初始化方法
+    match PromptDbService::initialize_default_prompts(conn) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            eprintln!("初始化默认提示词失败: {}", e);
+            // 不中断迁移过程，只是记录错误
+            Ok(())
+        }
+    }
 }

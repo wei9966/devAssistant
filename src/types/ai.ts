@@ -123,3 +123,34 @@ export interface AiLogStats {
   avgDurationMs: number;
   callsByModule: [string, number][];
 }
+
+// ========== AI 提示词管理 ==========
+
+// 提示词接口
+export interface AiPrompt {
+  id: number;
+  prompt_key: string;
+  module: string;
+  name: string;
+  description: string | null;
+  system_prompt: string | null;
+  user_prompt: string;
+  variables: string | null; // JSON 数组字符串
+  is_system: boolean;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// 渲染结果接口
+export interface RenderedPrompt {
+  system: string | null;
+  user: string;
+}
+
+// 更新参数接口
+export interface PromptUpdateParams {
+  systemPrompt?: string | null;
+  userPrompt: string;
+  enabled?: boolean;
+}

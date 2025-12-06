@@ -3,9 +3,10 @@ use reqwest::Client;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::services::prompt_manager_service::PromptManager;
+use crate::services::ai_service::AiService;
 
 /// VLM Provider type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -222,6 +223,15 @@ pub struct VlmService {
     db_path: String,
 }
 
+/// 安全截取字符串，避免在多字节字符中间截断
+fn safe_truncate(s: &str, max_chars: usize) -> String {
+    if s.chars().count() <= max_chars {
+        s.to_string()
+    } else {
+        s.chars().take(max_chars).collect()
+    }
+}
+
 impl VlmService {
     pub fn new(db_path: String) -> Self {
         Self { db_path }
@@ -230,6 +240,37 @@ impl VlmService {
     /// Get database connection
     fn get_connection(&self) -> Result<Connection> {
         Connection::open(&self.db_path).map_err(|e| anyhow!("Failed to open database: {}", e))
+    }
+
+    /// 保存 VLM 调用日志
+    fn save_vlm_log(
+        &self,
+        action: &str,
+        provider: &str,
+        model: &str,
+        prompt_summary: &str,
+        response_summary: &str,
+        duration_ms: u64,
+        status: &str,
+        error_message: Option<&str>,
+    ) {
+        if let Ok(conn) = self.get_connection() {
+            if let Err(e) = AiService::save_log(
+                &conn,
+                "vlm",
+                action,
+                provider,
+                Some(model),
+                prompt_summary,
+                Some(response_summary),
+                None, // tokens_used
+                Some(duration_ms as i64),
+                status,
+                error_message,
+            ) {
+                log::warn!("保存 VLM 日志失败: {}", e);
+            }
+        }
     }
 
     /// Save VLM configuration
@@ -370,13 +411,48 @@ impl VlmService {
 
     /// Analyze image
     pub async fn analyze_image(&self, image_base64: &str, prompt: &str) -> Result<String> {
+        let start_time = Instant::now();
         let config = self.get_full_config()?;
 
         if !config.is_valid() {
             return Err(anyhow!("VLM is not enabled or configuration is invalid"));
         }
 
-        self.analyze_image_internal(&config, image_base64, prompt).await
+        let provider = config.provider.clone();
+        let model = config.get_model().to_string();
+        let prompt_summary = format!("[图片分析] {}", safe_truncate(prompt, 200));
+
+        let result = self.analyze_image_internal(&config, image_base64, prompt).await;
+        let duration_ms = start_time.elapsed().as_millis() as u64;
+
+        match &result {
+            Ok(response) => {
+                self.save_vlm_log(
+                    "image_analyze",
+                    &provider,
+                    &model,
+                    &prompt_summary,
+                    safe_truncate(response, 500).as_str(),
+                    duration_ms,
+                    "success",
+                    None,
+                );
+            }
+            Err(e) => {
+                self.save_vlm_log(
+                    "image_analyze",
+                    &provider,
+                    &model,
+                    &prompt_summary,
+                    "",
+                    duration_ms,
+                    "error",
+                    Some(&e.to_string()),
+                );
+            }
+        }
+
+        result
     }
 
     /// Analyze single screenshot
@@ -386,6 +462,7 @@ impl VlmService {
         image_base64: &str,
         history: Option<&str>,
     ) -> Result<ScreenshotAnalysisResponse> {
+        let start_time = Instant::now();
         let config = self.get_full_config()?;
 
         if !config.is_valid() {
@@ -416,12 +493,13 @@ impl VlmService {
         // 渲染提示词
         let system_prompt = PromptManager::render_prompt(&prompt_config.system, &vars);
         let user_prompt = PromptManager::render_prompt(&prompt_config.user, &vars);
+        let prompt_summary = format!("[截图分析] {}", safe_truncate(&user_prompt, 200));
 
         // 调用 VLM API
-        let response_text = match config.provider.as_str() {
+        let api_result = match config.provider.as_str() {
             "claude" => {
                 self.analyze_with_claude_messages(&config, image_base64, &system_prompt, &user_prompt)
-                    .await?
+                    .await
             }
             _ => {
                 self.analyze_with_openai_compatible_messages(
@@ -430,12 +508,64 @@ impl VlmService {
                     &system_prompt,
                     &user_prompt,
                 )
-                .await?
+                .await
             }
         };
 
-        // 解析 JSON 响应
-        self.parse_screenshot_response(&response_text)
+        let duration_ms = start_time.elapsed().as_millis() as u64;
+        let provider = config.provider.clone();
+        let model = config.get_model().to_string();
+
+        match api_result {
+            Ok(response_text) => {
+                // 解析 JSON 响应
+                match self.parse_screenshot_response(&response_text) {
+                    Ok(result) => {
+                        // 记录成功日志
+                        let response_summary = format!("[{}] {}", result.title, safe_truncate(&result.summary, 200));
+                        self.save_vlm_log(
+                            "screenshot_analyze",
+                            &provider,
+                            &model,
+                            &prompt_summary,
+                            &response_summary,
+                            duration_ms,
+                            "success",
+                            None,
+                        );
+                        Ok(result)
+                    }
+                    Err(e) => {
+                        // 记录解析失败日志
+                        self.save_vlm_log(
+                            "screenshot_analyze",
+                            &provider,
+                            &model,
+                            &prompt_summary,
+                            safe_truncate(&response_text, 500).as_str(),
+                            duration_ms,
+                            "error",
+                            Some(&format!("JSON解析失败: {}", e)),
+                        );
+                        Err(e)
+                    }
+                }
+            }
+            Err(e) => {
+                // 记录 API 调用失败日志
+                self.save_vlm_log(
+                    "screenshot_analyze",
+                    &provider,
+                    &model,
+                    &prompt_summary,
+                    "",
+                    duration_ms,
+                    "error",
+                    Some(&e.to_string()),
+                );
+                Err(e)
+            }
+        }
     }
 
 

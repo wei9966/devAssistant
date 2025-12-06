@@ -9,6 +9,7 @@ use anyhow::{anyhow, Result};
 use chrono::{DateTime, Duration, Local};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::time::Instant;
 
 /// 活动总结类型
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -334,12 +335,14 @@ impl ActivitySummaryService {
         start_time: &DateTime<Local>,
         end_time: &DateTime<Local>,
     ) -> Result<String> {
+        let api_start_time = Instant::now();
+
         // 从数据库加载AI配置
         let conn = self.get_connection()?;
         let ai_config = AiService::load_config(&conn)?;
 
         // 创建AI服务实例
-        let ai_service = AiService::new(ai_config);
+        let ai_service = AiService::new(ai_config.clone());
 
         // 检查AI服务是否已配置
         if !ai_service.is_configured() {
@@ -369,8 +372,62 @@ impl ActivitySummaryService {
             ChatMessage::user(input_data.to_string()),
         ];
 
+        let prompt_summary = format!(
+            "[活动总结] {} - {}, {} 条截图",
+            start_time.format("%H:%M"),
+            end_time.format("%H:%M"),
+            screenshots.len()
+        );
+
         // 调用AI
-        let response = ai_service.chat(messages).await?;
+        let response_result = ai_service.chat(messages).await;
+        let duration_ms = api_start_time.elapsed().as_millis() as u64;
+
+        // 记录日志
+        let provider_str = format!("{:?}", ai_config.provider);
+        let model_str = ai_config.model.clone().unwrap_or_default();
+        match &response_result {
+            Ok(resp) => {
+                // 安全截取字符串，避免在多字节字符中间截断
+                let response_summary = if resp.chars().count() > 300 {
+                    let truncated: String = resp.chars().take(300).collect();
+                    format!("{}...", truncated)
+                } else {
+                    resp.clone()
+                };
+                let _ = AiService::save_log(
+                    &conn,
+                    "activity_summary",
+                    "generate_summary",
+                    &provider_str,
+                    Some(model_str.as_str()),
+                    &prompt_summary,
+                    Some(response_summary.as_str()),
+                    None, // tokens_used
+                    Some(duration_ms as i64),
+                    "success",
+                    None,
+                );
+            }
+            Err(e) => {
+                let err_msg = e.to_string();
+                let _ = AiService::save_log(
+                    &conn,
+                    "activity_summary",
+                    "generate_summary",
+                    &provider_str,
+                    Some(model_str.as_str()),
+                    &prompt_summary,
+                    None,
+                    None, // tokens_used
+                    Some(duration_ms as i64),
+                    "error",
+                    Some(err_msg.as_str()),
+                );
+            }
+        }
+
+        let response = response_result?;
 
         // 解析JSON响应，提取有用字段
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response) {

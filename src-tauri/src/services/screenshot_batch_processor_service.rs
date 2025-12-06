@@ -68,6 +68,7 @@ use tokio::time::{Duration, sleep, timeout};
 
 use crate::services::vlm_service::VlmService;
 use crate::services::context_store_service::ContextStoreService;
+use crate::services::ai_service::AiService;
 
 /// 批量处理项
 #[derive(Debug, Clone)]
@@ -370,6 +371,31 @@ impl ScreenshotBatchProcessor {
             failed,
             processing_time.as_millis()
         );
+
+        // 记录批量处理日志
+        if let Ok(conn) = Connection::open(db_path) {
+            let status = if failed == 0 { "success" } else if successful == 0 { "error" } else { "partial" };
+            let error_msg = if failed > 0 {
+                format!("{} 张截图处理失败", failed)
+            } else {
+                String::new()
+            };
+            let response_str = format!("成功: {}, 失败: {}", successful, failed);
+
+            let _ = AiService::save_log(
+                &conn,
+                "screenshot_batch",
+                "batch_analyze",
+                "vlm",
+                None, // model
+                &format!("[批量截图分析] {} 张截图", total),
+                Some(response_str.as_str()),
+                None, // tokens_used
+                Some(processing_time.as_millis() as i64),
+                status,
+                if error_msg.is_empty() { None } else { Some(error_msg.as_str()) },
+            );
+        }
 
         Ok(BatchAnalysisResult {
             total_processed: total,
