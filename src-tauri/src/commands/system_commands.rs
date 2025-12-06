@@ -228,3 +228,10 @@ pub fn set_log_level(level: String) -> Result<(), String> {
 pub fn get_log_level() -> String {
     log::max_level().to_string().to_lowercase()
 }
+
+/// 记录更新日志
+#[tauri::command]
+pub fn log_update_info(message: String) {
+    crash_logger::log_runtime(&format!("[Updater] {}", message));
+    log::info!("[Updater] {}", message);
+}

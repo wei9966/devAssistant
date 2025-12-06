@@ -103,6 +103,19 @@
               v-model="showCyberpunkSql"
               @edit="handleSqlEdit"
             />
+
+            <!-- 更新提示弹框 -->
+            <UpdateDialog
+              v-model:show="showUpdateDialog"
+              :version="updateInfo.version || ''"
+              :notes="updateInfo.notes || ''"
+              :date="updateInfo.date || ''"
+              :downloading="isUpdating"
+              :progress="updateProgress"
+              @update="handleUpdate"
+              @later="handleUpdateLater"
+              @skip="handleUpdateSkip"
+            />
           </n-dialog-provider>
         </n-notification-provider>
       </n-message-provider>
@@ -138,6 +151,16 @@ import CyberpunkLauncher from '@/components/appLauncher/CyberpunkLauncher.vue'
 import QuickTaskModal from '@/components/QuickTaskModal.vue'
 import CyberpunkSqlModal from '@/components/sql/CyberpunkSqlModal.vue'
 import NotificationBell from '@/components/notification/NotificationBell.vue'
+import UpdateDialog from '@/components/UpdateDialog.vue'
+import {
+  checkForUpdate,
+  setSkippedVersion,
+  setLastCheckTime,
+  shouldCheckUpdate,
+  type UpdateInfo
+} from '@/services/updater'
+import { check } from '@tauri-apps/plugin-updater'
+import { relaunch } from '@tauri-apps/plugin-process'
 
 interface SystemInfo {
   cpu_usage: number
@@ -161,6 +184,13 @@ const showQuickTaskModal = ref(false)
 
 // 赛博朋克SQL模态框状态
 const showCyberpunkSql = ref(false)
+
+// 更新弹框状态
+const showUpdateDialog = ref(false)
+const updateInfo = ref<UpdateInfo>({ available: false })
+const isUpdating = ref(false)
+const updateProgress = ref(0)
+const currentUpdate = ref<any>(null)
 
 // 打开赛博朋克启动器
 const openCyberpunkLauncher = () => {
@@ -193,6 +223,94 @@ const handleSqlEdit = (sql: any) => {
   console.log('编辑SQL:', sql)
   // 跳转到SQL历史页面进行编辑
   router.push({ name: 'sql-history' })
+}
+
+// 检查应用更新
+const checkAppUpdate = async () => {
+  try {
+    // 记录自动更新检查开始
+    await invoke('log_update_info', { message: '[自动更新] 应用启动，开始检查更新...' })
+
+    // 检查是否应该检查更新（每24小时一次）
+    if (!shouldCheckUpdate()) {
+      await invoke('log_update_info', { message: '[自动更新] 24小时内已检查过，跳过本次检查' })
+      return
+    }
+
+    await invoke('log_update_info', { message: '[自动更新] 开始执行更新检查...' })
+    const info = await checkForUpdate()
+    setLastCheckTime()
+
+    if (info.available && info.version) {
+      updateInfo.value = info
+
+      // 获取原始 Update 对象用于下载
+      const update = await check()
+      if (update) {
+        currentUpdate.value = update
+      }
+
+      showUpdateDialog.value = true
+    }
+  } catch (error) {
+    console.error('检查更新失败:', error)
+  }
+}
+
+// 处理立即更新
+const handleUpdate = async () => {
+  if (!currentUpdate.value || isUpdating.value) return
+
+  isUpdating.value = true
+  updateProgress.value = 0
+
+  try {
+    let downloaded = 0
+    let contentLength = 0
+
+    await currentUpdate.value.downloadAndInstall((event: any) => {
+      switch (event.event) {
+        case 'Started':
+          contentLength = event.data.contentLength || 0
+          break
+        case 'Progress':
+          downloaded += event.data.chunkLength
+          if (contentLength > 0) {
+            updateProgress.value = (downloaded / contentLength) * 100
+          }
+          break
+        case 'Finished':
+          updateProgress.value = 100
+          break
+      }
+    })
+
+    // 下载完成，重启应用
+    console.log('更新下载完成，准备重启...')
+    await relaunch()
+  } catch (error) {
+    console.error('更新失败:', error)
+    isUpdating.value = false
+    updateProgress.value = 0
+  }
+}
+
+// 处理稍后提醒
+const handleUpdateLater = () => {
+  showUpdateDialog.value = false
+  isUpdating.value = false
+  updateProgress.value = 0
+}
+
+// 处理跳过版本
+const handleUpdateSkip = () => {
+  if (updateInfo.value.version) {
+    setSkippedVersion(updateInfo.value.version)
+    console.log('已跳过版本:', updateInfo.value.version)
+  }
+  showUpdateDialog.value = false
+  isUpdating.value = false
+  updateProgress.value = 0
 }
 
 // 主题配置 - 使用深色主题
@@ -330,6 +448,11 @@ onMounted(() => {
   window.addEventListener('open-quick-task-modal', handleOpenQuickTask)
   // 监听打开SQL模态框的自定义事件
   window.addEventListener('open-cyberpunk-sql', handleOpenSqlModal)
+
+  // 启动时检查更新（延迟3秒，等待应用初始化完成）
+  setTimeout(() => {
+    checkAppUpdate()
+  }, 3000)
 })
 
 onUnmounted(() => {

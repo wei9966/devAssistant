@@ -562,8 +562,82 @@
               <div class="card-content">
                 <div class="about-info">
                   <p><strong>应用名称:</strong> DevAssistant</p>
-                  <p><strong>版本:</strong> 0.1.0</p>
+                  <p><strong>当前版本:</strong> v{{ appVersion }}</p>
                   <p><strong>技术栈:</strong> Tauri + Rust + Vue3 + TypeScript + Naive UI</p>
+                </div>
+              </div>
+            </section>
+
+            <!-- 检查更新 -->
+            <section class="settings-card">
+              <div class="card-header">
+                <h3 class="card-title">软件更新</h3>
+              </div>
+              <div class="card-content">
+                <div class="update-section">
+                  <div class="update-info">
+                    <div v-if="!checkingUpdate && !updateAvailable">
+                      <p class="update-status">点击下方按钮检查是否有新版本</p>
+                    </div>
+                    <div v-else-if="checkingUpdate">
+                      <p class="update-status checking">
+                        <n-spin size="small" />
+                        正在检查更新...
+                      </p>
+                    </div>
+                    <div v-else-if="updateAvailable">
+                      <p class="update-status available">
+                        发现新版本: <strong>v{{ newVersion }}</strong>
+                      </p>
+                      <div class="update-notes" v-if="updateNotes">
+                        <div class="notes-label">更新内容:</div>
+                        <div class="notes-content" v-html="renderedUpdateNotes"></div>
+                      </div>
+                    </div>
+                    <div v-else-if="updateError">
+                      <p class="update-status error">{{ updateError }}</p>
+                    </div>
+                  </div>
+                  <div class="update-actions">
+                    <n-button
+                      @click="handleCheckUpdate"
+                      :loading="checkingUpdate"
+                      :disabled="isUpdating"
+                    >
+                      <template #icon>
+                        <n-icon :component="RefreshOutline" />
+                      </template>
+                      检查更新
+                    </n-button>
+                    <n-button
+                      v-if="updateAvailable"
+                      type="primary"
+                      @click="handleDownloadUpdate"
+                      :loading="isUpdating"
+                    >
+                      <template #icon>
+                        <n-icon :component="DownloadOutline" />
+                      </template>
+                      {{ isUpdating ? `下载中 ${updateProgress}%` : '立即更新' }}
+                    </n-button>
+                    <n-button
+                      quaternary
+                      size="small"
+                      @click="handleResetUpdateCheck"
+                    >
+                      重置自动检查
+                    </n-button>
+                  </div>
+                  <n-progress
+                    v-if="isUpdating"
+                    type="line"
+                    :percentage="updateProgress"
+                    :height="6"
+                    :border-radius="3"
+                    color="#6366f1"
+                    rail-color="rgba(30, 41, 59, 0.5)"
+                    style="margin-top: 16px;"
+                  />
                 </div>
               </div>
             </section>
@@ -584,8 +658,12 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, h } from 'vue';
 import { useRoute } from 'vue-router';
-import { NTabs, NTabPane, NSpace, NSwitch, NSelect, NInput, NInputNumber, NButton, NIcon, NSpin, NAlert, NDataTable, NTag, NEmpty, NStatistic, NGrid, NGi, useMessage, useDialog } from 'naive-ui';
-import { TimeOutline, RefreshOutline, InformationCircleOutline, TrashOutline, ReloadOutline } from '@vicons/ionicons5';
+import { NTabs, NTabPane, NSpace, NSwitch, NSelect, NInput, NInputNumber, NButton, NIcon, NSpin, NAlert, NDataTable, NTag, NEmpty, NStatistic, NGrid, NGi, NProgress, useMessage, useDialog } from 'naive-ui';
+import { TimeOutline, RefreshOutline, InformationCircleOutline, TrashOutline, ReloadOutline, DownloadOutline } from '@vicons/ionicons5';
+import { marked } from 'marked';
+import { check } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
+import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
 import { aiApi } from '@/api/aiApi';
 import { AI_PROVIDERS } from '@/types/ai';
@@ -648,6 +726,23 @@ const aiConfig = ref({
 const testingAi = ref(false);
 const savingAi = ref(false);
 const aiTestResult = ref<boolean | null>(null);
+
+// 更新相关变量
+const appVersion = ref('');
+const checkingUpdate = ref(false);
+const updateAvailable = ref(false);
+const newVersion = ref('');
+const updateNotes = ref('');
+const updateError = ref('');
+const isUpdating = ref(false);
+const updateProgress = ref(0);
+let currentUpdate: any = null;
+
+// 渲染更新说明为 HTML
+const renderedUpdateNotes = computed(() => {
+  if (!updateNotes.value) return '';
+  return marked(updateNotes.value);
+});
 
 const aiProviderOptions = AI_PROVIDERS.map(p => ({
   label: p.name,
@@ -838,6 +933,7 @@ onMounted(async () => {
     activeTab.value = tabParam;
   }
 
+  await loadAppVersion();
   await loadSettings();
   await loadShortcuts();
   await loadAiConfig();
@@ -1190,6 +1286,133 @@ async function saveAiConfig() {
     message.error(error || '保存失败');
   } finally {
     savingAi.value = false;
+  }
+}
+
+// 加载应用版本
+async function loadAppVersion() {
+  try {
+    appVersion.value = await getVersion();
+  } catch (error) {
+    console.error('获取应用版本失败:', error);
+    appVersion.value = '1.0.0';
+  }
+}
+
+// 记录更新日志
+async function logUpdateInfo(msg: string) {
+  try {
+    await invoke('log_update_info', { message: msg });
+  } catch (e) {
+    // 静默失败
+  }
+}
+
+// 检查更新
+async function handleCheckUpdate() {
+  checkingUpdate.value = true;
+  updateAvailable.value = false;
+  updateError.value = '';
+  newVersion.value = '';
+  updateNotes.value = '';
+
+  try {
+    await logUpdateInfo(`[手动检查] ========== 开始手动检查更新 ==========`);
+    await logUpdateInfo(`[手动检查] 当前应用版本: ${appVersion.value}`);
+
+    // 先手动请求看看服务器返回什么
+    try {
+      const testUrl = `http://d.wbdao.cn:9900/update/update.php?target=windows-x86_64&current_version=${appVersion.value}`;
+      await logUpdateInfo(`[手动检查] 请求URL: ${testUrl}`);
+      const response = await fetch(testUrl);
+      await logUpdateInfo(`[手动检查] HTTP状态码: ${response.status}`);
+      const text = await response.text();
+      await logUpdateInfo(`[手动检查] 服务器原始响应: ${text.substring(0, 500)}`);
+    } catch (e: any) {
+      await logUpdateInfo(`[手动检查] 手动请求失败: ${e?.message || e}`);
+    }
+
+    const update = await check();
+
+    if (update) {
+      await logUpdateInfo(`[手动检查] 发现新版本: ${update.version}`);
+      await logUpdateInfo(`[手动检查] 发布日期: ${update.date || '未知'}`);
+      await logUpdateInfo(`[手动检查] 更新说明: ${update.body?.substring(0, 100) || '无'}...`);
+
+      updateAvailable.value = true;
+      newVersion.value = update.version;
+      updateNotes.value = update.body || '';
+      currentUpdate = update;
+      message.success(`发现新版本: v${update.version}`);
+    } else {
+      await logUpdateInfo(`[手动检查] 当前已是最新版本，无需更新`);
+      message.info('当前已是最新版本');
+    }
+  } catch (error: any) {
+    await logUpdateInfo(`[手动检查] 检查更新失败: ${error?.message || error}`);
+    updateError.value = `检查更新失败: ${error?.message || error}`;
+    message.error('检查更新失败');
+  } finally {
+    await logUpdateInfo(`[手动检查] ========== 手动检查更新结束 ==========`);
+    checkingUpdate.value = false;
+  }
+}
+
+// 重置自动更新检查时间（用于调试）
+function handleResetUpdateCheck() {
+  try {
+    localStorage.removeItem('last_update_check_time');
+    localStorage.removeItem('skipped_version');
+    message.success('已重置自动更新检查，下次启动时将自动检查更新');
+  } catch (error) {
+    message.error('重置失败');
+  }
+}
+
+// 下载并安装更新
+async function handleDownloadUpdate() {
+  if (!currentUpdate) {
+    message.error('没有可用的更新');
+    return;
+  }
+
+  isUpdating.value = true;
+  updateProgress.value = 0;
+
+  try {
+    let downloaded = 0;
+    let contentLength = 0;
+
+    await currentUpdate.downloadAndInstall((event: any) => {
+      switch (event.event) {
+        case 'Started':
+          contentLength = event.data.contentLength || 0;
+          console.log(`开始下载, 总大小: ${contentLength} 字节`);
+          break;
+        case 'Progress':
+          downloaded += event.data.chunkLength;
+          if (contentLength > 0) {
+            updateProgress.value = Math.round((downloaded / contentLength) * 100);
+          }
+          break;
+        case 'Finished':
+          updateProgress.value = 100;
+          console.log('下载完成');
+          break;
+      }
+    });
+
+    message.success('更新下载完成，即将重启应用...');
+
+    // 等待一小段时间让用户看到消息
+    setTimeout(async () => {
+      await relaunch();
+    }, 1500);
+  } catch (error: any) {
+    console.error('下载更新失败:', error);
+    message.error(`下载更新失败: ${error?.message || error}`);
+    isUpdating.value = false;
+    updateProgress.value = 0;
   }
 }
 </script>
@@ -1629,5 +1852,110 @@ async function saveAiConfig() {
   --n-color-hover: rgba(239, 68, 68, 0.2);
   --n-text-color: rgb(248, 113, 113);
   --n-border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* 更新部分样式 */
+.update-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.update-info {
+  flex: 1;
+}
+
+.update-status {
+  font-size: 14px;
+  color: rgb(148, 163, 184);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.update-status.checking {
+  color: rgb(99, 102, 241);
+}
+
+.update-status.available {
+  color: rgb(52, 211, 153);
+}
+
+.update-status.available strong {
+  color: rgb(74, 222, 128);
+}
+
+.update-status.error {
+  color: rgb(248, 113, 113);
+}
+
+.update-notes {
+  margin-top: 16px;
+  padding: 16px;
+  background: rgba(2, 6, 23, 0.8);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  border-radius: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.notes-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgb(148, 163, 184);
+  margin-bottom: 8px;
+}
+
+.notes-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgb(203, 213, 225);
+}
+
+.notes-content :deep(h2) {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgb(226, 232, 240);
+  margin: 12px 0 8px 0;
+}
+
+.notes-content :deep(h3) {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgb(203, 213, 225);
+  margin: 8px 0 6px 0;
+}
+
+.notes-content :deep(ul) {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.notes-content :deep(li) {
+  margin: 4px 0;
+}
+
+.update-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.update-notes::-webkit-scrollbar {
+  width: 6px;
+}
+
+.update-notes::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.update-notes::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.5);
+  border-radius: 3px;
+}
+
+.update-notes::-webkit-scrollbar-thumb:hover {
+  background: rgba(71, 85, 105, 0.7);
 }
 </style>

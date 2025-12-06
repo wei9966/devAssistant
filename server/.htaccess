@@ -1,0 +1,67 @@
+# DevAssistant 更新服务器 Apache 配置
+# 此文件为可选配置，用于 Apache 服务器
+
+# 启用 CORS（跨域资源共享）
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type"
+</IfModule>
+
+# 设置默认字符集
+AddDefaultCharset UTF-8
+
+# 禁止直接访问 version.json（可选，提高安全性）
+# 如果启用此选项，需要确保 update.php 有读取权限
+# <Files "version.json">
+#     Order Allow,Deny
+#     Deny from all
+# </Files>
+
+# 禁止访问日志文件
+<Files "update.log">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# 禁止访问 .git 目录和其他隐藏文件
+<FilesMatch "^\.">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# 启用 Gzip 压缩（提高传输速度）
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE text/plain
+</IfModule>
+
+# 设置缓存策略
+<IfModule mod_expires.c>
+    ExpiresActive On
+    # version.json 不缓存，确保总是获取最新版本
+    <Files "version.json">
+        ExpiresDefault "access plus 0 seconds"
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+    </Files>
+    # update.php 不缓存
+    <Files "update.php">
+        ExpiresDefault "access plus 0 seconds"
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+    </Files>
+</IfModule>
+
+# 错误页面（可选）
+# ErrorDocument 404 /error/404.html
+# ErrorDocument 500 /error/500.html
+
+# 启用 PHP 错误日志（生产环境建议关闭显示错误）
+php_flag display_errors Off
+php_flag log_errors On
+php_value error_log logs/php_errors.log
+
+# 限制请求方法，只允许 GET 和 OPTIONS
+<LimitExcept GET OPTIONS>
+    Order Deny,Allow
+    Deny from all
+</LimitExcept>

@@ -1,6 +1,6 @@
 [package]
 name = "dev-assistant"
-version = "0.1.0"
+version = "1.0.3"
 description = "DevAssistant - 个人开发效率工具"
 authors = ["DevAssistant Team"]
 edition = "2021"
@@ -56,6 +56,8 @@ tauri-plugin-shell = "2.0"
 tauri-plugin-dialog = "2.0"
 tauri-plugin-fs = "2.0"
 tauri-plugin-global-shortcut = "2.0"
+tauri-plugin-updater = "2.0"
+tauri-plugin-process = "2.0"
 
 [profile.release]
 panic = "abort"

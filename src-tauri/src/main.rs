@@ -443,6 +443,8 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(move |app| {
             // 注册全局快捷键: 任务看板
             let task_board_shortcut = loaded_config.task_board.clone();
@@ -979,6 +981,7 @@ fn main() {
             commands::system_commands::get_runtime_log,
             commands::system_commands::set_log_level,
             commands::system_commands::get_log_level,
+            commands::system_commands::log_update_info,
             // 提示词相关命令
             commands::prompt_commands::get_prompt_config,
             commands::prompt_commands::save_prompt_config,

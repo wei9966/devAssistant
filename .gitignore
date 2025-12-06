@@ -69,6 +69,10 @@ Desktop.ini
 .env.local
 .env.*.local
 
+# Build scripts with secrets
+build-release.bat
+~/.tauri/
+
 # IDE
 *.swp
 *.swo

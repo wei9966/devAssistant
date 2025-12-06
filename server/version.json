@@ -1,0 +1,11 @@
+{
+  "version": "1.0.2",
+  "notes": "## 更新内容 v1.0.2\n\n### 新增功能\n- 新增自动更新功能\n- 优化屏幕采集性能\n- 新增 SQL 模板整合功能\n\n### 修复问题\n- 修复周报和周计划日期格式问题\n- 修复设置页布局问题\n\n### 优化改进\n- 截图按日期分类存储\n- 移除前端提示词配置\n- 优化日报新增屏幕截图摘要",
+  "pub_date": "2025-12-06T12:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVST29OZzB1c0t1TGppRnQ5cjNvVDhCblUvbCt2ODZRQlc5RUxGQmk5VERDMnBDWm9ybUxQRTJTeGYvQmF5M3ZkRG5mVGp2VnF3eWdUSWpzNXRzNGlGamtaUWluTVpqN1E0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY1MDA2MDU0CWZpbGU6RGV2QXNzaXN0YW50XzEuMC4yX3g2NC1zZXR1cC5leGUKYlYyY0ZnNkFMRFQ1clVmeklmcHFEbEpWUktHdWo5S1d1aDFZL1Fac2xqQUJjcDV1bWN3OWh5L2FjZkF1TFJUWXN1MllBQyt1Sy95dkc2eWR4RU9QRFE9PQo=",
+      "url": "http://d.wbdao.cn:9900/update/releases/DevAssistant_1.0.2_x64-setup.exe"
+    }
+  }
+}
