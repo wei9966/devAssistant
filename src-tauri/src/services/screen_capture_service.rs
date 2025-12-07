@@ -247,6 +247,7 @@ impl ScreenCaptureService {
 
     /// 保存截图到文件（直接从 xcap 截图保存）
     /// 截图会保存到 dir/YYYY-MM-DD/ 子目录中，按日期分类存储
+    /// 同时生成缩略图保存到 dir/YYYY-MM-DD/thumbs/ 子目录中
     pub fn save_screenshot_to_file(&self, dir: &PathBuf) -> Result<String> {
         // 生成当前日期和时间
         let now = chrono::Local::now();
@@ -278,7 +279,86 @@ impl ScreenCaptureService {
         // 使用 image crate 保存（xcap 返回的是 image::ImageBuffer）
         xcap_buffer.save(&file_path).context("保存截图文件失败")?;
 
+        // 异步生成缩略图（不阻塞主流程）
+        // 提取图片尺寸和原始像素数据，避免跨 crate 类型问题
+        let width = xcap_buffer.width();
+        let height = xcap_buffer.height();
+        let raw_pixels: Vec<u8> = xcap_buffer.into_raw();
+        let thumb_dir = full_dir.join("thumbs");
+        let thumb_filename = format!("thumb_{}_{:06}.jpg", timestamp, nanos);
+        let thumb_path = thumb_dir.join(&thumb_filename);
+
+        std::thread::spawn(move || {
+            if let Err(e) = Self::generate_and_save_thumbnail_from_raw(
+                width, height, &raw_pixels, &thumb_dir, &thumb_path
+            ) {
+                eprintln!("生成缩略图失败: {}", e);
+            }
+        });
+
         Ok(file_path.to_string_lossy().to_string())
+    }
+
+    /// 从原始像素数据生成并保存缩略图
+    fn generate_and_save_thumbnail_from_raw(
+        width: u32,
+        height: u32,
+        raw_pixels: &[u8],
+        thumb_dir: &PathBuf,
+        thumb_path: &PathBuf,
+    ) -> Result<()> {
+        use image::{GenericImageView, ImageBuffer, Rgba, DynamicImage};
+
+        // 确保缩略图目录存在
+        std::fs::create_dir_all(thumb_dir).context("创建缩略图目录失败")?;
+
+        // 从原始数据重建 ImageBuffer
+        let img_buffer: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::from_raw(
+            width,
+            height,
+            raw_pixels.to_vec(),
+        ).context("无法从原始数据创建图片")?;
+
+        // 转换为 DynamicImage
+        let dynamic_img = DynamicImage::ImageRgba8(img_buffer);
+
+        // 计算缩略图尺寸（最大宽度或高度为 300px）
+        let (w, h) = dynamic_img.dimensions();
+        let max_size = 300u32;
+
+        let (thumb_width, thumb_height) = if w > h {
+            if w > max_size {
+                let ratio = max_size as f32 / w as f32;
+                (max_size, (h as f32 * ratio) as u32)
+            } else {
+                (w, h)
+            }
+        } else {
+            if h > max_size {
+                let ratio = max_size as f32 / h as f32;
+                ((w as f32 * ratio) as u32, max_size)
+            } else {
+                (w, h)
+            }
+        };
+
+        // 使用 Nearest 算法快速生成缩略图
+        let thumbnail = dynamic_img.resize(
+            thumb_width,
+            thumb_height,
+            image::imageops::FilterType::Nearest,
+        );
+
+        // 保存为 JPEG 格式（更小的文件大小）
+        let mut buffer = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut buffer);
+        let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 70);
+        thumbnail.write_with_encoder(encoder).context("编码缩略图失败")?;
+
+        // 写入文件
+        std::fs::write(thumb_path, &buffer).context("保存缩略图失败")?;
+
+        Ok(())
     }
 
     /// 计算图片的感知哈希值

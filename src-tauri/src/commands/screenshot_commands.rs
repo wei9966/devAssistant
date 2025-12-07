@@ -3,7 +3,7 @@
 
 use crate::db::connection::DbConnection;
 use crate::models::screen_context::ScreenContext;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -107,18 +107,23 @@ pub async fn screenshot_get_image(
         return Err(format!("截图文件不存在: {}", file_path));
     }
 
-    // 如果需要生成缩略图，先检查缓存
+    // 如果需要缩略图
     if generate_thumbnail.unwrap_or(false) {
-        // 计算缓存文件路径
+        // 1. 首先尝试读取预生成的缩略图（在 thumbs 子目录中）
+        if let Some(thumb_path) = get_pregenerated_thumb_path(&file_path) {
+            if let Ok(thumb_data) = std::fs::read(&thumb_path) {
+                return Ok(general_purpose::STANDARD.encode(&thumb_data));
+            }
+        }
+
+        // 2. 检查缓存目录
         let cache_dir = dirs::cache_dir()
             .unwrap_or_else(|| std::path::PathBuf::from("."))
             .join("dev-assistant")
             .join("thumbnails");
 
-        // 创建缓存目录
         let _ = std::fs::create_dir_all(&cache_dir);
 
-        // 使用文件路径哈希作为缓存文件名
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
         let mut hasher = DefaultHasher::new();
@@ -131,7 +136,6 @@ pub async fn screenshot_get_image(
             if let (Ok(cache_meta), Ok(orig_meta)) = (cache_path.metadata(), path.metadata()) {
                 if let (Ok(cache_time), Ok(orig_time)) = (cache_meta.modified(), orig_meta.modified()) {
                     if cache_time >= orig_time {
-                        // 读取缓存的缩略图
                         if let Ok(cached_data) = std::fs::read(&cache_path) {
                             return Ok(general_purpose::STANDARD.encode(&cached_data));
                         }
@@ -140,15 +144,20 @@ pub async fn screenshot_get_image(
             }
         }
 
-        // 读取原文件
-        let image_data = std::fs::read(path)
-            .map_err(|e| format!("读取截图文件失败: {}", e))?;
+        // 3. 需要生成缩略图 - 使用 tokio::task::spawn_blocking 避免阻塞异步运行时
+        let path_clone = file_path.clone();
+        let cache_path_clone = cache_path.clone();
 
-        // 生成缩略图
-        match generate_thumbnail_data(&image_data) {
+        let result = tokio::task::spawn_blocking(move || {
+            let image_data = std::fs::read(&path_clone)?;
+            generate_thumbnail_data(&image_data)
+        })
+        .await
+        .map_err(|e| format!("任务执行失败: {}", e))?;
+
+        match result {
             Ok((thumbnail_base64, thumbnail_bytes)) => {
-                // 写入缓存（异步，不阻塞返回）
-                let cache_path_clone = cache_path.clone();
+                // 异步写入缓存
                 std::thread::spawn(move || {
                     let _ = std::fs::write(cache_path_clone, thumbnail_bytes);
                 });
@@ -156,29 +165,51 @@ pub async fn screenshot_get_image(
             }
             Err(e) => {
                 eprintln!("生成缩略图失败，返回原图: {}", e);
-                // 如果生成缩略图失败，返回原图
+                let image_data = std::fs::read(path)
+                    .map_err(|e| format!("读取截图文件失败: {}", e))?;
                 return Ok(general_purpose::STANDARD.encode(&image_data));
             }
         }
     }
 
-    // 读取文件
+    // 读取原图
     let image_data = std::fs::read(path)
         .map_err(|e| format!("读取截图文件失败: {}", e))?;
 
-    // 直接返回base64编码的原图
     Ok(general_purpose::STANDARD.encode(&image_data))
 }
 
+/// 根据原图路径获取预生成缩略图的路径
+fn get_pregenerated_thumb_path(original_path: &str) -> Option<std::path::PathBuf> {
+    let path = Path::new(original_path);
+    let parent = path.parent()?;
+    let file_name = path.file_name()?.to_str()?;
+
+    // 原图格式: screenshot_20241207_153000_123456.png
+    // 缩略图格式: thumb_20241207_153000_123456.jpg
+    if file_name.starts_with("screenshot_") && file_name.ends_with(".png") {
+        let thumb_name = file_name
+            .replace("screenshot_", "thumb_")
+            .replace(".png", ".jpg");
+        let thumb_path = parent.join("thumbs").join(thumb_name);
+        if thumb_path.exists() {
+            return Some(thumb_path);
+        }
+    }
+
+    None
+}
+
 /// 生成缩略图数据，返回 (base64编码, 原始字节)
-fn generate_thumbnail_data(image_data: &[u8]) -> Result<(String, Vec<u8>)> {
+/// 使用 Nearest 算法替代 Triangle，速度更快
+fn generate_thumbnail_data(image_data: &[u8]) -> std::io::Result<(String, Vec<u8>)> {
     use image::GenericImageView;
 
     // 解码图片
     let img = image::load_from_memory(image_data)
-        .context("无法解码图片")?;
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
-    // 计算缩略图尺寸（最大宽度或高度为300px，更小更快）
+    // 计算缩略图尺寸（最大宽度或高度为300px）
     let (width, height) = img.dimensions();
     let max_size = 300;
 
@@ -198,21 +229,20 @@ fn generate_thumbnail_data(image_data: &[u8]) -> Result<(String, Vec<u8>)> {
         }
     };
 
-    // 生成缩略图（使用 Triangle 算法，比 Lanczos3 快很多）
+    // 生成缩略图（使用 Nearest 算法，最快）
     let thumbnail = img.resize(
         thumb_width,
         thumb_height,
-        image::imageops::FilterType::Triangle,
+        image::imageops::FilterType::Nearest,
     );
 
-    // 编码为JPEG格式（更小的文件大小，质量75%足够缩略图）
+    // 编码为JPEG格式（质量70%，速度和大小的平衡）
     let mut buffer = Vec::new();
     let mut cursor = std::io::Cursor::new(&mut buffer);
 
-    // 使用 JpegEncoder 设置质量
-    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 75);
+    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 70);
     thumbnail.write_with_encoder(encoder)
-        .context("无法编码缩略图")?;
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
     // 返回 base64 编码和原始字节
     let base64 = general_purpose::STANDARD.encode(&buffer);
