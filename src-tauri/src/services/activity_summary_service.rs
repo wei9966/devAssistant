@@ -67,6 +67,20 @@ pub struct ActivitySummary {
     pub main_apps: Option<String>,
 }
 
+/// 小时总结数据模型
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HourlySummary {
+    pub id: Option<i64>,
+    pub date: String,
+    pub hour: i32,
+    pub summary_text: String,
+    pub activity_type: String,
+    pub source_summary_ids: Option<String>,
+    pub screenshot_count: Option<i32>,
+    pub created_at: Option<String>,
+}
+
 /// 活动总结服务
 pub struct ActivitySummaryService {
     db_path: String,
@@ -797,6 +811,317 @@ impl ActivitySummaryService {
 
         log::info!("清理了 {} 条超过 {} 天的活动总结", deleted, days);
         Ok(deleted)
+    }
+
+    /// 获取指定日期和小时的所有15分钟总结
+    pub fn get_summaries_for_hour(&self, date: &str, hour: i32) -> Result<Vec<ActivitySummary>> {
+        let conn = self.get_connection()?;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, start_time, end_time, summary_text, activity_type, created_at, screenshot_count, main_apps
+             FROM activity_summaries
+             WHERE DATE(start_time) = ?1 AND CAST(strftime('%H', start_time) AS INTEGER) = ?2
+             ORDER BY start_time ASC",
+        )?;
+
+        let summaries = stmt
+            .query_map(rusqlite::params![date, hour], |row| {
+                Ok(ActivitySummary {
+                    id: Some(row.get(0)?),
+                    start_time: row.get(1)?,
+                    end_time: row.get(2)?,
+                    summary_text: row.get(3)?,
+                    activity_type: row.get(4)?,
+                    created_at: Some(row.get(5)?),
+                    screenshot_count: row.get(6)?,
+                    main_apps: row.get(7)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(summaries)
+    }
+
+    /// 从 hourly_summaries 表查询已存在的小时总结
+    pub fn get_hourly_summary(&self, date: &str, hour: i32) -> Result<Option<HourlySummary>> {
+        let conn = self.get_connection()?;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, date, hour, summary_text, activity_type, source_summary_ids, screenshot_count, created_at
+             FROM hourly_summaries
+             WHERE date = ?1 AND hour = ?2",
+        )?;
+
+        let result = stmt.query_row(rusqlite::params![date, hour], |row| {
+            Ok(HourlySummary {
+                id: Some(row.get(0)?),
+                date: row.get(1)?,
+                hour: row.get(2)?,
+                summary_text: row.get(3)?,
+                activity_type: row.get(4)?,
+                source_summary_ids: row.get(5)?,
+                screenshot_count: row.get(6)?,
+                created_at: Some(row.get(7)?),
+            })
+        });
+
+        match result {
+            Ok(summary) => Ok(Some(summary)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(anyhow!("查询小时总结失败: {}", e)),
+        }
+    }
+
+    /// 保存小时总结到 hourly_summaries 表
+    pub fn save_hourly_summary(&self, summary: &HourlySummary) -> Result<i64> {
+        let conn = self.get_connection()?;
+
+        conn.execute(
+            "INSERT OR REPLACE INTO hourly_summaries
+             (date, hour, summary_text, activity_type, source_summary_ids, screenshot_count, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params![
+                summary.date,
+                summary.hour,
+                summary.summary_text,
+                summary.activity_type,
+                summary.source_summary_ids,
+                summary.screenshot_count,
+                summary.created_at,
+            ],
+        )?;
+
+        let id = conn.last_insert_rowid();
+        Ok(id)
+    }
+
+    /// 生成小时总结（拼接多个15分钟总结并调用AI）
+    pub async fn generate_hourly_summary(&self, date: &str, hour: i32) -> Result<HourlySummary> {
+        let api_start_time = Instant::now();
+
+        // 获取该小时的所有15分钟总结
+        let summaries = self.get_summaries_for_hour(date, hour)?;
+
+        if summaries.is_empty() {
+            return Err(anyhow!("指定时间段 {} {}:00 没有15分钟总结", date, hour));
+        }
+
+        log::info!(
+            "找到 {} 条15分钟总结，准备生成小时总结: {} {}:00",
+            summaries.len(),
+            date,
+            hour
+        );
+
+        // 从数据库加载AI配置（不跨 await 持有连接）
+        let ai_config = {
+            let conn = self.get_connection()?;
+            AiService::load_config(&conn)?
+        };
+
+        // 创建AI服务实例
+        let ai_service = AiService::new(ai_config.clone());
+
+        // 检查AI服务是否已配置
+        if !ai_service.is_configured() {
+            return Err(anyhow!("AI服务未配置"));
+        }
+
+        // 拼接总结内容
+        let summaries_text: Vec<String> = summaries
+            .iter()
+            .enumerate()
+            .map(|(idx, s)| {
+                format!(
+                    "{}. 时段: {} - {}\n   总结: {}\n   活动类型: {}",
+                    idx + 1,
+                    s.start_time,
+                    s.end_time,
+                    s.summary_text,
+                    s.activity_type
+                )
+            })
+            .collect();
+
+        let summaries_content = summaries_text.join("\n\n");
+
+        // 统计截图总数
+        let screenshot_count: i32 = summaries
+            .iter()
+            .filter_map(|s| s.screenshot_count)
+            .sum();
+
+        // 收集来源总结ID
+        let source_ids: Vec<String> = summaries
+            .iter()
+            .filter_map(|s| s.id.map(|id| id.to_string()))
+            .collect();
+        let source_summary_ids = source_ids.join(",");
+
+        // 统计主要活动类型
+        let mut type_counts: HashMap<String, usize> = HashMap::new();
+        for summary in &summaries {
+            *type_counts
+                .entry(summary.activity_type.clone())
+                .or_insert(0) += 1;
+        }
+        let main_activity_type = type_counts
+            .into_iter()
+            .max_by_key(|&(_, count)| count)
+            .map(|(activity_type, _)| activity_type)
+            .unwrap_or_else(|| "other".to_string());
+
+        // 准备提示词变量
+        let mut vars = HashMap::new();
+        vars.insert("date".to_string(), date.to_string());
+        vars.insert("hour".to_string(), hour.to_string());
+        vars.insert("summaries".to_string(), summaries_content);
+        vars.insert("screenshot_count".to_string(), screenshot_count.to_string());
+        vars.insert("summary_count".to_string(), summaries.len().to_string());
+
+        // 使用 PromptDbService 渲染提示词
+        let rendered = PromptDbService::render_prompt_cached("hourly_summary", &vars)
+            .map_err(|e| anyhow!("获取提示词失败: {}", e))?;
+
+        // 构建消息
+        let messages = if let Some(system) = rendered.system {
+            vec![
+                ChatMessage::system(system),
+                ChatMessage::user(rendered.user),
+            ]
+        } else {
+            vec![ChatMessage::user(rendered.user)]
+        };
+
+        let prompt_summary = format!(
+            "[小时总结] {} {}:00, {} 条15分钟总结, {} 张截图",
+            date, hour, summaries.len(), screenshot_count
+        );
+
+        // 调用AI
+        let response_result = ai_service.chat(messages).await;
+        let duration_ms = api_start_time.elapsed().as_millis() as u64;
+
+        // 记录AI日志（重新打开连接，不跨 await）
+        let provider_str = format!("{:?}", ai_config.provider);
+        let model_str = ai_config.model.clone().unwrap_or_default();
+        match &response_result {
+            Ok(resp) => {
+                let response_summary = if resp.chars().count() > 300 {
+                    let truncated: String = resp.chars().take(300).collect();
+                    format!("{}...", truncated)
+                } else {
+                    resp.clone()
+                };
+                if let Ok(conn) = self.get_connection() {
+                    let _ = AiService::save_log(
+                        &conn,
+                        "hourly_summary",
+                        "generate",
+                        &provider_str,
+                        Some(model_str.as_str()),
+                        &prompt_summary,
+                        Some(response_summary.as_str()),
+                        None,
+                        Some(duration_ms as i64),
+                        "success",
+                        None,
+                    );
+                }
+            }
+            Err(e) => {
+                let err_msg = e.to_string();
+                if let Ok(conn) = self.get_connection() {
+                    let _ = AiService::save_log(
+                        &conn,
+                        "hourly_summary",
+                        "generate",
+                        &provider_str,
+                        Some(model_str.as_str()),
+                        &prompt_summary,
+                        None,
+                        None,
+                        Some(duration_ms as i64),
+                        "error",
+                        Some(err_msg.as_str()),
+                    );
+                }
+            }
+        }
+
+        let response = response_result?;
+
+        // 解析AI返回的JSON
+        let summary_text = self.parse_hourly_summary_response(&response)?;
+
+        // 创建小时总结对象
+        let hourly_summary = HourlySummary {
+            id: None,
+            date: date.to_string(),
+            hour,
+            summary_text,
+            activity_type: main_activity_type,
+            source_summary_ids: Some(source_summary_ids),
+            screenshot_count: Some(screenshot_count),
+            created_at: Some(Local::now().format("%Y-%m-%d %H:%M:%S").to_string()),
+        };
+
+        // 保存到数据库
+        let id = self.save_hourly_summary(&hourly_summary)?;
+
+        log::info!("小时总结已生成并保存，ID: {}", id);
+
+        Ok(HourlySummary {
+            id: Some(id),
+            ..hourly_summary
+        })
+    }
+
+    /// 解析小时总结AI响应（从JSON提取title和description）
+    fn parse_hourly_summary_response(&self, response: &str) -> Result<String> {
+        // 尝试清理被```json```包裹的响应
+        let cleaned = response
+            .trim()
+            .trim_start_matches("```json")
+            .trim_start_matches("```")
+            .trim_end_matches("```")
+            .trim();
+
+        // 解析JSON
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(cleaned) {
+            let mut parts = Vec::new();
+
+            // 提取 title
+            if let Some(title) = json.get("title").and_then(|v| v.as_str()) {
+                parts.push(format!("**{}**", title));
+            }
+
+            // 提取 description
+            if let Some(desc) = json.get("description").and_then(|v| v.as_str()) {
+                parts.push(desc.to_string());
+            }
+
+            // 提取 keyActivities
+            if let Some(activities) = json.get("keyActivities").and_then(|v| v.as_array()) {
+                let activity_texts: Vec<String> = activities
+                    .iter()
+                    .filter_map(|v| v.as_str())
+                    .map(|s| format!("• {}", s))
+                    .collect();
+
+                if !activity_texts.is_empty() {
+                    parts.push(format!("\n关键活动：\n{}", activity_texts.join("\n")));
+                }
+            }
+
+            if !parts.is_empty() {
+                return Ok(parts.join("\n"));
+            }
+        }
+
+        // 如果JSON解析失败，返回原始响应
+        log::warn!("无法解析小时总结JSON响应，使用原始文本");
+        Ok(response.to_string())
     }
 }
 

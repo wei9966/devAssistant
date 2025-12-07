@@ -103,6 +103,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     create_activity_summaries_table(conn)?;
     create_activity_summaries_indexes(conn)?;
 
+    // 创建小时总结表
+    create_hourly_summaries_table(conn)?;
+    create_hourly_summaries_indexes(conn)?;
+
     // 创建智能提示表
     create_tips_table(conn)?;
     create_tips_indexes(conn)?;
@@ -1653,6 +1657,50 @@ fn create_activity_summaries_indexes(conn: &Connection) -> Result<()> {
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_activity_summaries_created_at ON activity_summaries(created_at DESC)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 hourly_summaries 表（小时总结）
+fn create_hourly_summaries_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS hourly_summaries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            hour INTEGER NOT NULL,
+            summary_text TEXT NOT NULL,
+            activity_type TEXT NOT NULL,
+            source_summary_ids TEXT,
+            screenshot_count INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now', 'localtime')),
+            UNIQUE(date, hour)
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 hourly_summaries 表索引
+fn create_hourly_summaries_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_hourly_summaries_date ON hourly_summaries(date DESC)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_hourly_summaries_hour ON hourly_summaries(hour)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_hourly_summaries_activity_type ON hourly_summaries(activity_type)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_hourly_summaries_created_at ON hourly_summaries(created_at DESC)",
         [],
     )?;
 

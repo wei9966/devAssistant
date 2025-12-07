@@ -6,6 +6,7 @@ use crate::models::screen_context::ScreenContext;
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
+use serde_json;
 use std::path::Path;
 use tauri::State;
 
@@ -381,33 +382,94 @@ pub async fn screenshot_get_activities(
     // 注意：使用直接字符串比较避免 date() 函数的时区转换问题
     log::info!("查询活动列表，日期: {}", date);
 
-    // 1. 先查询该日期已有的小时总结（来自 activity_summaries 表）
+    // 1. 读取调度器配置，判断是否启用小时总结功能
+    let enable_hourly_summary = {
+        let config_json: Option<String> = conn
+            .query_row(
+                "SELECT value FROM app_settings WHERE key = 'scheduler_config'",
+                [],
+                |row| row.get(0),
+            )
+            .ok();
+
+        if let Some(json) = config_json {
+            // 尝试解析配置，如果失败则默认启用
+            serde_json::from_str::<serde_json::Value>(&json)
+                .ok()
+                .and_then(|v| v.get("enable_hourly_summary").and_then(|v| v.as_bool()))
+                .unwrap_or(true)
+        } else {
+            // 如果没有配置，默认启用小时总结
+            true
+        }
+    };
+    log::info!("小时总结功能开关: {}", if enable_hourly_summary { "已启用" } else { "已关闭" });
+
+    // 2. 根据配置查询该日期已有的小时总结
+    // 如果启用了小时总结：优先从 hourly_summaries 表获取，如果没有则从 activity_summaries 表获取（作为回退）
+    // 如果未启用小时总结：直接使用 activity_summaries 表或截图描述拼接
     let mut hourly_summaries: std::collections::HashMap<String, (String, String)> = std::collections::HashMap::new();
     {
-        let summary_sql = "
-            SELECT
-                substr(start_time, 12, 2) as hour,
-                summary_text,
-                activity_type
-            FROM activity_summaries
-            WHERE substr(start_time, 1, 10) = ?
-        ";
-        if let Ok(mut summary_stmt) = conn.prepare(summary_sql) {
-            if let Ok(rows) = summary_stmt.query_map([&date], |row| {
-                let hour: String = row.get(0)?;
-                let summary_text: String = row.get(1)?;
-                let activity_type: String = row.get(2)?;
-                Ok((hour, summary_text, activity_type))
-            }) {
-                for row in rows.flatten() {
-                    hourly_summaries.insert(row.0, (row.1, row.2));
+        if enable_hourly_summary {
+            // a) 优先从 hourly_summaries 表查询
+            let hourly_sql = "
+                SELECT
+                    hour,
+                    summary_text,
+                    activity_type
+                FROM hourly_summaries
+                WHERE date = ?
+            ";
+            if let Ok(mut hourly_stmt) = conn.prepare(hourly_sql) {
+                if let Ok(rows) = hourly_stmt.query_map([&date], |row| {
+                    let hour: i64 = row.get(0)?;
+                    let summary_text: String = row.get(1)?;
+                    let activity_type: String = row.get(2)?;
+                    Ok((hour, summary_text, activity_type))
+                }) {
+                    for row in rows.flatten() {
+                        // 将小时转换为两位字符串格式 (如 "09", "14")
+                        let hour_str = format!("{:02}", row.0);
+                        hourly_summaries.insert(hour_str, (row.1, row.2));
+                    }
+                }
+            }
+            log::info!("从 hourly_summaries 表查询到 {} 个小时总结", hourly_summaries.len());
+        }
+
+        // b) 如果未启用小时总结或 hourly_summaries 没有数据，从 activity_summaries 查询作为回退
+        if hourly_summaries.is_empty() {
+            if enable_hourly_summary {
+                log::info!("hourly_summaries 表无数据，从 activity_summaries 表查询作为回退");
+            } else {
+                log::info!("小时总结功能已关闭，从 activity_summaries 表查询");
+            }
+
+            let summary_sql = "
+                SELECT
+                    substr(start_time, 12, 2) as hour,
+                    summary_text,
+                    activity_type
+                FROM activity_summaries
+                WHERE substr(start_time, 1, 10) = ?
+            ";
+            if let Ok(mut summary_stmt) = conn.prepare(summary_sql) {
+                if let Ok(rows) = summary_stmt.query_map([&date], |row| {
+                    let hour: String = row.get(0)?;
+                    let summary_text: String = row.get(1)?;
+                    let activity_type: String = row.get(2)?;
+                    Ok((hour, summary_text, activity_type))
+                }) {
+                    for row in rows.flatten() {
+                        hourly_summaries.insert(row.0, (row.1, row.2));
+                    }
                 }
             }
         }
-        log::info!("找到 {} 个已有的小时总结", hourly_summaries.len());
+        log::info!("最终找到 {} 个已有的小时总结", hourly_summaries.len());
     }
 
-    // 2. 查询截图数据
+    // 3. 查询截图数据
     let sql = "
         SELECT
             CASE
@@ -449,7 +511,7 @@ pub async fn screenshot_get_activities(
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    // 3. 处理每个小时的数据，结合已有的小时总结
+    // 4. 处理每个小时的数据，结合已有的小时总结
     let mut activities = Vec::new();
     for (hour, ids, times, paths, apps, descriptions, types, start_time, end_time) in raw_activities {
         // 解析ID列表

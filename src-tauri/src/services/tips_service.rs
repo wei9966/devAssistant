@@ -104,9 +104,9 @@ impl TipsService {
         let since = Local::now() - ChronoDuration::hours(hours);
         let since_str = since.format("%Y-%m-%d %H:%M:%S").to_string();
 
-        // 获取最近的活动记录（包括关键词）
+        // 获取最近的活动记录（使用 key_content 代替不存在的 keywords 列）
         let mut stmt = conn.prepare(
-            "SELECT captured_at, app_name, activity_type, keywords
+            "SELECT captured_at, app_name, activity_type, key_content
              FROM screen_contexts
              WHERE captured_at >= ?
              ORDER BY captured_at ASC",
@@ -183,14 +183,15 @@ impl TipsService {
             }
         }
 
-        // 分析关键词，提取专注领域
+        // 分析关键词，提取专注领域（key_content 是逗号分隔的字符串）
         let mut keyword_counts: HashMap<String, usize> = HashMap::new();
-        for (_, _, _, keywords) in &contexts {
-            if let Some(kw_str) = keywords {
-                // 假设keywords是JSON数组或逗号分隔的字符串
-                if let Ok(kw_array) = serde_json::from_str::<Vec<String>>(kw_str) {
-                    for kw in kw_array {
-                        *keyword_counts.entry(kw).or_insert(0) += 1;
+        for (_, _, _, key_content) in &contexts {
+            if let Some(kw_str) = key_content {
+                // key_content 格式为逗号分隔的字符串，如 "Tauri, Rust, DevAssistant"
+                for kw in kw_str.split(',') {
+                    let kw = kw.trim();
+                    if !kw.is_empty() {
+                        *keyword_counts.entry(kw.to_string()).or_insert(0) += 1;
                     }
                 }
             }
@@ -369,8 +370,9 @@ impl TipsService {
 
     /// 获取最近活动的上下文摘要
     fn get_recent_context_summary(conn: &Connection, limit: i32) -> Result<String> {
+        // 使用实际存在的列: window_title, description 代替 title, summary
         let mut stmt = conn.prepare(
-            "SELECT title, summary, activity_type, captured_at
+            "SELECT window_title, description, activity_type, captured_at
              FROM screen_contexts
              ORDER BY captured_at DESC
              LIMIT ?",
@@ -378,13 +380,13 @@ impl TipsService {
 
         let contexts: Vec<String> = stmt
             .query_map(params![limit], |row| {
-                let title: String = row.get(0)?;
-                let summary: String = row.get(1)?;
+                let window_title: Option<String> = row.get(0)?;
+                let description: String = row.get(1)?;
                 let activity_type: String = row.get(2)?;
                 let captured_at: String = row.get(3)?;
                 Ok(format!(
                     "[{}] {} - {} ({})",
-                    captured_at, activity_type, title, summary
+                    captured_at, activity_type, window_title.unwrap_or_default(), description
                 ))
             })?
             .collect::<Result<Vec<_>, _>>()?;

@@ -532,8 +532,8 @@
             <section class="settings-card">
               <div class="card-header">
                 <h3 class="card-title">定时任务</h3>
-                <span class="status-badge" :class="{ 'status-active': schedulerConfig.enableActivitySummary || schedulerConfig.enableTips || schedulerConfig.enableTodoPrediction }">
-                  {{ (schedulerConfig.enableActivitySummary || schedulerConfig.enableTips || schedulerConfig.enableTodoPrediction) ? '已启用' : '全部关闭' }}
+                <span class="status-badge" :class="{ 'status-active': schedulerConfig.enableActivitySummary || schedulerConfig.enableTips || schedulerConfig.enableTodoPrediction || schedulerConfig.enableHourlySummary }">
+                  {{ (schedulerConfig.enableActivitySummary || schedulerConfig.enableTips || schedulerConfig.enableTodoPrediction || schedulerConfig.enableHourlySummary) ? '已启用' : '全部关闭' }}
                 </span>
               </div>
               <div class="card-content">
@@ -616,6 +616,35 @@
                       v-model:value="schedulerConfig.todoPredictionIntervalMinutes"
                       :min="30"
                       :max="480"
+                      :step="30"
+                      style="width: 120px"
+                    >
+                      <template #suffix>分钟</template>
+                    </n-input-number>
+                  </div>
+                </div>
+
+                <!-- AI 小时总结 -->
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">AI 小时总结</div>
+                    <div class="setting-desc">启用后，系统会将每小时内的活动总结整合为一个完整的小时总结</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-switch v-model:value="schedulerConfig.enableHourlySummary" />
+                  </div>
+                </div>
+
+                <div v-if="schedulerConfig.enableHourlySummary" class="setting-item sub-setting">
+                  <div class="setting-info">
+                    <div class="setting-label">执行间隔</div>
+                    <div class="setting-desc">每隔多少分钟执行一次</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-input-number
+                      v-model:value="schedulerConfig.hourlySummaryIntervalMinutes"
+                      :min="30"
+                      :max="240"
                       :step="30"
                       style="width: 120px"
                     >
@@ -847,9 +876,11 @@ const schedulerConfig = ref({
   activitySummaryIntervalMinutes: 30,
   tipsIntervalMinutes: 60,
   todoPredictionIntervalMinutes: 120,
+  hourlySummaryIntervalMinutes: 60,
   enableActivitySummary: false,
   enableTips: false,
   enableTodoPrediction: false,
+  enableHourlySummary: false,
 });
 const savingScheduler = ref(false);
 
@@ -1423,18 +1454,22 @@ async function loadSchedulerConfig() {
       activity_summary_interval_minutes: number;
       tips_interval_minutes: number;
       todo_prediction_interval_minutes: number;
+      hourly_summary_interval_minutes: number;
       enable_activity_summary: boolean;
       enable_tips: boolean;
       enable_todo_prediction: boolean;
+      enable_hourly_summary: boolean;
     }>('get_scheduler_config');
 
     schedulerConfig.value = {
       activitySummaryIntervalMinutes: config.activity_summary_interval_minutes,
       tipsIntervalMinutes: config.tips_interval_minutes,
       todoPredictionIntervalMinutes: config.todo_prediction_interval_minutes,
+      hourlySummaryIntervalMinutes: config.hourly_summary_interval_minutes,
       enableActivitySummary: config.enable_activity_summary,
       enableTips: config.enable_tips,
       enableTodoPrediction: config.enable_todo_prediction,
+      enableHourlySummary: config.enable_hourly_summary,
     };
   } catch (error) {
     console.error('加载定时任务配置失败:', error);
@@ -1450,9 +1485,11 @@ async function saveSchedulerConfig() {
         activity_summary_interval_minutes: schedulerConfig.value.activitySummaryIntervalMinutes,
         tips_interval_minutes: schedulerConfig.value.tipsIntervalMinutes,
         todo_prediction_interval_minutes: schedulerConfig.value.todoPredictionIntervalMinutes,
+        hourly_summary_interval_minutes: schedulerConfig.value.hourlySummaryIntervalMinutes,
         enable_activity_summary: schedulerConfig.value.enableActivitySummary,
         enable_tips: schedulerConfig.value.enableTips,
         enable_todo_prediction: schedulerConfig.value.enableTodoPrediction,
+        enable_hourly_summary: schedulerConfig.value.enableHourlySummary,
       },
     });
     message.success('定时任务配置已保存，重启应用后生效');

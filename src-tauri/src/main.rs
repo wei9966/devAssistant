@@ -24,7 +24,7 @@ use services::notification_service::NotificationService;
 use services::tips_service::TipsService;
 use services::ai_service::AiService;
 use services::todo_prediction_service::TodoPredictionService;
-use chrono::{Duration, Local};
+use chrono::{Duration, Local, Timelike};
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
 use tauri::Manager;
@@ -238,8 +238,41 @@ fn main() {
         }
     }
 
-    // 初始化定时任务调度器
-    let scheduler_service = SchedulerService::new();
+    // 初始化定时任务调度器 - 从数据库加载配置
+    let scheduler_config = {
+        let conn = db_state.0.lock().expect("获取数据库连接失败");
+        let config_json: Option<String> = conn
+            .query_row(
+                "SELECT value FROM app_settings WHERE key = 'scheduler_config'",
+                [],
+                |row| row.get(0),
+            )
+            .ok();
+
+        if let Some(json) = config_json {
+            match serde_json::from_str::<services::scheduler_service::SchedulerConfig>(&json) {
+                Ok(config) => {
+                    log_runtime(&format!(
+                        "从数据库加载定时任务配置: Activity总结={}({}分钟), Tips={}({}分钟), TODO预测={}({}分钟), 小时总结={}({}分钟)",
+                        config.enable_activity_summary, config.activity_summary_interval_minutes,
+                        config.enable_tips, config.tips_interval_minutes,
+                        config.enable_todo_prediction, config.todo_prediction_interval_minutes,
+                        config.enable_hourly_summary, config.hourly_summary_interval_minutes
+                    ));
+                    config
+                }
+                Err(e) => {
+                    log_runtime(&format!("解析定时任务配置失败，使用默认值: {}", e));
+                    services::scheduler_service::SchedulerConfig::default()
+                }
+            }
+        } else {
+            log_runtime("未找到定时任务配置，使用默认值");
+            services::scheduler_service::SchedulerConfig::default()
+        }
+    };
+
+    let scheduler_service = SchedulerService::with_config(scheduler_config);
     let scheduler_clone = scheduler_service.clone();
     let db_path_for_scheduler = db_path_str.clone();
 
@@ -347,17 +380,18 @@ fn main() {
         let on_tips = {
             let db_path = db_path_for_scheduler.clone();
             move || {
-                log::info!("执行 Tips 智能提示任务");
+                log_runtime("[Tips] 回调被触发，准备执行异步任务");
 
                 let db_path = db_path.clone();
                 // 使用 Tauri 的异步运行时执行异步任务
-                tauri::async_runtime::spawn(async move {
+                let handle = tauri::async_runtime::spawn(async move {
+                    log_runtime("[Tips] 异步任务开始执行");
                     // 第一步：检查设置和准备数据（使用 Connection 但不跨 await）
                     let (pattern, ai_config, use_ai) = {
                         let conn = match rusqlite::Connection::open(&db_path) {
                             Ok(c) => c,
                             Err(e) => {
-                                log::error!("打开数据库失败: {}", e);
+                                log_runtime(&format!("[Tips] 打开数据库失败: {}", e));
                                 return;
                             }
                         };
@@ -366,20 +400,20 @@ fn main() {
                         let settings = match NotificationService::get_settings(&conn) {
                             Ok(s) => s,
                             Err(e) => {
-                                log::error!("获取通知设置失败: {}", e);
+                                log_runtime(&format!("[Tips] 获取通知设置失败: {}", e));
                                 return;
                             }
                         };
 
                         if !settings.tips_enabled {
-                            log::info!("Tips 功能未启用，跳过");
+                            log_runtime("[Tips] Tips 功能未启用，跳过");
                             return;
                         }
 
                         // 检查今日数量限制
                         if let Ok(today_count) = NotificationService::get_today_tips_count(&conn) {
                             if today_count >= settings.tips_max_per_day {
-                                log::info!("今日 Tips 已达上限 ({}/{})", today_count, settings.tips_max_per_day);
+                                log_runtime(&format!("[Tips] 今日 Tips 已达上限 ({}/{})", today_count, settings.tips_max_per_day));
                                 return;
                             }
                         }
@@ -388,7 +422,7 @@ fn main() {
                         let interval_minutes = settings.tips_interval_minutes as i64;
                         if let Ok(should_generate) = TipsService::should_generate_tip(&conn, interval_minutes) {
                             if !should_generate {
-                                log::info!("距离上次提示时间不足，跳过生成");
+                                log_runtime("[Tips] 距离上次提示时间不足，跳过生成");
                                 return;
                             }
                         }
@@ -397,40 +431,44 @@ fn main() {
                         let pattern = match TipsService::analyze_recent_pattern(&conn, 1) {
                             Ok(p) => p,
                             Err(e) => {
-                                log::warn!("分析活动模式失败: {}", e);
+                                log_runtime(&format!("[Tips] 分析活动模式失败: {}", e));
                                 return;
                             }
                         };
 
                         // 如果没有活动数据，跳过生成
                         if pattern.total_activities == 0 {
-                            log::info!("没有活动数据，跳过 Tips 生成");
+                            log_runtime("[Tips] 没有活动数据，跳过 Tips 生成");
                             return;
                         }
 
-                        log::info!("活动分析: 连续工作 {} 分钟, 主要活动: {:?}, 主要应用: {:?}",
+                        log_runtime(&format!("[Tips] 活动分析: 连续工作 {} 分钟, 主要活动: {:?}, 主要应用: {:?}, 活动数: {}",
                             pattern.continuous_work_minutes,
                             pattern.dominant_activity_type,
-                            pattern.dominant_app
-                        );
+                            pattern.dominant_app,
+                            pattern.total_activities
+                        ));
 
                         // 加载 AI 配置
                         let ai_config = AiService::load_config(&conn).ok();
                         let use_ai = ai_config.is_some();
+                        log_runtime(&format!("[Tips] AI配置: use_ai={}", use_ai));
 
                         // Connection 在这里被 drop，不会跨越 await 边界
                         (pattern, ai_config, use_ai)
                     };
 
                     // 第二步：使用 AI 生成提示（使用 spawn_blocking 避免 Connection 跨 await）
+                    log_runtime("[Tips] 开始生成提示内容...");
                     let (tip_content, category, priority) = if use_ai {
                         let ai_config_owned = ai_config.unwrap();
                         let ai_service = AiService::new(ai_config_owned.clone());
 
                         if !ai_service.is_configured() {
-                            log::info!("AI 未配置，使用默认提示生成");
+                            log_runtime("[Tips] AI 未配置，使用默认提示生成");
                             TipsService::generate_default_tip(&pattern)
                         } else {
+                            log_runtime("[Tips] 使用 AI 生成提示...");
                             let db_path_for_ai = db_path.clone();
                             let pattern_for_ai = pattern.clone();
 
@@ -441,7 +479,6 @@ fn main() {
                                     let conn = match rusqlite::Connection::open(&db_path_for_ai) {
                                         Ok(c) => c,
                                         Err(e) => {
-                                            log::error!("打开数据库失败: {}", e);
                                             return Err(anyhow::anyhow!("打开数据库失败: {}", e));
                                         }
                                     };
@@ -450,29 +487,30 @@ fn main() {
                                 })
                             }).await {
                                 Ok(Ok(result)) => {
-                                    log::info!("AI 智能提示生成成功");
+                                    log_runtime("[Tips] AI 智能提示生成成功");
                                     result
                                 }
                                 Ok(Err(e)) => {
-                                    log::warn!("AI 生成 Tips 失败，使用默认方式: {}", e);
+                                    log_runtime(&format!("[Tips] AI 生成失败，使用默认方式: {}", e));
                                     TipsService::generate_default_tip(&pattern)
                                 }
                                 Err(e) => {
-                                    log::error!("spawn_blocking 失败: {}", e);
+                                    log_runtime(&format!("[Tips] spawn_blocking 失败: {}", e));
                                     TipsService::generate_default_tip(&pattern)
                                 }
                             }
                         }
                     } else {
-                        log::info!("AI 配置未加载，使用默认提示生成");
+                        log_runtime("[Tips] AI 配置未加载，使用默认提示生成");
                         TipsService::generate_default_tip(&pattern)
                     };
 
                     // 第三步：保存结果（重新打开连接）
+                    log_runtime(&format!("[Tips] 生成的提示: [{}] {}", category.as_str(), &tip_content[..tip_content.len().min(50)]));
                     if let Ok(conn) = rusqlite::Connection::open(&db_path) {
                         // 保存提示到 tips 表
                         if let Err(e) = TipsService::save_tip(&conn, &tip_content, &category, &priority) {
-                            log::error!("保存 Tips 失败: {}", e);
+                            log_runtime(&format!("[Tips] 保存 Tips 失败: {}", e));
                             return;
                         }
 
@@ -484,12 +522,18 @@ fn main() {
                         };
 
                         if let Err(e) = NotificationService::create(&conn, "tip", title, &tip_content) {
-                            log::error!("创建 Tips 通知失败: {}", e);
+                            log_runtime(&format!("[Tips] 创建通知失败: {}", e));
                         } else {
-                            log::info!("智能提示已生成: [{}] {}", category.as_str(), &tip_content[..tip_content.len().min(50)]);
+                            log_runtime(&format!("[Tips] 智能提示已创建通知: {}", title));
                         }
+                    } else {
+                        log_runtime("[Tips] 打开数据库失败，无法保存提示");
                     }
+                    log_runtime("[Tips] 异步任务执行完成");
                 });
+                log_runtime("[Tips] 异步任务已提交");
+                // 不需要等待 handle，让它在后台运行
+                drop(handle);
             }
         };
 
@@ -614,8 +658,34 @@ fn main() {
             }
         };
 
+        // 小时总结回调
+        let on_hourly_summary = {
+            let db_path = db_path_for_scheduler.clone();
+            move || {
+                log::info!("执行小时总结任务");
+                let db_path = db_path.clone();
+                tauri::async_runtime::spawn(async move {
+                    // 获取上一个小时的时间
+                    let now = Local::now();
+                    let last_hour = now - Duration::hours(1);
+                    let date = last_hour.format("%Y-%m-%d").to_string();
+                    let hour = last_hour.hour() as i32;
+
+                    let summary_service = ActivitySummaryService::new(db_path);
+                    match summary_service.generate_hourly_summary(&date, hour).await {
+                        Ok(summary) => {
+                            log::info!("小时总结已生成: {} {}点 - {}", date, hour, summary.summary_text);
+                        }
+                        Err(e) => {
+                            log::warn!("生成小时总结失败: {}", e);
+                        }
+                    }
+                });
+            }
+        };
+
         // 启动调度器
-        if let Err(e) = scheduler_clone.start(on_activity_summary, on_tips, on_todo_prediction).await {
+        if let Err(e) = scheduler_clone.start(on_activity_summary, on_tips, on_todo_prediction, on_hourly_summary).await {
             log::error!("启动定时任务调度器失败: {}", e);
         } else {
             log::info!("定时任务调度器已启动");
