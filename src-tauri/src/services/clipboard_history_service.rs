@@ -76,6 +76,7 @@ impl ClipboardHistoryService {
 
     /// 从数据库获取配置
     fn get_config_from_db(conn: &Connection) -> Result<ClipboardConfig, String> {
+        // 首先尝试从 clipboard_config 键读取专用配置
         let config_json: Option<String> = conn
             .query_row(
                 "SELECT value FROM app_settings WHERE key = 'clipboard_config'",
@@ -84,11 +85,28 @@ impl ClipboardHistoryService {
             )
             .ok();
 
-        if let Some(json) = config_json {
-            serde_json::from_str(&json).map_err(|e| e.to_string())
+        let mut config = if let Some(json) = config_json {
+            serde_json::from_str(&json).unwrap_or_default()
         } else {
-            Ok(ClipboardConfig::default())
+            ClipboardConfig::default()
+        };
+
+        // 从 app_settings 中读取 clipboard_interval 并同步到配置
+        // 这样用户在设置界面修改的值会生效
+        if let Ok(app_settings_json) = conn.query_row::<String, _, _>(
+            "SELECT value FROM app_settings WHERE key = 'app_settings'",
+            [],
+            |row| row.get(0),
+        ) {
+            if let Ok(app_settings) = serde_json::from_str::<serde_json::Value>(&app_settings_json) {
+                if let Some(interval) = app_settings.get("clipboard_interval").and_then(|v| v.as_u64()) {
+                    // 将 app_settings 中的 clipboard_interval 同步到 poll_interval_secs
+                    config.poll_interval_secs = interval.max(1); // 最小1秒
+                }
+            }
         }
+
+        Ok(config)
     }
 
     /// 保存配置到数据库
@@ -106,6 +124,7 @@ impl ClipboardHistoryService {
     }
 
     /// 启动剪切板监控（后台线程）
+    /// 优化：复用 Clipboard 实例，使用配置的轮询间隔
     pub fn start_monitoring(&self, db_path: String) {
         let last_text = Arc::clone(&self.last_text_content);
         let last_image = Arc::clone(&self.last_image_hash);
@@ -119,17 +138,65 @@ impl ClipboardHistoryService {
             let mut consecutive_errors = 0u32;
             const MAX_CONSECUTIVE_ERRORS: u32 = 10;
 
+            // 复用 Clipboard 实例，避免每次轮询都重新创建
+            let mut clipboard: Option<Clipboard> = None;
+            // Clipboard 实例重建计数器（每隔一段时间重建以避免潜在的状态问题）
+            let mut clipboard_usage_count = 0u32;
+            const CLIPBOARD_REBUILD_INTERVAL: u32 = 100; // 每100次检查重建一次
+
+            // 配置刷新计数器（每隔一段时间从数据库重新读取配置）
+            let mut config_refresh_count = 0u32;
+            const CONFIG_REFRESH_INTERVAL: u32 = 60; // 大约每60次轮询刷新一次配置
+
             loop {
-                thread::sleep(Duration::from_millis(500));
+                // 定期从数据库刷新配置
+                config_refresh_count += 1;
+                if config_refresh_count >= CONFIG_REFRESH_INTERVAL {
+                    config_refresh_count = 0;
+                    if let Ok(conn) = Connection::open(&db_path) {
+                        if let Ok(new_config) = Self::get_config_from_db(&conn) {
+                            if let Ok(mut cfg) = config.lock() {
+                                *cfg = new_config;
+                                debug!("剪切板配置已刷新，轮询间隔: {}秒", cfg.poll_interval_secs);
+                            }
+                        }
+                    }
+                }
+
+                // 从配置获取轮询间隔，默认1秒
+                let poll_interval = {
+                    config.lock()
+                        .map(|c| c.poll_interval_secs)
+                        .unwrap_or(1)
+                        .max(1) // 最小1秒，避免过于频繁
+                };
+                thread::sleep(Duration::from_secs(poll_interval));
+
+                // 定期重建 Clipboard 实例
+                clipboard_usage_count += 1;
+                if clipboard_usage_count >= CLIPBOARD_REBUILD_INTERVAL || clipboard.is_none() {
+                    clipboard = Clipboard::new().ok();
+                    clipboard_usage_count = 0;
+                    if clipboard.is_none() {
+                        log_clipboard_error("无法创建剪切板实例，将在下次轮询时重试");
+                        continue;
+                    }
+                }
 
                 // 使用 catch_unwind 捕获 panic，防止线程崩溃导致整个程序崩溃
+                let clipboard_ref = clipboard.as_mut();
                 let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                    Self::monitor_clipboard_once(
-                        &db_path,
-                        &last_text,
-                        &last_image,
-                        &config,
-                    )
+                    if let Some(cb) = clipboard_ref {
+                        Self::monitor_clipboard_once_optimized(
+                            &db_path,
+                            &last_text,
+                            &last_image,
+                            &config,
+                            cb,
+                        )
+                    } else {
+                        Err("剪切板实例不可用".to_string())
+                    }
                 }));
 
                 match result {
@@ -143,6 +210,9 @@ impl ClipboardHistoryService {
                         let error_msg = format!("剪切板监控错误 ({}/{}): {}",
                             consecutive_errors, MAX_CONSECUTIVE_ERRORS, e);
                         log_clipboard_error(&error_msg);
+
+                        // 出错时重建 Clipboard 实例
+                        clipboard = None;
 
                         if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
                             warn!("剪切板监控连续错误过多，暂停 5 秒");
@@ -165,6 +235,9 @@ impl ClipboardHistoryService {
                             consecutive_errors, MAX_CONSECUTIVE_ERRORS, panic_msg);
                         log_clipboard_error(&error_msg);
 
+                        // panic 后重建 Clipboard 实例
+                        clipboard = None;
+
                         if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
                             warn!("剪切板监控连续 panic 过多，暂停 10 秒后重试");
                             thread::sleep(Duration::from_secs(10));
@@ -176,20 +249,20 @@ impl ClipboardHistoryService {
         });
     }
 
-    /// 执行一次剪切板监控检查
-    fn monitor_clipboard_once(
+    /// 优化版：执行一次剪切板监控检查（复用 Clipboard 实例）
+    fn monitor_clipboard_once_optimized(
         db_path: &str,
         last_text: &Arc<Mutex<String>>,
         last_image: &Arc<Mutex<u64>>,
         config: &Arc<Mutex<ClipboardConfig>>,
+        clipboard: &mut Clipboard,
     ) -> Result<(), String> {
         let current_config = config.lock().map_err(|e| format!("获取配置锁失败: {}", e))?.clone();
         if !current_config.enabled {
             return Ok(());
         }
 
-        // 创建 arboard 剪切板实例 - 每次都创建新实例以避免状态问题
-        let mut clipboard = Clipboard::new().map_err(|e| format!("创建剪切板实例失败: {}", e))?;
+        // 使用传入的复用 Clipboard 实例，不再每次创建新实例
 
         // 检查文本内容 - 使用 Result 处理错误
         match clipboard.get_text() {

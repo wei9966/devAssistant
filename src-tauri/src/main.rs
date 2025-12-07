@@ -506,7 +506,9 @@ fn main() {
                     };
 
                     // 第三步：保存结果（重新打开连接）
-                    log_runtime(&format!("[Tips] 生成的提示: [{}] {}", category.as_str(), &tip_content[..tip_content.len().min(50)]));
+                    // 安全截断UTF-8字符串，避免在字符边界中间截断
+                    let truncated_tip: String = tip_content.chars().take(50).collect();
+                    log_runtime(&format!("[Tips] 生成的提示: [{}] {}", category.as_str(), truncated_tip));
                     if let Ok(conn) = rusqlite::Connection::open(&db_path) {
                         // 保存提示到 tips 表
                         if let Err(e) = TipsService::save_tip(&conn, &tip_content, &category, &priority) {

@@ -68,6 +68,8 @@ pub struct ClipboardConfig {
     pub enabled: bool,
     /// 剪切板历史快捷键
     pub shortcut: String,
+    /// 轮询间隔（秒），控制检测剪贴板变化的频率
+    pub poll_interval_secs: u64,
 }
 
 impl Default for ClipboardConfig {
@@ -86,6 +88,7 @@ impl Default for ClipboardConfig {
             auto_copy_image_path: true,
             enabled: true,
             shortcut: "Ctrl+Shift+C".to_string(),
+            poll_interval_secs: 1, // 默认1秒轮询一次
         }
     }
 }
