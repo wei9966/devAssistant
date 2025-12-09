@@ -1208,6 +1208,12 @@ fn main() {
             commands::app_launcher_commands::update_app_icon,
             commands::app_launcher_commands::get_launcher_settings,
             commands::app_launcher_commands::update_launcher_settings,
+            commands::app_launcher_commands::full_scan_apps,
+            commands::app_launcher_commands::sync_apps_to_db,
+            commands::app_launcher_commands::scan_and_sync_apps,
+            commands::app_launcher_commands::start_app_monitor,
+            commands::app_launcher_commands::stop_app_monitor,
+            commands::app_launcher_commands::get_monitor_status,
             // 快捷键相关命令
             commands::shortcut_commands::get_shortcut_config,
             commands::shortcut_commands::update_shortcut_config,

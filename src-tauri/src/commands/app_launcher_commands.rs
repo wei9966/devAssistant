@@ -1,10 +1,11 @@
 use crate::db::connection::DbConnection;
 use crate::models::{
     AppItem, AppLauncherSettings, AppSearchParams, Category, LaunchHistory, LaunchResult, Workflow,
-    WorkflowLaunchResult,
+    WorkflowLaunchResult, SyncResult,
 };
 use crate::services::{AppLauncherService, AppScannerService};
 use tauri::State;
+use std::collections::HashMap;
 
 // ==================== 应用扫描 ====================
 
@@ -323,26 +324,59 @@ pub fn validate_path(path: String) -> Result<bool, String> {
 pub fn show_in_folder(path: String) -> Result<(), String> {
     use std::path::Path;
     use std::process::Command;
+    #[cfg(target_os = "windows")]
+    use std::os::windows::process::CommandExt;
 
-    let file_path = Path::new(&path);
+    // 处理路径：去除引号，处理特殊路径格式
+    let clean_path = path.trim().trim_matches('"').to_string();
 
+    // 检查是否是 shell: 协议路径（如 shell:AppsFolder\xxx）
+    if clean_path.starts_with("shell:") {
+        // 对于 shell: 路径，直接用 explorer 打开
+        #[cfg(target_os = "windows")]
+        {
+            Command::new("explorer")
+                .arg(&clean_path)
+                .spawn()
+                .map_err(|e| format!("无法打开: {}", e))?;
+        }
+        return Ok(());
+    }
+
+    let file_path = Path::new(&clean_path);
+
+    // 如果路径不存在，尝试打开父目录
     if !file_path.exists() {
-        return Err(format!("路径不存在: {}", path));
+        // 尝试获取父目录
+        if let Some(parent) = file_path.parent() {
+            if parent.exists() {
+                #[cfg(target_os = "windows")]
+                {
+                    Command::new("explorer")
+                        .arg(parent)
+                        .spawn()
+                        .map_err(|e| format!("无法打开文件管理器: {}", e))?;
+                }
+                return Ok(());
+            }
+        }
+        return Err(format!("路径不存在: {}", clean_path));
     }
 
     #[cfg(target_os = "windows")]
     {
         // Windows: 使用 explorer 命令并选中文件
+        // 注意：路径需要用引号包裹以处理空格
         let arg = if file_path.is_dir() {
             // 如果是目录，直接打开该目录
-            path.clone()
+            clean_path.clone()
         } else {
             // 如果是文件，打开所在目录并选中该文件
-            format!("/select,{}", path)
+            format!("/select,\"{}\"", clean_path)
         };
 
         Command::new("explorer")
-            .arg(&arg)
+            .raw_arg(&arg)
             .spawn()
             .map_err(|e| format!("无法打开文件管理器: {}", e))?;
     }
@@ -351,7 +385,7 @@ pub fn show_in_folder(path: String) -> Result<(), String> {
     {
         Command::new("open")
             .arg("-R")
-            .arg(&path)
+            .arg(&clean_path)
             .spawn()
             .map_err(|e| format!("无法打开访达: {}", e))?;
     }
@@ -502,6 +536,148 @@ pub async fn update_launcher_settings(
     .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+// ==================== 完整扫描与同步 ====================
+
+/// 完整扫描所有来源的应用
+/// 扫描开始菜单、注册表、shell:AppsFolder等所有来源，返回合并去重后的完整应用列表
+#[tauri::command]
+pub async fn full_scan_apps() -> Result<Vec<AppItem>, String> {
+    // 调用 AppScannerService 扫描所有来源
+    // 这会扫描：开始菜单、常见安装目录、注册表、shell:AppsFolder
+    AppScannerService::scan_installed_apps(None).await
+}
+
+/// 同步扫描结果到数据库
+/// 将扫描到的应用列表与数据库中的应用进行对比，执行增删改操作
+#[tauri::command]
+pub async fn sync_apps_to_db(
+    db: State<'_, DbConnection>,
+    apps: Vec<AppItem>,
+) -> Result<SyncResult, String> {
+    let conn = db.0.clone();
+    let service = AppLauncherService::new(conn.clone());
+
+    let mut result = SyncResult::new();
+
+    // 获取数据库中现有的所有应用
+    let existing_apps = service.get_all_apps().await?;
+
+    // 创建现有应用的映射表（使用路径作为唯一标识）
+    let mut existing_map: HashMap<String, AppItem> = existing_apps
+        .into_iter()
+        .map(|app| (app.path.clone(), app))
+        .collect();
+
+    // 创建扫描应用的映射表
+    let scanned_map: HashMap<String, AppItem> = apps
+        .iter()
+        .map(|app| (app.path.clone(), app.clone()))
+        .collect();
+
+    // 遍历扫描到的应用，判断是新增还是更新
+    for scanned_app in apps {
+        if let Some(existing_app) = existing_map.remove(&scanned_app.path) {
+            // 应用已存在，检查是否需要更新
+            // 保留用户自定义的数据（如分类、标签、置顶、隐藏状态等）
+            let mut updated_app = scanned_app.clone();
+            updated_app.id = existing_app.id.clone();
+            updated_app.category = existing_app.category.clone();
+            updated_app.tags = existing_app.tags.clone();
+            updated_app.is_pinned = existing_app.is_pinned;
+            updated_app.is_hidden = existing_app.is_hidden;
+            updated_app.launch_count = existing_app.launch_count;
+            updated_app.last_launched_at = existing_app.last_launched_at;
+            updated_app.launch_args = existing_app.launch_args.clone();
+            updated_app.created_at = existing_app.created_at;
+
+            // 如果用户设置了自定义图标，保留它
+            if existing_app.icon.is_some() && !existing_app.icon.as_ref().unwrap().is_empty() {
+                updated_app.icon = existing_app.icon.clone();
+            }
+
+            // 检查应用名称或路径是否发生变化
+            if updated_app.name != existing_app.name || updated_app.path != existing_app.path {
+                service.update_app(updated_app).await?;
+                result.updated += 1;
+            } else {
+                result.unchanged += 1;
+            }
+        } else {
+            // 新应用，添加到数据库
+            service.add_app(scanned_app).await?;
+            result.added += 1;
+        }
+    }
+
+    // 处理数据库中剩余的应用（这些应用在扫描结果中不存在）
+    // 选项1: 删除这些应用
+    // 选项2: 标记为不可用（推荐，因为可能是用户手动添加的）
+    for (path, existing_app) in existing_map {
+        // 如果是用户手动添加的特殊类型（如文件夹、URL），不删除
+        if !scanned_map.contains_key(&path) {
+            // 检查文件是否仍然存在
+            if !std::path::Path::new(&path).exists() {
+                // 文件不存在，标记为隐藏而不是删除
+                let mut hidden_app = existing_app.clone();
+                hidden_app.is_hidden = true;
+                service.update_app(hidden_app).await?;
+                result.removed += 1;
+            } else {
+                // 文件存在但未被扫描到，保持不变
+                result.unchanged += 1;
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+/// 一键扫描并同步应用
+/// 组合命令：先执行完整扫描，然后同步到数据库
+#[tauri::command]
+pub async fn scan_and_sync_apps(db: State<'_, DbConnection>) -> Result<SyncResult, String> {
+    // 执行完整扫描
+    let apps = full_scan_apps().await?;
+
+    // 同步到数据库
+    sync_apps_to_db(db, apps).await
+}
+
+// ==================== 应用监控（预留接口）====================
+// 注意：AppMonitorService 需要在 services 模块中实现
+// 这里提供命令接口定义，具体实现可以后续补充
+
+/// 启动应用监控服务
+/// 监控系统应用的安装和卸载，自动同步到数据库
+#[tauri::command]
+pub async fn start_app_monitor(
+    _app_handle: tauri::AppHandle,
+    _db: State<'_, DbConnection>,
+) -> Result<(), String> {
+    // TODO: 实现 AppMonitorService
+    // let monitor = app_handle.state::<AppMonitorState>();
+    // monitor.start().await
+    Err("应用监控服务尚未实现".to_string())
+}
+
+/// 停止应用监控服务
+#[tauri::command]
+pub async fn stop_app_monitor() -> Result<(), String> {
+    // TODO: 实现 AppMonitorService
+    // let monitor = app_handle.state::<AppMonitorState>();
+    // monitor.stop().await
+    Err("应用监控服务尚未实现".to_string())
+}
+
+/// 获取应用监控状态
+#[tauri::command]
+pub async fn get_monitor_status() -> Result<bool, String> {
+    // TODO: 实现 AppMonitorService
+    // let monitor = app_handle.state::<AppMonitorState>();
+    // Ok(monitor.is_running().await)
+    Ok(false)
 }
 
 #[cfg(test)]

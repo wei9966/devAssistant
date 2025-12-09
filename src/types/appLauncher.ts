@@ -9,6 +9,16 @@ export enum ItemType {
   Folder = 'folder',
   RemoteDesktop = 'remoteDesktop',
   UrlLink = 'urlLink',
+  UwpApp = 'uwpApp', // UWP/Microsoft Store应用
+}
+
+// 应用来源枚举 (与后端 serde rename_all = "snake_case" 保持一致)
+export enum AppSource {
+  StartMenu = 'start_menu',
+  Registry = 'registry',
+  ShellApps = 'shell_apps',
+  Uwp = 'uwp',
+  Manual = 'manual',
 }
 
 // 项目类型的中文名称映射
@@ -19,6 +29,16 @@ export const ITEM_TYPE_NAMES: Record<ItemType, string> = {
   [ItemType.Folder]: '文件夹',
   [ItemType.RemoteDesktop]: '远程桌面',
   [ItemType.UrlLink]: 'URL链接',
+  [ItemType.UwpApp]: 'UWP应用',
+};
+
+// 应用来源的中文名称映射
+export const APP_SOURCE_NAMES: Record<AppSource, string> = {
+  [AppSource.StartMenu]: '开始菜单',
+  [AppSource.Registry]: '注册表',
+  [AppSource.ShellApps]: '系统应用',
+  [AppSource.Uwp]: 'UWP应用',
+  [AppSource.Manual]: '手动添加',
 };
 
 // 项目类型图标映射
@@ -29,6 +49,7 @@ export const ITEM_TYPE_ICONS: Record<ItemType, string> = {
   [ItemType.Folder]: '📁',
   [ItemType.RemoteDesktop]: '🖥️',
   [ItemType.UrlLink]: '🌐',
+  [ItemType.UwpApp]: '📦',
 };
 
 export interface AppItem {
@@ -46,6 +67,13 @@ export interface AppItem {
   createdAt: number;
   updatedAt: number;
   itemType: ItemType; // 项目类型
+  // 新增字段 - 支持智能扫描
+  appSource?: string; // 应用来源（start_menu/registry/shell_apps/uwp/manual）
+  aumid?: string; // UWP应用的Application User Model ID
+  publisher?: string; // 发布者/开发商名称
+  version?: string; // 应用版本号
+  description?: string; // 应用描述
+  installLocation?: string; // 安装位置
 }
 
 export interface Category {
@@ -140,4 +168,19 @@ export interface SearchResultItem extends AppItem {
 // 应用启动器设置
 export interface AppLauncherSettings {
   allowedExtensions: string[]; // 允许添加的文件后缀列表
+}
+
+// 应用同步结果（与后端 SyncResult 对应）
+export interface SyncResult {
+  added: number; // 新增的应用数量
+  updated: number; // 更新的应用数量
+  removed: number; // 移除的应用数量（或标记为不可用）
+  unchanged: number; // 未变化的应用数量
+}
+
+// 监控服务状态
+export interface MonitorStatus {
+  running: boolean;
+  lastCheckTime?: number;
+  checkInterval: number;
 }

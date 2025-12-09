@@ -197,7 +197,7 @@ const displayApps = computed(() => {
       const nameMatch = app.name.toLowerCase().includes(query)
 
       // 标签匹配
-      const tagMatch = app.tags.some(tag => tag.toLowerCase().includes(query))
+      const tagMatch = app.tags?.some(tag => tag.toLowerCase().includes(query)) ?? false
 
       // 拼音全拼匹配
       const pinyinFull = pinyin(app.name, { toneType: 'none', type: 'array' }).join('').toLowerCase()

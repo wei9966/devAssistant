@@ -50,6 +50,7 @@ clipboard-win = "5.4"
 mslnk = "0.1"
 winapi = { version = "0.3", features = ["shellapi", "winuser", "windef", "wingdi", "handleapi", "errhandlingapi", "sysinfoapi"] }
 windows = { version = "0.58", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_Foundation", "Win32_System_SystemServices"] }
+encoding_rs = "0.8"  # 用于处理 Windows PowerShell 输出的 GBK 编码
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-shell = "2.0"

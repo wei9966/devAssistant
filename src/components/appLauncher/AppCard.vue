@@ -37,9 +37,12 @@
       <!-- 应用名称 -->
       <h3 class="app-name" :title="app.name">{{ app.name }}</h3>
 
-      <!-- 启动次数 -->
+      <!-- 启动次数和来源标签 -->
       <div class="app-stats">
         <span class="launch-count">{{ app.launchCount }}次</span>
+        <span v-if="app.appSource && app.appSource !== 'manual'" class="source-tag" :class="'source-' + app.appSource">
+          {{ getSourceName(app.appSource) }}
+        </span>
       </div>
     </div>
 
@@ -85,9 +88,10 @@
 
 <script setup lang="ts">
 import { ref, computed, h } from 'vue';
-import { NButton, NIcon, NCheckbox, NDropdown } from 'naive-ui';
+import { NButton, NIcon, NCheckbox, NDropdown, NTag } from 'naive-ui';
 import { AppsOutline, CreateOutline, TrashOutline, Pin, FolderOpenOutline } from '@vicons/ionicons5';
 import type { AppItem } from '@/types/appLauncher';
+import { APP_SOURCE_NAMES, AppSource } from '@/types/appLauncher';
 
 const props = defineProps<{
   app: AppItem;
@@ -209,6 +213,18 @@ const handleDelete = () => {
 
 const handleIconError = () => {
   iconError.value = true;
+};
+
+// 获取来源名称
+const getSourceName = (source: string): string => {
+  const sourceMap: Record<string, string> = {
+    'start_menu': '开始菜单',
+    'registry': '注册表',
+    'shell_apps': '系统',
+    'uwp': 'UWP',
+    'manual': '手动',
+  };
+  return sourceMap[source] || source;
 };
 
 // 鼠标按下处理 - 用于拖拽
@@ -395,6 +411,34 @@ const handleMouseDown = (e: MouseEvent) => {
   background: rgba(99, 102, 241, 0.15);
   border-radius: 10px;
   color: #a5b4fc;
+}
+
+/* 来源标签样式 */
+.source-tag {
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.source-start_menu {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.source-registry {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.source-shell_apps {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+.source-uwp {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
 }
 
 /* 操作按钮 */

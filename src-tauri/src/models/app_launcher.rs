@@ -16,11 +16,35 @@ pub enum ItemType {
     RemoteDesktop,
     /// URL链接(.url)
     UrlLink,
+    /// UWP/Microsoft Store应用
+    UwpApp,
 }
 
 impl Default for ItemType {
     fn default() -> Self {
         ItemType::Application
+    }
+}
+
+/// 应用来源
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum AppSource {
+    /// 开始菜单
+    StartMenu,
+    /// 注册表
+    Registry,
+    /// Shell应用
+    ShellApps,
+    /// UWP应用
+    Uwp,
+    /// 手动添加
+    Manual,
+}
+
+impl Default for AppSource {
+    fn default() -> Self {
+        AppSource::Manual
     }
 }
 
@@ -44,6 +68,24 @@ pub struct AppItem {
     /// 项目类型(Application/Shortcut/File/Folder/RemoteDesktop/UrlLink)
     #[serde(default)]
     pub item_type: ItemType,
+    /// 应用来源(start_menu/registry/shell_apps/uwp/manual)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_source: Option<String>,
+    /// UWP应用的Application User Model ID
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub aumid: Option<String>,
+    /// 发布者/开发商名称
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub publisher: Option<String>,
+    /// 应用版本号
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    /// 应用描述
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// 安装位置
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub install_location: Option<String>,
 }
 
 impl AppItem {
@@ -65,6 +107,12 @@ impl AppItem {
             created_at: now,
             updated_at: now,
             item_type: ItemType::Application,
+            app_source: None,
+            aumid: None,
+            publisher: None,
+            version: None,
+            description: None,
+            install_location: None,
         }
     }
 
@@ -86,6 +134,12 @@ impl AppItem {
             created_at: now,
             updated_at: now,
             item_type,
+            app_source: None,
+            aumid: None,
+            publisher: None,
+            version: None,
+            description: None,
+            install_location: None,
         }
     }
 
@@ -301,6 +355,43 @@ impl WorkflowLaunchResult {
     }
 }
 
+/// 应用同步结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncResult {
+    /// 新增的应用数量
+    pub added: usize,
+    /// 更新的应用数量
+    pub updated: usize,
+    /// 移除的应用数量（或标记为不可用）
+    pub removed: usize,
+    /// 未变化的应用数量
+    pub unchanged: usize,
+}
+
+impl SyncResult {
+    /// 创建新的同步结果
+    pub fn new() -> Self {
+        Self {
+            added: 0,
+            updated: 0,
+            removed: 0,
+            unchanged: 0,
+        }
+    }
+
+    /// 获取总处理数量
+    pub fn total(&self) -> usize {
+        self.added + self.updated + self.removed + self.unchanged
+    }
+}
+
+impl Default for SyncResult {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -435,5 +526,35 @@ mod tests {
         assert_eq!(result.successful_launches, 2);
         assert_eq!(result.failed_launches, 1);
         assert!(!result.is_all_successful());
+    }
+
+    #[test]
+    fn test_sync_result_creation() {
+        let result = SyncResult::new();
+        assert_eq!(result.added, 0);
+        assert_eq!(result.updated, 0);
+        assert_eq!(result.removed, 0);
+        assert_eq!(result.unchanged, 0);
+        assert_eq!(result.total(), 0);
+    }
+
+    #[test]
+    fn test_sync_result_total() {
+        let result = SyncResult {
+            added: 5,
+            updated: 3,
+            removed: 2,
+            unchanged: 10,
+        };
+        assert_eq!(result.total(), 20);
+    }
+
+    #[test]
+    fn test_sync_result_default() {
+        let result = SyncResult::default();
+        assert_eq!(result.added, 0);
+        assert_eq!(result.updated, 0);
+        assert_eq!(result.removed, 0);
+        assert_eq!(result.unchanged, 0);
     }
 }

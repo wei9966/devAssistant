@@ -1,5 +1,5 @@
 <template>
-  <div class="launcher-window" @keydown="handleKeyDown" tabindex="0" ref="containerRef">
+  <div class="launcher-window" @keydown="handleKeyDown" @contextmenu.prevent tabindex="0" ref="containerRef">
     <!-- 背景遮罩层（点击关闭） -->
     <div class="launcher-backdrop" @click="closeLauncher"></div>
 
@@ -57,17 +57,37 @@
           <div
             v-for="(app, index) in displayApps"
             :key="app.id"
-            :class="['app-item', { selected: selectedIndex === index }]"
+            :class="['app-item', { selected: selectedIndex === index, pinned: app.isPinned }]"
             @click="handleLaunchApp(app)"
+            @contextmenu.prevent.stop="showContextMenu($event, app)"
             @mouseenter="selectedIndex = index"
           >
             <div :class="['app-icon', getAppColorClass(app.category)]">
               <img v-if="app.icon" :src="app.icon" :alt="app.name" class="app-icon-img" />
               <span v-else class="app-icon-fallback">{{ getAppInitial(app.name) }}</span>
+              <!-- 置顶标记 -->
+              <span v-if="app.isPinned" class="pin-badge">📌</span>
             </div>
             <span :class="['app-name', { 'app-name-selected': selectedIndex === index }]">
               {{ app.name }}
             </span>
+          </div>
+        </div>
+
+        <!-- 右键菜单 -->
+        <div
+          v-if="contextMenu.visible"
+          class="context-menu"
+          :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+          @click.stop
+        >
+          <div class="context-menu-item" @click="handleTogglePin">
+            <span class="menu-icon">{{ contextMenu.app?.isPinned ? '📍' : '📌' }}</span>
+            <span>{{ contextMenu.app?.isPinned ? '取消置顶' : '置顶' }}</span>
+          </div>
+          <div class="context-menu-item" @click="handleShowInFolder">
+            <span class="menu-icon">📂</span>
+            <span>打开文件位置</span>
           </div>
         </div>
 
@@ -157,6 +177,19 @@ const categories = ref<Category[]>([])
 const cpuUsage = ref(0)
 const memoryUsed = ref(0)
 
+// 右键菜单状态
+const contextMenu = ref<{
+  visible: boolean
+  x: number
+  y: number
+  app: AppItem | null
+}>({
+  visible: false,
+  x: 0,
+  y: 0,
+  app: null
+})
+
 // 分类标签
 const categoryTags = computed(() => {
   const defaultTags = [
@@ -191,7 +224,7 @@ const displayApps = computed(() => {
       const nameMatch = app.name.toLowerCase().includes(query)
 
       // 标签匹配
-      const tagMatch = app.tags.some(tag => tag.toLowerCase().includes(query))
+      const tagMatch = app.tags?.some(tag => tag.toLowerCase().includes(query)) ?? false
 
       // 拼音全拼匹配
       const pinyinFull = pinyin(app.name, { toneType: 'none', type: 'array' }).join('').toLowerCase()
@@ -304,6 +337,49 @@ const getAppInitial = (name: string): string => {
   return name.charAt(0).toUpperCase()
 }
 
+// 显示右键菜单
+const showContextMenu = (event: MouseEvent, app: AppItem) => {
+  contextMenu.value = {
+    visible: true,
+    x: event.clientX,
+    y: event.clientY,
+    app
+  }
+}
+
+// 隐藏右键菜单
+const hideContextMenu = () => {
+  contextMenu.value.visible = false
+  contextMenu.value.app = null
+}
+
+// 置顶/取消置顶
+const handleTogglePin = async () => {
+  if (!contextMenu.value.app) return
+  try {
+    await invoke('toggle_pin_app', { appId: contextMenu.value.app.id })
+    // 更新本地状态
+    const app = apps.value.find(a => a.id === contextMenu.value.app?.id)
+    if (app) {
+      app.isPinned = !app.isPinned
+    }
+  } catch (error) {
+    console.error('置顶失败:', error)
+  }
+  hideContextMenu()
+}
+
+// 打开文件位置
+const handleShowInFolder = async () => {
+  if (!contextMenu.value.app) return
+  try {
+    await invoke('show_in_folder', { path: contextMenu.value.app.path })
+  } catch (error) {
+    console.error('打开文件位置失败:', error)
+  }
+  hideContextMenu()
+}
+
 const formatMemory = (bytes: number): string => {
   const gb = bytes / (1024 * 1024 * 1024)
   return gb.toFixed(1) + 'GB'
@@ -352,6 +428,9 @@ onMounted(async () => {
     containerRef.value?.focus()
   })
 
+  // 点击任意位置隐藏右键菜单
+  document.addEventListener('click', hideContextMenu)
+
   // 监听窗口显示/隐藏
   const window = getCurrentWindow()
   window.onFocusChanged(({ payload: focused }) => {
@@ -362,6 +441,7 @@ onMounted(async () => {
       selectedIndex.value = 0
       activeTag.value = 'all'
       isLaunching.value = false
+      hideContextMenu()
       nextTick(() => {
         searchInputRef.value?.focus()
       })
@@ -696,5 +776,70 @@ onMounted(async () => {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
   font-size: 9px;
+}
+
+/* 置顶标记 */
+.app-icon {
+  position: relative;
+}
+
+.pin-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 10px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.app-item.pinned {
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+/* 右键菜单 */
+.context-menu {
+  position: fixed;
+  background: rgba(20, 20, 30, 0.98);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 8px;
+  padding: 4px 0;
+  min-width: 160px;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(139, 92, 246, 0.2);
+  z-index: 1000;
+  animation: contextMenuFadeIn 0.15s ease;
+}
+
+@keyframes contextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  color: #e2e8f0;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.context-menu-item:hover {
+  background: rgba(139, 92, 246, 0.2);
+  color: #fff;
+}
+
+.menu-icon {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
 }
 </style>

@@ -10,7 +10,7 @@ pub mod work_log;
 
 // Re-export commonly used types
 pub use app_launcher::{
-    AppItem, AppSearchParams, Category, ItemType, LaunchHistory, LaunchResult, Workflow,
+    AppItem, AppSearchParams, Category, ItemType, LaunchHistory, LaunchResult, SyncResult, Workflow,
     WorkflowLaunchResult,
 };
 pub use app_launcher_settings::AppLauncherSettings;

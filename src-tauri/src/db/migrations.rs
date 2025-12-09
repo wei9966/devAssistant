@@ -136,6 +136,9 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     create_predicted_tasks_table(conn)?;
     create_predicted_tasks_indexes(conn)?;
 
+    // 迁移 apps 表：添加应用扫描器字段
+    migrate_apps_add_scanner_fields(conn)?;
+
     Ok(())
 }
 
@@ -1971,6 +1974,101 @@ fn create_predicted_tasks_indexes(conn: &Connection) -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_predicted_tasks_priority ON predicted_tasks(priority)",
         [],
     )?;
+
+    Ok(())
+}
+
+/// 迁移 apps 表：添加应用扫描器字段
+fn migrate_apps_add_scanner_fields(conn: &Connection) -> Result<()> {
+    // 检查 app_source 列是否存在
+    let has_app_source: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('apps') WHERE name='app_source'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_app_source == 0 {
+        conn.execute("ALTER TABLE apps ADD COLUMN app_source TEXT", [])?;
+        println!("✓ 已添加 app_source 列到 apps 表");
+
+        // 创建索引以便按来源筛选
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_apps_app_source ON apps(app_source)",
+            [],
+        )?;
+    }
+
+    // 检查 aumid 列是否存在
+    let has_aumid: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('apps') WHERE name='aumid'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_aumid == 0 {
+        conn.execute("ALTER TABLE apps ADD COLUMN aumid TEXT", [])?;
+        println!("✓ 已添加 aumid 列到 apps 表");
+    }
+
+    // 检查 publisher 列是否存在
+    let has_publisher: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('apps') WHERE name='publisher'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_publisher == 0 {
+        conn.execute("ALTER TABLE apps ADD COLUMN publisher TEXT", [])?;
+        println!("✓ 已添加 publisher 列到 apps 表");
+    }
+
+    // 检查 version 列是否存在
+    let has_version: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('apps') WHERE name='version'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_version == 0 {
+        conn.execute("ALTER TABLE apps ADD COLUMN version TEXT", [])?;
+        println!("✓ 已添加 version 列到 apps 表");
+    }
+
+    // 检查 description 列是否存在
+    let has_description: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('apps') WHERE name='description'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_description == 0 {
+        conn.execute("ALTER TABLE apps ADD COLUMN description TEXT", [])?;
+        println!("✓ 已添加 description 列到 apps 表");
+    }
+
+    // 检查 install_location 列是否存在
+    let has_install_location: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('apps') WHERE name='install_location'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_install_location == 0 {
+        conn.execute("ALTER TABLE apps ADD COLUMN install_location TEXT", [])?;
+        println!("✓ 已添加 install_location 列到 apps 表");
+    }
 
     Ok(())
 }

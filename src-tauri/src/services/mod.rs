@@ -4,6 +4,7 @@
 pub mod activity_summary_service;
 pub mod ai_service;
 pub mod app_launcher_service;
+pub mod app_monitor_service;
 pub mod app_scanner_service;
 pub mod clipboard_history_service;
 pub mod context_manager_service;
@@ -36,6 +37,7 @@ pub mod work_log_service;
 pub use activity_summary_service::{ActivitySummary, ActivitySummaryService, ActivityType};
 pub use ai_service::{AiConfig, AiService, ChatMessage};
 pub use app_launcher_service::AppLauncherService;
+pub use app_monitor_service::{AppMonitorService, NewAppsDetectedEvent};
 pub use app_scanner_service::AppScannerService;
 pub use clipboard_history_service::ClipboardHistoryService;
 pub use context_store_service::ContextStoreService;

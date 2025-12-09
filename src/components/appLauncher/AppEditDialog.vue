@@ -71,6 +71,37 @@
         <n-switch v-model:value="formData.isPinned" />
       </n-form-item>
 
+      <!-- 应用元信息（只读，仅在编辑模式下显示） -->
+      <template v-if="isEdit && hasMetaInfo">
+        <n-divider title-placement="left" style="margin: 16px 0 8px 0">
+          <span style="font-size: 12px; color: #94a3b8">应用信息</span>
+        </n-divider>
+        <div class="meta-info">
+          <div v-if="app?.publisher" class="meta-item">
+            <span class="meta-label">发布者</span>
+            <span class="meta-value">{{ app.publisher }}</span>
+          </div>
+          <div v-if="app?.version" class="meta-item">
+            <span class="meta-label">版本</span>
+            <span class="meta-value">{{ app.version }}</span>
+          </div>
+          <div v-if="app?.appSource" class="meta-item">
+            <span class="meta-label">来源</span>
+            <span class="meta-value source-badge" :class="'source-' + app.appSource">
+              {{ getSourceName(app.appSource) }}
+            </span>
+          </div>
+          <div v-if="app?.installLocation" class="meta-item">
+            <span class="meta-label">安装位置</span>
+            <span class="meta-value path-value" :title="app.installLocation">{{ app.installLocation }}</span>
+          </div>
+          <div v-if="app?.description" class="meta-item meta-item-full">
+            <span class="meta-label">描述</span>
+            <span class="meta-value">{{ app.description }}</span>
+          </div>
+        </div>
+      </template>
+
       <!-- 图标管理 -->
       <n-form-item label="应用图标">
         <div class="icon-section">
@@ -128,6 +159,7 @@ import {
   NIcon,
   NRadioGroup,
   NRadio,
+  NDivider,
   useMessage,
   type FormInst,
   type FormRules,
@@ -179,6 +211,23 @@ const dialogVisible = computed({
 });
 
 const isEdit = computed(() => !!props.app);
+
+// 是否有元信息
+const hasMetaInfo = computed(() => {
+  return props.app && (props.app.publisher || props.app.version || props.app.appSource || props.app.installLocation || props.app.description);
+});
+
+// 获取来源名称
+const getSourceName = (source: string): string => {
+  const sourceMap: Record<string, string> = {
+    'start_menu': '开始菜单',
+    'registry': '注册表',
+    'shell_apps': '系统应用',
+    'uwp': 'UWP应用',
+    'manual': '手动添加',
+  };
+  return sourceMap[source] || source;
+};
 
 // 表单数据
 const defaultFormData: AppFormData = {
@@ -251,10 +300,10 @@ watch(
       formData.value = {
         name: newApp.name,
         path: newApp.path,
-        category: newApp.category,
-        tags: [...newApp.tags],
+        category: newApp.category || 'other',
+        tags: Array.isArray(newApp.tags) ? [...newApp.tags] : [],
         launchArgs: newApp.launchArgs || '',
-        isPinned: newApp.isPinned,
+        isPinned: newApp.isPinned || false,
         icon: newApp.icon,
         itemType: newApp.itemType || ItemType.Application,
       };
@@ -537,5 +586,79 @@ const handleCancel = () => {
 .app-edit-dialog :deep(.n-base-selection.n-base-selection--active) {
   border-color: #6366f1;
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+/* 元信息样式 */
+.meta-info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 8px;
+  border: 1px solid rgba(51, 65, 85, 0.3);
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-item-full {
+  grid-column: 1 / -1;
+}
+
+.meta-label {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.meta-value {
+  font-size: 13px;
+  color: #cbd5e1;
+  word-break: break-word;
+}
+
+.path-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 来源标签样式 */
+.source-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  width: fit-content;
+}
+
+.source-start_menu {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.source-registry {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.source-shell_apps {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+.source-uwp {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+}
+
+.source-manual {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
 }
 </style>

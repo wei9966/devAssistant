@@ -6,14 +6,30 @@ import type {
   LaunchHistory,
   CreateAppInput,
   UpdateAppInput,
+  SyncResult,
 } from '@/types/appLauncher';
 
 export const appLauncherApi = {
   // ==================== 应用管理 ====================
 
-  // 扫描系统已安装应用
+  // 扫描系统已安装应用（基础扫描，仅开始菜单）
   async scanInstalledApps(): Promise<AppItem[]> {
     return await invoke('scan_installed_apps');
+  },
+
+  // 完整扫描所有来源的应用（开始菜单 + 注册表 + shell:AppsFolder）
+  async fullScanApps(): Promise<AppItem[]> {
+    return await invoke('full_scan_apps');
+  },
+
+  // 同步扫描结果到数据库（智能合并，保留用户自定义数据）
+  async syncAppsToDb(apps: AppItem[]): Promise<SyncResult> {
+    return await invoke('sync_apps_to_db', { apps });
+  },
+
+  // 一键扫描并同步（组合命令）
+  async scanAndSyncApps(): Promise<SyncResult> {
+    return await invoke('scan_and_sync_apps');
   },
 
   // 获取所有应用
@@ -212,5 +228,22 @@ export const appLauncherApi = {
       console.error('获取文件图标失败:', error);
       return null;
     }
+  },
+
+  // ==================== 后台监控服务 ====================
+
+  // 启动应用监控服务
+  async startAppMonitor(): Promise<void> {
+    await invoke('start_app_monitor');
+  },
+
+  // 停止应用监控服务
+  async stopAppMonitor(): Promise<void> {
+    await invoke('stop_app_monitor');
+  },
+
+  // 获取监控服务状态
+  async getMonitorStatus(): Promise<boolean> {
+    return await invoke('get_monitor_status');
   },
 };

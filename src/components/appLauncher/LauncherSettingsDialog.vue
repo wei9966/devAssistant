@@ -9,6 +9,28 @@
   >
     <n-spin :show="loading">
       <div class="settings-content">
+        <!-- 自动监控新应用 -->
+        <div class="settings-section">
+          <div class="section-header">
+            <h3>自动监控新应用</h3>
+            <p class="section-desc">
+              开启后，系统会自动检测新安装的应用并添加到启动器中。
+            </p>
+          </div>
+          <div class="monitor-setting">
+            <n-switch
+              v-model:value="monitorEnabled"
+              :loading="monitorLoading"
+              @update:value="handleMonitorToggle"
+            />
+            <span class="monitor-status">
+              {{ monitorEnabled ? '监控已开启' : '监控已关闭' }}
+            </span>
+          </div>
+        </div>
+
+        <n-divider />
+
         <!-- 允许的文件类型 -->
         <div class="settings-section">
           <div class="section-header">
@@ -104,6 +126,8 @@ import {
   NSpin,
   NAlert,
   NIcon,
+  NSwitch,
+  NDivider,
   useMessage,
 } from 'naive-ui';
 import { InformationCircleOutline } from '@vicons/ionicons5';
@@ -131,6 +155,10 @@ const settings = ref<AppLauncherSettings>({
   allowedExtensions: ['exe', 'lnk'],
 });
 const newExtension = ref('');
+
+// 监控状态
+const monitorEnabled = ref(false);
+const monitorLoading = ref(false);
 
 // 默认扩展名(不可删除)
 const defaultExtensions = ['exe', 'lnk'];
@@ -167,13 +195,39 @@ watch(showModal, (newVal) => {
 const loadSettings = async () => {
   loading.value = true;
   try {
+    // 加载启动器设置
     const result = await invoke<AppLauncherSettings>('get_launcher_settings');
     settings.value = result;
+
+    // 加载监控状态
+    const monitorStatus = await invoke<boolean>('get_monitor_status');
+    monitorEnabled.value = monitorStatus;
   } catch (error) {
     console.error('加载设置失败:', error);
     message.error('加载设置失败: ' + error);
   } finally {
     loading.value = false;
+  }
+};
+
+// 切换监控开关
+const handleMonitorToggle = async (enabled: boolean) => {
+  monitorLoading.value = true;
+  try {
+    if (enabled) {
+      await invoke('start_app_monitor');
+      message.success('应用监控已开启');
+    } else {
+      await invoke('stop_app_monitor');
+      message.success('应用监控已关闭');
+    }
+  } catch (error) {
+    console.error('切换监控失败:', error);
+    message.error('操作失败: ' + error);
+    // 回滚状态
+    monitorEnabled.value = !enabled;
+  } finally {
+    monitorLoading.value = false;
   }
 };
 
@@ -277,6 +331,20 @@ const handleCancel = () => {
   font-size: 13px;
   color: #94a3b8;
   line-height: 1.6;
+}
+
+.monitor-setting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 8px;
+}
+
+.monitor-status {
+  font-size: 14px;
+  color: #cbd5e1;
 }
 
 .extensions-list {

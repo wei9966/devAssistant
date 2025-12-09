@@ -7,11 +7,17 @@
     <div class="launcher-header">
       <h2 class="page-title">应用启动器</h2>
       <n-space>
+        <n-button type="primary" @click="handleFullScanAndSync" :loading="fullScanning">
+          <template #icon>
+            <n-icon><SyncOutline /></n-icon>
+          </template>
+          {{ fullScanProgress || '智能扫描' }}
+        </n-button>
         <n-button @click="handleScanApps" :loading="scanning">
           <template #icon>
             <n-icon><ScanOutline /></n-icon>
           </template>
-          扫描应用
+          扫描目录
         </n-button>
         <n-button @click="handleRefreshIcons" :loading="refreshingIcons">
           <template #icon>
@@ -126,69 +132,81 @@
       </div>
     </div>
 
-    <!-- Apps Grid/List -->
-    <div class="apps-container custom-scrollbar">
-      <!-- 置顶应用 -->
-      <div v-if="pinnedApps.length > 0" class="apps-section">
-        <div class="section-header">
-          <n-icon size="16" color="#6366f1"><Pin /></n-icon>
-          <span>置顶应用</span>
+    <!-- Apps Grid/List with Virtual Scrolling -->
+    <VirtualGrid
+      ref="virtualGridRef"
+      :items="unpinnedApps"
+      :item-width="viewMode === 'grid' ? 200 : 0"
+      :item-height="160"
+      :gap="16"
+      :buffer="3"
+      :class="['apps-container', { 'list-mode': viewMode === 'list' }]"
+    >
+      <!-- 置顶应用 (不使用虚拟滚动) -->
+      <template #pinned>
+        <div v-if="pinnedApps.length > 0" class="apps-section">
+          <div class="section-header">
+            <n-icon size="16" color="#6366f1"><Pin /></n-icon>
+            <span>置顶应用</span>
+          </div>
+          <div :class="['apps-grid', viewMode]">
+            <AppCard
+              v-for="app in pinnedApps"
+              :key="app.id"
+              :app="app"
+              :is-being-dragged="draggingApp?.id === app.id"
+              :batch-select-mode="batchSelectMode"
+              :is-selected="selectedAppIds.has(app.id)"
+              @launch="handleLaunch"
+              @pin="handlePin"
+              @edit="handleEdit"
+              @delete="handleDelete"
+              @mousedown-drag="handleMouseDragStart"
+              @toggle-select="handleToggleSelect"
+              @show-in-folder="handleShowInFolder"
+            />
+          </div>
         </div>
-        <div :class="['apps-grid', viewMode]">
-          <AppCard
-            v-for="app in pinnedApps"
-            :key="app.id"
-            :app="app"
-            :is-being-dragged="draggingApp?.id === app.id"
-            :batch-select-mode="batchSelectMode"
-            :is-selected="selectedAppIds.has(app.id)"
-            @launch="handleLaunch"
-            @pin="handlePin"
-            @edit="handleEdit"
-            @delete="handleDelete"
-            @mousedown-drag="handleMouseDragStart"
-            @toggle-select="handleToggleSelect"
-            @show-in-folder="handleShowInFolder"
-          />
-        </div>
-      </div>
+      </template>
 
-      <!-- 所有应用 -->
-      <div v-if="unpinnedApps.length > 0" class="apps-section">
+      <!-- 所有应用区域标题 -->
+      <template #header>
         <div class="section-header">
           <n-icon size="16" color="#94a3b8"><AppsOutline /></n-icon>
           <span>{{ selectedCategory === 'all' ? '所有应用' : currentCategoryName }}</span>
         </div>
-        <div :class="['apps-grid', viewMode]">
-          <AppCard
-            v-for="app in unpinnedApps"
-            :key="app.id"
-            :app="app"
-            :is-being-dragged="draggingApp?.id === app.id"
-            :batch-select-mode="batchSelectMode"
-            :is-selected="selectedAppIds.has(app.id)"
-            @launch="handleLaunch"
-            @pin="handlePin"
-            @edit="handleEdit"
-            @delete="handleDelete"
-            @mousedown-drag="handleMouseDragStart"
-            @toggle-select="handleToggleSelect"
-            @show-in-folder="handleShowInFolder"
-          />
-        </div>
-      </div>
+      </template>
+
+      <!-- 虚拟滚动的应用卡片 -->
+      <template #item="{ item: app }">
+        <AppCard
+          :app="app"
+          :is-being-dragged="draggingApp?.id === app.id"
+          :batch-select-mode="batchSelectMode"
+          :is-selected="selectedAppIds.has(app.id)"
+          @launch="handleLaunch"
+          @pin="handlePin"
+          @edit="handleEdit"
+          @delete="handleDelete"
+          @mousedown-drag="handleMouseDragStart"
+          @toggle-select="handleToggleSelect"
+          @show-in-folder="handleShowInFolder"
+        />
+      </template>
 
       <!-- 空状态 -->
-      <n-empty
-        v-if="filteredApps.length === 0"
-        description="暂无应用，点击【添加应用】或【扫描应用】开始"
-        class="empty-state"
-      >
-        <template #icon>
-          <n-icon size="64" color="#64748b"><AppsOutline /></n-icon>
-        </template>
-      </n-empty>
-    </div>
+      <template #empty>
+        <n-empty
+          v-if="filteredApps.length === 0"
+          description="暂无应用，点击【添加应用】或【扫描应用】开始"
+          class="empty-state"
+        >
+          <template #icon>
+            <n-icon size="64" color="#64748b"><AppsOutline /></n-icon>
+          </template>
+        </n-empty>
+      </template>
+    </VirtualGrid>
 
     <!-- 应用编辑对话框 -->
     <AppEditDialog
@@ -265,6 +283,7 @@ import {
   TrashOutline,
   SparklesOutline,
   CheckboxOutline,
+  SyncOutline,
 } from '@vicons/ionicons5';
 import AppCard from '@/components/appLauncher/AppCard.vue';
 import AppSearchBar from '@/components/appLauncher/AppSearchBar.vue';
@@ -274,6 +293,7 @@ import WorkflowEditDialog from '@/components/appLauncher/WorkflowEditDialog.vue'
 import AppQuickLaunchModal from '@/components/appLauncher/AppQuickLaunchModal.vue';
 import CategoryManager from '@/components/appLauncher/CategoryManager.vue';
 import LauncherSettingsDialog from '@/components/appLauncher/LauncherSettingsDialog.vue';
+import VirtualGrid from '@/components/appLauncher/VirtualGrid.vue';
 import type { AppItem, Category, Workflow } from '@/types/appLauncher';
 import { DEFAULT_CATEGORIES, ItemType } from '@/types/appLauncher';
 
@@ -285,6 +305,8 @@ const aiStore = useAiStore();
 const scanning = ref(false);
 const refreshingIcons = ref(false);
 const aiClassifying = ref(false);
+const fullScanning = ref(false);
+const fullScanProgress = ref('');
 const searchKeyword = ref('');
 const selectedCategory = ref(localStorage.getItem('appLauncher_selectedCategory') || 'all');
 const viewMode = ref<'grid' | 'list'>('grid');
@@ -309,6 +331,9 @@ const hoveredCategoryId = ref<string | null>(null);
 const allApps = ref<AppItem[]>([]);
 const categories = ref<Category[]>(DEFAULT_CATEGORIES.map((cat) => ({ ...cat, createdAt: Date.now() })));
 const workflows = ref<Workflow[]>([]);
+
+// 虚拟滚动组件引用
+const virtualGridRef = ref<InstanceType<typeof VirtualGrid> | null>(null);
 
 // 页面加载时从数据库读取应用列表
 const loadAppsFromDatabase = async () => {
@@ -561,18 +586,57 @@ const handleRefreshIcons = async () => {
   }
 };
 
+// 智能扫描并同步 - 扫描所有来源（开始菜单+注册表+shell:AppsFolder）并同步到数据库
+const handleFullScanAndSync = async () => {
+  fullScanning.value = true;
+  fullScanProgress.value = '扫描中...';
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+
+    // 调用一键扫描并同步命令
+    fullScanProgress.value = '正在扫描系统应用...';
+    const result = await invoke<{ added: number; updated: number; removed: number; unchanged: number }>('scan_and_sync_apps');
+
+    // 重新加载应用列表
+    await loadAppsFromDatabase();
+
+    // 显示结果
+    const parts = [];
+    if (result.added > 0) parts.push(`新增 ${result.added} 个`);
+    if (result.updated > 0) parts.push(`更新 ${result.updated} 个`);
+    if (result.removed > 0) parts.push(`移除 ${result.removed} 个`);
+
+    if (parts.length > 0) {
+      message.success(`扫描完成：${parts.join('，')}`);
+    } else {
+      message.info('扫描完成，应用列表已是最新');
+    }
+  } catch (error) {
+    message.error('扫描失败: ' + error);
+    console.error('智能扫描失败:', error);
+  } finally {
+    fullScanning.value = false;
+    fullScanProgress.value = '';
+  }
+};
+
 const handleSearch = (keyword: string) => {
   searchKeyword.value = keyword;
+  // 搜索时滚动到顶部
+  virtualGridRef.value?.scrollToTop();
 };
 
 const handleClearSearch = () => {
   searchKeyword.value = '';
+  virtualGridRef.value?.scrollToTop();
 };
 
 const handleSelectCategory = (categoryId: string) => {
   selectedCategory.value = categoryId;
   // 保存选中的分类到本地存储
   localStorage.setItem('appLauncher_selectedCategory', categoryId);
+  // 切换分类时滚动到顶部
+  virtualGridRef.value?.scrollToTop();
 };
 
 const handleLaunch = async (appIdOrApp: string | AppItem) => {
@@ -1319,13 +1383,10 @@ const handleCancelCategoryManager = () => {
   gap: 12px;
 }
 
-/* Apps Container */
+/* Apps Container (VirtualGrid) */
 .apps-container {
   flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
+  min-height: 0; /* 重要：允许flex子项收缩 */
 }
 
 .apps-section {
