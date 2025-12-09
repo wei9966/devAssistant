@@ -226,6 +226,11 @@ impl SqlAiService {
         let base_url = self.config.get_base_url();
         let model = self.config.get_model();
 
+        println!("=== AI 服务配置 ===");
+        println!("Provider: {:?}", self.config.provider);
+        println!("Base URL: {}", base_url);
+        println!("Model: {}", model);
+
         let request = ChatRequest {
             model: model.to_string(),
             messages: vec![Message {
@@ -236,7 +241,20 @@ impl SqlAiService {
             max_tokens: 4096,
         };
 
-        let url = format!("{}/v1/chat/completions", base_url);
+        // 自定义提供商：如果 base_url 已包含版本路径（如 /v3、/v1），则直接追加 /chat/completions
+        // 否则按标准 OpenAI 格式追加 /v1/chat/completions
+        let url = if self.config.provider == AiProvider::Custom {
+            let trimmed_url = base_url.trim_end_matches('/');
+            // 检查是否已包含版本路径（如 /v1, /v2, /v3 等）
+            if trimmed_url.contains("/v1") || trimmed_url.contains("/v2") || trimmed_url.contains("/v3") {
+                format!("{}/chat/completions", trimmed_url)
+            } else {
+                format!("{}/v1/chat/completions", trimmed_url)
+            }
+        } else {
+            format!("{}/v1/chat/completions", base_url)
+        };
+        println!("完整请求 URL: {}", url);
 
         let response = self
             .client
@@ -254,16 +272,23 @@ impl SqlAiService {
             return Err(anyhow!("API 返回错误 {}: {}", status, error_text));
         }
 
-        let chat_response: ChatResponse = response
-            .json()
+        let response_text = response
+            .text()
             .await
-            .map_err(|e| anyhow!("解析响应失败: {}", e))?;
+            .map_err(|e| anyhow!("读取响应内容失败: {}", e))?;
+
+        let chat_response: ChatResponse = serde_json::from_str(&response_text)
+            .map_err(|e| anyhow!("解析响应JSON失败: {} - 响应内容: {}", e, &response_text[..response_text.len().min(500)]))?;
 
         let content = chat_response
             .choices
             .first()
             .map(|c| c.message.content.clone())
-            .unwrap_or_default();
+            .ok_or_else(|| anyhow!("AI 返回的响应中没有有效内容"))?;
+
+        if content.trim().is_empty() {
+            return Err(anyhow!("AI 返回的内容为空"));
+        }
 
         // 解析 AI 返回的 JSON
         let category_names: Vec<String> = categories.iter().map(|c| c.name.clone()).collect();
@@ -349,7 +374,17 @@ impl SqlAiService {
             max_tokens: 10,
         };
 
-        let url = format!("{}/v1/chat/completions", base_url);
+        // 自定义提供商：如果 base_url 已包含版本路径，则直接追加 /chat/completions
+        let url = if self.config.provider == AiProvider::Custom {
+            let trimmed_url = base_url.trim_end_matches('/');
+            if trimmed_url.contains("/v1") || trimmed_url.contains("/v2") || trimmed_url.contains("/v3") {
+                format!("{}/chat/completions", trimmed_url)
+            } else {
+                format!("{}/v1/chat/completions", trimmed_url)
+            }
+        } else {
+            format!("{}/v1/chat/completions", base_url)
+        };
 
         let response = self
             .client
@@ -391,7 +426,17 @@ impl SqlAiService {
             max_tokens: 4096,
         };
 
-        let url = format!("{}/v1/chat/completions", base_url);
+        // 自定义提供商：如果 base_url 已包含版本路径，则直接追加 /chat/completions
+        let url = if self.config.provider == AiProvider::Custom {
+            let trimmed_url = base_url.trim_end_matches('/');
+            if trimmed_url.contains("/v1") || trimmed_url.contains("/v2") || trimmed_url.contains("/v3") {
+                format!("{}/chat/completions", trimmed_url)
+            } else {
+                format!("{}/v1/chat/completions", trimmed_url)
+            }
+        } else {
+            format!("{}/v1/chat/completions", base_url)
+        };
 
         let response = self
             .client
@@ -409,16 +454,23 @@ impl SqlAiService {
             return Err(anyhow!("API 返回错误 {}: {}", status, error_text));
         }
 
-        let chat_response: ChatResponse = response
-            .json()
+        let response_text = response
+            .text()
             .await
-            .map_err(|e| anyhow!("解析响应失败: {}", e))?;
+            .map_err(|e| anyhow!("读取响应内容失败: {}", e))?;
+
+        let chat_response: ChatResponse = serde_json::from_str(&response_text)
+            .map_err(|e| anyhow!("解析响应JSON失败: {} - 响应内容: {}", e, &response_text[..response_text.len().min(500)]))?;
 
         let content = chat_response
             .choices
             .first()
             .map(|c| c.message.content.clone())
-            .unwrap_or_default();
+            .ok_or_else(|| anyhow!("AI 返回的响应中没有有效内容"))?;
+
+        if content.trim().is_empty() {
+            return Err(anyhow!("AI 返回的内容为空"));
+        }
 
         // 解析 AI 返回的场景识别结果
         Ok(self.parse_scene_response(&content))

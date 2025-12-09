@@ -43,6 +43,11 @@
 
     <!-- 层级分组列表 -->
     <div v-else-if="groupedData.length > 0" class="group-list">
+      <!-- 折叠状态提示 -->
+      <div v-if="!allExpanded && expandedTables.size === 0" class="collapsed-hint">
+        <n-icon :component="InformationCircleOutline" size="20" />
+        <span>点击下方表名展开查看SQL模板详情</span>
+      </div>
       <!-- 按表名分组 -->
       <div v-for="tableGroup in filteredGroups" :key="tableGroup.tableName" class="table-group">
         <div class="table-header" @click="toggleTableGroup(tableGroup.tableName)">
@@ -141,7 +146,7 @@ import {
   NCollapseTransition, NIcon, useMessage
 } from 'naive-ui'
 import {
-  FlashOutline, SearchOutline, ChevronForward, CopyOutline
+  FlashOutline, SearchOutline, ChevronForward, CopyOutline, InformationCircleOutline
 } from '@vicons/ionicons5'
 import { sqlApi } from '@/api/sqlApi'
 import type { SqlTemplate, SqlRecord } from '@/types/sql'
@@ -433,6 +438,21 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
   padding: 48px;
   background: rgba(15, 23, 42, 0.4);
   border-radius: 12px;
+}
+
+/* 折叠状态提示 */
+.collapsed-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 20px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 10px;
+  color: #a5b4fc;
+  font-size: 13px;
+  margin-bottom: 12px;
 }
 
 /* 分组列表 */

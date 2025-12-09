@@ -48,11 +48,11 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/data-statistics',
-    name: 'data-statistics',
-    component: () => import('../views/DataStatistics.vue'),
+    path: '/report-center',
+    name: 'report-center',
+    component: () => import('../views/ReportCenter.vue'),
     meta: {
-      title: '数据统计'
+      title: '报表中心'
     }
   },
   {

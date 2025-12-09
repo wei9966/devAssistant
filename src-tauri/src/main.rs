@@ -1106,9 +1106,6 @@ fn main() {
             commands::sql_commands::batch_update_sql_name_categories,
             commands::sql_commands::get_category_sql_counts,
             // SQL AI 相关命令
-            commands::sql_ai_commands::configure_sql_ai,
-            commands::sql_ai_commands::get_sql_ai_status,
-            commands::sql_ai_commands::test_sql_ai_connection,
             commands::sql_ai_commands::ai_classify_sqls,
             commands::sql_ai_commands::manual_classify_sql,
             // SQL 模板相关命令

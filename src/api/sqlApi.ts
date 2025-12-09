@@ -158,7 +158,16 @@ export const sqlApi = {
     sqlIds?: number[],
     limit?: number
   ): Promise<SqlClassifyResult[]> {
-    return await invoke('ai_classify_sqls', { sqlIds, limit });
+    console.log('=== sqlApi.aiClassifySqls 被调用 ===');
+    console.log('参数:', { sqlIds, limit });
+    try {
+      const result = await invoke('ai_classify_sqls', { sqlIds, limit });
+      console.log('调用成功, 结果:', result);
+      return result as SqlClassifyResult[];
+    } catch (error) {
+      console.error('invoke ai_classify_sqls 失败:', error);
+      throw error;
+    }
   },
 
   // 手动分类单条 SQL（支持多标签）

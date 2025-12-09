@@ -847,7 +847,8 @@ async function handleAiClassify() {
     const results = await sqlStore.aiClassifySqls(undefined, 20);
     message.success(`成功分类 ${results.length} 条 SQL`);
   } catch (error) {
-    message.error('AI 分类失败: ' + (error as Error).message);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    message.error('AI 分类失败: ' + (errorMsg || '未知错误'));
   }
 }
 
@@ -975,14 +976,17 @@ function handleCopySql(sql: string) {
 .history-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 24px;
+  gap: 16px;
 }
 
 .history-title {
   font-size: 20px;
   font-weight: 600;
   color: #f1f5f9;
+  white-space: nowrap;
+  flex-shrink: 0;
   letter-spacing: -0.025em;
   margin: 0;
 }
@@ -990,7 +994,11 @@ function handleCopySql(sql: string) {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 /* Search Box */

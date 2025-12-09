@@ -142,9 +142,9 @@ import {
   BookOutline as LogIcon,
   RocketOutline as LauncherIcon,
   ImagesOutline as ScreenshotIcon,
-  StatsChartOutline as StatsIcon,
   NotificationsOutline as NotificationIcon,
-  SettingsOutline as SettingsIcon
+  SettingsOutline as SettingsIcon,
+  PieChartOutline as ReportIcon
 } from '@vicons/ionicons5'
 import { invoke } from '@tauri-apps/api/core'
 import CyberpunkLauncher from '@/components/appLauncher/CyberpunkLauncher.vue'
@@ -378,9 +378,9 @@ const menuOptions: MenuOption[] = [
     icon: () => h(ScreenshotIcon)
   },
   {
-    label: '数据统计',
-    key: 'data-statistics',
-    icon: () => h(StatsIcon)
+    label: '报表中心',
+    key: 'report-center',
+    icon: () => h(ReportIcon)
   },
   {
     label: '通知中心',

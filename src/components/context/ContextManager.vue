@@ -1,12 +1,6 @@
 <template>
   <div class="context-manager">
     <n-tabs type="line" animated>
-      <n-tab-pane name="timeline" tab="时间线">
-        <ContextTimeline />
-      </n-tab-pane>
-      <n-tab-pane name="browse" tab="浏览记录">
-        <ContextBrowser />
-      </n-tab-pane>
       <n-tab-pane name="capture" tab="采集设置">
         <ContextSettings />
       </n-tab-pane>
@@ -19,8 +13,6 @@
 
 <script setup lang="ts">
 import { NTabs, NTabPane } from 'naive-ui';
-import ContextTimeline from './ContextTimeline.vue';
-import ContextBrowser from './ContextBrowser.vue';
 import ContextSettings from './ContextSettings.vue';
 import VlmSettings from './VlmSettings.vue';
 </script>

@@ -1,6 +1,6 @@
 {
   "name": "dev-assistant",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "DevAssistant - 个人开发效率工具",
   "type": "module",
   "scripts": {

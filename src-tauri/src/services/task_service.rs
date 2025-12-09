@@ -35,24 +35,37 @@ impl TaskService {
         Ok(tasks)
     }
 
-    /// 获取已完成的任务（最近 7 天）
+    /// 获取已完成的任务
+    /// days: 天数限制，0或负数表示获取所有历史完成任务
     pub fn get_completed_tasks(conn: &Connection, days: i64) -> Result<Vec<Task>> {
-        let mut stmt = conn.prepare(
-            "SELECT id, title, description, category, priority, status, git_branch,
-                    created_at, started_at, last_active_at, completed_at,
-                    estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at, display_date, scheduled_start_time
-             FROM tasks
-             WHERE status = 'done'
-               AND completed_at >= datetime('now', 'localtime', ? || ' days')
-             ORDER BY completed_at DESC",
-        )?;
-
-        let mut tasks = stmt
-            .query_map(params![format!("-{}", days)], |row| {
-                Self::map_row_to_task(row)
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut tasks = if days <= 0 {
+            // 获取所有历史完成任务
+            let mut stmt = conn.prepare(
+                "SELECT id, title, description, category, priority, status, git_branch,
+                        created_at, started_at, last_active_at, completed_at,
+                        estimated_hours, actual_hours, context_json, notes, quadrant,
+                        due_date, registered_at, display_date, scheduled_start_time
+                 FROM tasks
+                 WHERE status = 'done'
+                 ORDER BY completed_at DESC",
+            )?;
+            let rows = stmt.query_map([], |row| Self::map_row_to_task(row))?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        } else {
+            // 获取最近N天的完成任务
+            let mut stmt = conn.prepare(
+                "SELECT id, title, description, category, priority, status, git_branch,
+                        created_at, started_at, last_active_at, completed_at,
+                        estimated_hours, actual_hours, context_json, notes, quadrant,
+                        due_date, registered_at, display_date, scheduled_start_time
+                 FROM tasks
+                 WHERE status = 'done'
+                   AND completed_at >= datetime('now', 'localtime', ? || ' days')
+                 ORDER BY completed_at DESC",
+            )?;
+            let rows = stmt.query_map(params![format!("-{}", days)], |row| Self::map_row_to_task(row))?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
 
         // 为每个任务加载标签
         for task in tasks.iter_mut() {
