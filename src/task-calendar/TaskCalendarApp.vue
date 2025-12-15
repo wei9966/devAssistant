@@ -1,76 +1,128 @@
 <template>
   <n-config-provider :theme="darkTheme">
     <div class="calendar-wrapper">
-      <!-- 拖动区域和头部 -->
-      <div class="calendar-header" data-tauri-drag-region>
-        <div class="header-left">
-          <div class="handle-dots">
-            <span></span><span></span><span></span>
+      <!-- 主容器 - 双栏布局 -->
+      <div class="main-container">
+        <!-- 左侧区域：日历 -->
+        <div class="left-section">
+          <!-- 拖动区域和头部 -->
+          <div class="calendar-header" data-tauri-drag-region>
+            <div class="header-left">
+              <div class="handle-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <span class="title">任务日历</span>
+            </div>
+            <div class="header-actions">
+              <button class="nav-btn" @click="navigatePrev">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </button>
+              <span class="date-display">{{ dateDisplayText }}</span>
+              <button class="nav-btn" @click="navigateNext">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
           </div>
-          <span class="title">任务日历</span>
-        </div>
-        <div class="header-center">
-          <button class="nav-btn" @click="navigatePrev">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-              <polyline points="15 18 9 12 15 6"></polyline>
-            </svg>
-          </button>
-          <span class="date-display">{{ dateDisplayText }}</span>
-          <button class="nav-btn" @click="navigateNext">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </button>
-        </div>
-        <div class="header-right">
-          <button class="view-btn" :class="{ active: viewMode === 'week' }" @click="viewMode = 'week'">周</button>
-          <button class="view-btn" :class="{ active: viewMode === 'month' }" @click="viewMode = 'month'">月</button>
-        </div>
-      </div>
 
-      <!-- 日历内容 -->
-      <div class="calendar-content">
-        <!-- 月视图 -->
-        <MonthView
-          v-if="viewMode === 'month'"
-          :currentDate="currentDate"
-          :tasks="tasks"
-          :selectedDate="selectedDate"
-          @select-date="handleSelectDate"
-          @task-action="handleTaskAction"
-        />
-        <!-- 周视图 -->
-        <WeekView
-          v-else
-          :currentDate="currentDate"
-          :tasks="tasks"
-          :selectedDate="selectedDate"
-          @select-date="handleSelectDate"
-          @task-action="handleTaskAction"
-        />
-      </div>
+          <!-- 工具栏 -->
+          <div class="toolbar">
+            <!-- 搜索框 -->
+            <div class="search-box">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+              </svg>
+              <input
+                type="text"
+                class="search-input"
+                placeholder="搜索历史任务..."
+                v-model="searchQuery"
+              />
+            </div>
 
-      <!-- 选中日期的任务列表 -->
-      <div v-if="selectedDate" class="task-panel">
-        <div class="panel-header">
-          <span class="panel-date">{{ formatSelectedDate }}</span>
-          <span class="task-count">{{ selectedDateTasks.length }} 个任务</span>
-        </div>
-        <div class="task-list">
-          <div
-            v-for="task in selectedDateTasks"
-            :key="task.id"
-            class="task-item"
-            :class="[task.status, `priority-${task.priority}`]"
-            @click="showTaskDetail(task)"
-            @contextmenu.prevent="showContextMenu($event, task)"
-          >
-            <div class="task-status-dot" :class="task.status"></div>
-            <span class="task-title">{{ task.title }}</span>
-            <span class="task-category">{{ getCategoryLabel(task.category) }}</span>
+            <!-- 视图切换 -->
+            <div class="view-switch">
+              <button class="view-btn" :class="{ active: viewMode === 'week' }" @click="viewMode = 'week'">周</button>
+              <button class="view-btn" :class="{ active: viewMode === 'month' }" @click="viewMode = 'month'">月</button>
+            </div>
           </div>
-          <div v-if="selectedDateTasks.length === 0" class="empty-hint">
-            暂无任务
+
+          <!-- 搜索结果 -->
+          <div v-if="searchQuery && searchResults.length > 0" class="search-results">
+            <div class="search-results-header">
+              <span>搜索结果 ({{ searchResults.length }})</span>
+            </div>
+            <div class="search-results-list">
+              <div
+                v-for="task in searchResults"
+                :key="task.id"
+                class="search-result-item"
+                @click="handleSearchResultClick(task)"
+              >
+                <div class="task-status-dot" :class="task.status"></div>
+                <div class="search-result-content">
+                  <span class="search-result-title">{{ task.title }}</span>
+                  <span class="search-result-date">{{ task.createdAt?.split(' ')[0] || task.displayDate }}</span>
+                </div>
+                <span class="task-category">{{ getCategoryLabel(task.category) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 日历内容 -->
+          <div v-else class="calendar-content">
+            <!-- 月视图 -->
+            <MonthView
+              v-if="viewMode === 'month'"
+              :currentDate="currentDate"
+              :tasks="tasks"
+              :selectedDate="selectedDate"
+              @select-date="handleSelectDate"
+              @task-action="handleTaskAction"
+            />
+            <!-- 周视图 -->
+            <WeekView
+              v-else
+              :currentDate="currentDate"
+              :tasks="tasks"
+              :selectedDate="selectedDate"
+              @select-date="handleSelectDate"
+              @task-action="handleTaskAction"
+            />
+          </div>
+        </div>
+
+        <!-- 右侧区域：任务详情面板 -->
+        <div class="right-section">
+          <div class="panel-header">
+            <div class="panel-date-info">
+              <span class="panel-date">{{ formatSelectedDate }}</span>
+              <span class="task-count">{{ selectedDateTasks.length }} 个任务</span>
+            </div>
+          </div>
+
+          <div class="task-list">
+            <div
+              v-for="task in selectedDateTasks"
+              :key="task.id"
+              class="task-item"
+              :class="[task.status, `priority-${task.priority}`]"
+              @click="showTaskDetail(task)"
+              @contextmenu.prevent="showContextMenu($event, task)"
+            >
+              <div class="task-status-dot" :class="task.status"></div>
+              <div class="task-item-content">
+                <span class="task-title">{{ task.title }}</span>
+                <span class="task-category">{{ getCategoryLabel(task.category) }}</span>
+              </div>
+            </div>
+            <div v-if="selectedDateTasks.length === 0" class="empty-hint">
+              暂无任务
+            </div>
           </div>
         </div>
       </div>
@@ -262,12 +314,12 @@ import TaskDetailModal from '@/components/TaskDetailModal.vue';
 const CALENDAR_SIZE_KEY = 'task_calendar_size';
 const CALENDAR_POSITION_KEY = 'task_calendar_position';
 
-// 预设尺寸
+// 预设尺寸 (双栏布局需要更宽的尺寸)
 const SIZE_PRESETS = {
-  small: { width: 380, height: 450, label: '小' },
-  medium: { width: 420, height: 560, label: '中' },
-  large: { width: 520, height: 680, label: '大' },
-  xlarge: { width: 650, height: 800, label: '特大' }
+  small: { width: 650, height: 450, label: '小' },
+  medium: { width: 750, height: 560, label: '中' },
+  large: { width: 900, height: 680, label: '大' },
+  xlarge: { width: 1050, height: 800, label: '特大' }
 };
 
 // 视图模式
@@ -281,6 +333,9 @@ const selectedDate = ref<string | null>(null);
 
 // 任务数据
 const tasks = ref<Task[]>([]);
+
+// 搜索功能
+const searchQuery = ref('');
 
 // 右键菜单状态
 const contextMenu = ref<{
@@ -362,6 +417,16 @@ const selectedDateTasks = computed(() => {
     if (a.status !== 'done' && b.status === 'done') return -1;
     return (a.priority || 3) - (b.priority || 3);
   });
+});
+
+// 搜索结果
+const searchResults = computed(() => {
+  if (!searchQuery.value.trim()) return [];
+  const query = searchQuery.value.toLowerCase().trim();
+  return tasks.value.filter(task =>
+    task.title.toLowerCase().includes(query) ||
+    task.description?.toLowerCase().includes(query)
+  );
 });
 
 // 获取任务显示日期
@@ -454,6 +519,22 @@ function goToToday() {
 // 选择日期
 function handleSelectDate(date: string) {
   selectedDate.value = date;
+}
+
+// 处理搜索结果点击
+function handleSearchResultClick(task: Task) {
+  const taskDate = getTaskDisplayDate(task);
+  selectedDate.value = taskDate;
+
+  // 跳转到任务所在的日期
+  const date = new Date(taskDate);
+  currentDate.value = date;
+
+  // 清空搜索
+  searchQuery.value = '';
+
+  // 显示任务详情
+  showTaskDetail(task);
 }
 
 // 获取分类标签
@@ -682,12 +763,12 @@ async function startResize(e: MouseEvent, direction: string) {
       let newX = startPos.x;
       let newY = startPos.y;
 
-      // 根据方向计算新尺寸
+      // 根据方向计算新尺寸 (双栏布局最小宽度650px)
       if (direction.includes('East')) {
-        newWidth = Math.max(380, startSize.width + deltaX);
+        newWidth = Math.max(650, startSize.width + deltaX);
       }
       if (direction.includes('West')) {
-        const widthDelta = Math.min(deltaX, startSize.width - 380);
+        const widthDelta = Math.min(deltaX, startSize.width - 650);
         newWidth = startSize.width - widthDelta;
         newX = startPos.x + widthDelta;
       }
@@ -877,9 +958,9 @@ onUnmounted(() => {
 .calendar-wrapper {
   width: 100%;
   height: 100%;
-  background: rgba(15, 23, 42, 0.92);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.92));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(99, 102, 241, 0.3);
   border-radius: 16px;
   display: flex;
@@ -893,13 +974,41 @@ onUnmounted(() => {
   color: #e2e8f0;
 }
 
+/* 主容器 - 双栏布局 */
+.main-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* 左侧区域 */
+.left-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* 右侧区域 - 固定宽度 320px */
+.right-section {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+/* 头部区域 */
 .calendar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  background: linear-gradient(90deg, rgba(99, 102, 241, 0.1), rgba(167, 139, 250, 0.1));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 12px 16px;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.12), rgba(167, 139, 250, 0.12));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   cursor: move;
   flex-shrink: 0;
 }
@@ -907,7 +1016,7 @@ onUnmounted(() => {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .handle-dots {
@@ -925,24 +1034,27 @@ onUnmounted(() => {
 }
 
 .title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #e2e8f0;
+  font-size: 14px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #818cf8, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.header-center {
+.header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .nav-btn {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border: none;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   color: #94a3b8;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -951,37 +1063,99 @@ onUnmounted(() => {
 }
 
 .nav-btn:hover {
-  background: rgba(99, 102, 241, 0.2);
+  background: rgba(99, 102, 241, 0.25);
   color: #fff;
+  transform: translateY(-1px);
 }
 
 .date-display {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #e2e8f0;
-  min-width: 100px;
+  min-width: 120px;
   text-align: center;
 }
 
-.header-right {
+/* 工具栏 */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(99, 102, 241, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+/* 搜索框 */
+.search-box {
+  position: relative;
+  flex: 1;
+  max-width: 300px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  pointer-events: none;
+  transition: color 0.3s;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px 8px 38px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #e2e8f0;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.3s;
+}
+
+.search-input::placeholder {
+  color: #64748b;
+}
+
+.search-input:focus {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.search-input:focus ~ .search-icon,
+.search-box:focus-within .search-icon {
+  color: #818cf8;
+}
+
+/* 视图切换 */
+.view-switch {
   display: flex;
   gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px;
+  border-radius: 8px;
 }
 
 .view-btn {
-  padding: 4px 10px;
+  padding: 6px 14px;
   border: none;
-  background: rgba(255, 255, 255, 0.05);
+  background: transparent;
   color: #94a3b8;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
   transition: all 0.2s;
 }
 
 .view-btn.active {
   background: rgba(99, 102, 241, 0.3);
   color: #fff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
 }
 
 .view-btn:hover:not(.active) {
@@ -989,48 +1163,135 @@ onUnmounted(() => {
   color: #e2e8f0;
 }
 
+/* 搜索结果 */
+.search-results {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.search-results-header {
+  padding: 12px 16px;
+  background: rgba(99, 102, 241, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.search-results-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.search-results-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.search-results-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.search-results-list::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 3px;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.search-result-item:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  transform: translateX(4px);
+}
+
+.search-result-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.search-result-title {
+  font-size: 13px;
+  color: #e2e8f0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-result-date {
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* 日历内容区 */
 .calendar-content {
   flex: 1;
   overflow: hidden;
   min-height: 0;
 }
 
-.task-panel {
+/* 右侧面板 */
+.panel-header {
+  padding: 16px;
+  background: rgba(99, 102, 241, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
-  max-height: 160px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  display: flex;
-  flex-direction: column;
 }
 
-.panel-header {
+.panel-date-info {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: rgba(99, 102, 241, 0.05);
-  flex-shrink: 0;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .panel-date {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   color: #e2e8f0;
 }
 
 .task-count {
-  font-size: 11px;
+  font-size: 12px;
   color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
+.task-count::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #64748b;
+}
+
+/* 任务列表 */
 .task-list {
   flex: 1;
   overflow-y: auto;
-  padding: 6px 8px;
+  padding: 12px;
 }
 
 .task-list::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 
 .task-list::-webkit-scrollbar-track {
@@ -1038,51 +1299,64 @@ onUnmounted(() => {
 }
 
 .task-list::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.2);
-  border-radius: 2px;
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 3px;
 }
 
 .task-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  margin-bottom: 4px;
-  background: rgba(255, 255, 255, 0.02);
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .task-item:hover {
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  transform: translateX(4px);
+}
+
+.task-item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 
 .task-status-dot {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .task-status-dot.active {
   background: #6366f1;
-  box-shadow: 0 0 6px #6366f1;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
 }
 
 .task-status-dot.todo {
   background: #64748b;
+  box-shadow: 0 0 6px rgba(100, 116, 139, 0.4);
 }
 
 .task-status-dot.done {
   background: #10b981;
-  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
 }
 
 /* 已完成任务样式 */
 .task-item.done {
   opacity: 0.7;
   background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.2);
 }
 
 .task-item.done .task-title {
@@ -1091,14 +1365,15 @@ onUnmounted(() => {
 }
 
 .task-item.done .task-category {
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(16, 185, 129, 0.15);
   color: #10b981;
+  border-color: rgba(16, 185, 129, 0.3);
 }
 
 .task-title {
-  flex: 1;
-  font-size: 12px;
+  font-size: 13px;
   color: #e2e8f0;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1107,29 +1382,41 @@ onUnmounted(() => {
 .task-category {
   font-size: 10px;
   color: #64748b;
-  padding: 2px 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
   flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .task-item.priority-1 {
-  border-left: 2px solid #f43f5e;
+  border-left: 3px solid #f43f5e;
 }
 
 .task-item.priority-2 {
-  border-left: 2px solid #f59e0b;
+  border-left: 3px solid #f59e0b;
 }
 
 .task-item.priority-3 {
-  border-left: 2px solid #10b981;
+  border-left: 3px solid #10b981;
 }
 
 .empty-hint {
   text-align: center;
   color: #64748b;
-  font-size: 12px;
-  padding: 12px;
+  font-size: 13px;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.empty-hint::before {
+  content: '📅';
+  font-size: 48px;
+  opacity: 0.3;
 }
 
 .action-bar {

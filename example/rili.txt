@@ -1,0 +1,318 @@
+import React, { useState, useMemo } from 'react';
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Search, 
+  Calendar as CalendarIcon, 
+  List, 
+  CheckCircle2, 
+  Circle, 
+  Clock,
+  Plus,
+  MoreHorizontal
+} from 'lucide-react';
+
+// --- Mock Data ---
+const MOCK_TASKS = [
+  { id: 1, title: '智院排班数据整理', date: '2023-12-15', status: 'pending', priority: 'high', tag: '开发' },
+  { id: 2, title: '江桥用户整合需求分析', date: '2023-12-15', status: 'completed', priority: 'medium', tag: '需求' },
+  { id: 3, title: '松江用户整合测试', date: '2023-12-15', status: 'pending', priority: 'medium', tag: '测试' },
+  { id: 4, title: '修复登录页样式Bug', date: '2023-12-14', status: 'completed', priority: 'high', tag: 'Bug' },
+  { id: 5, title: '周报撰写', date: '2023-12-14', status: 'completed', priority: 'low', tag: '文档' },
+  { id: 6, title: '服务器例行维护', date: '2023-12-18', status: 'pending', priority: 'high', tag: '运维' },
+  { id: 7, title: '前端架构研讨会', date: '2023-12-18', status: 'pending', priority: 'medium', tag: '会议' },
+  { id: 8, title: 'Q4 季度总结', date: '2023-12-25', status: 'pending', priority: 'high', tag: '文档' },
+  { id: 9, title: 'UI组件库更新', date: '2023-12-05', status: 'completed', priority: 'low', tag: '开发' },
+];
+
+const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+const TaskCalendar = () => {
+  // State
+  const [currentDate, setCurrentDate] = useState(new Date(2023, 11, 15)); // Dec 15 2023
+  const [selectedDate, setSelectedDate] = useState(new Date(2023, 11, 15));
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState('month'); // 'month' | 'list'
+
+  // Helpers
+  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+
+  const formatDateKey = (date) => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  const isSameDay = (d1, d2) => {
+    return d1.getFullYear() === d2.getFullYear() &&
+           d1.getMonth() === d2.getMonth() &&
+           d1.getDate() === d2.getDate();
+  };
+
+  const isToday = (date) => isSameDay(date, new Date()); // Assuming system date matches specific date for demo context if needed, but here using real today logic
+
+  // Navigation
+  const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  const goToToday = () => {
+    const today = new Date();
+    setCurrentDate(today);
+    setSelectedDate(today);
+  };
+
+  // Data Filtering
+  const daysInMonth = getDaysInMonth(currentDate.getFullYear(), currentDate.getMonth());
+  const firstDayOfWeek = getFirstDayOfMonth(currentDate.getFullYear(), currentDate.getMonth());
+
+  const tasksForSelectedDate = useMemo(() => {
+    const key = formatDateKey(selectedDate);
+    return MOCK_TASKS.filter(t => t.date === key);
+  }, [selectedDate]);
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery) return [];
+    return MOCK_TASKS.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [searchQuery]);
+
+  // Render Calendar Grid
+  const renderCalendarDays = () => {
+    const days = [];
+    
+    // Empty slots for previous month
+    for (let i = 0; i < firstDayOfWeek; i++) {
+      days.push(<div key={`empty-${i}`} className="h-24 bg-white/5 border border-white/5 opacity-50"></div>);
+    }
+
+    // Actual days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+      const dateKey = formatDateKey(date);
+      const dayTasks = MOCK_TASKS.filter(t => t.date === dateKey);
+      const isSelected = isSameDay(date, selectedDate);
+      const isCurrentDay = isSameDay(date, new Date()); // System today
+
+      days.push(
+        <div 
+          key={day}
+          onClick={() => setSelectedDate(date)}
+          className={`
+            h-24 p-2 border border-white/10 relative cursor-pointer transition-all duration-200 group
+            ${isSelected ? 'bg-indigo-500/20 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'hover:bg-white/5'}
+            ${isCurrentDay ? 'bg-emerald-500/10' : ''}
+          `}
+        >
+          <div className="flex justify-between items-start mb-1">
+            <span className={`
+              text-sm font-medium w-6 h-6 flex items-center justify-center rounded-full
+              ${isCurrentDay ? 'bg-emerald-500 text-white' : 'text-slate-300'}
+              ${isSelected && !isCurrentDay ? 'bg-indigo-500 text-white' : ''}
+            `}>
+              {day}
+            </span>
+            {dayTasks.length > 0 && (
+              <span className="text-xs text-slate-400 bg-slate-800/50 px-1.5 rounded-full">
+                {dayTasks.length}
+              </span>
+            )}
+          </div>
+          
+          <div className="space-y-1">
+            {dayTasks.slice(0, 2).map((task) => (
+              <div key={task.id} className="flex items-center gap-1.5 overflow-hidden">
+                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${task.priority === 'high' ? 'bg-rose-500' : 'bg-sky-400'}`} />
+                <span className="text-[10px] text-slate-300 truncate leading-tight opacity-90 group-hover:opacity-100">
+                  {task.title}
+                </span>
+              </div>
+            ))}
+            {dayTasks.length > 2 && (
+              <div className="text-[10px] text-slate-500 pl-3">+{dayTasks.length - 2} 更多</div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return days;
+  };
+
+  return (
+    <div className="flex h-screen bg-[#0f111a] text-slate-200 font-sans overflow-hidden">
+      {/* Background Ambience (Simulating the user's starry theme but cleaner) */}
+      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1534796636912-3b95b3ab5980?auto=format&fit=crop&q=80')] bg-cover opacity-20 pointer-events-none z-0" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0f111a] via-[#0f111a]/95 to-[#1a1d2d]/90 z-0" />
+
+      {/* Main Layout Container */}
+      <div className="relative z-10 flex w-full h-full p-4 gap-4">
+        
+        {/* Left Section: Calendar & Navigation */}
+        <div className="flex-1 flex flex-col bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+          
+          {/* Header */}
+          <header className="flex items-center justify-between p-4 border-b border-white/10">
+            <div className="flex items-center gap-4">
+              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
+                任务日历
+              </h1>
+              <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-1 border border-white/5">
+                <button onClick={prevMonth} className="p-1 hover:bg-white/10 rounded-md transition-colors"><ChevronLeft size={18} /></button>
+                <span className="w-24 text-center font-medium text-sm">
+                  {currentDate.getFullYear()}年 {currentDate.getMonth() + 1}月
+                </span>
+                <button onClick={nextMonth} className="p-1 hover:bg-white/10 rounded-md transition-colors"><ChevronRight size={18} /></button>
+              </div>
+              <button 
+                onClick={goToToday}
+                className="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors shadow-lg shadow-indigo-500/20"
+              >
+                回到今天
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Search Bar - Solving the "History Query" issue */}
+              <div className="relative group">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-400" />
+                <input 
+                  type="text" 
+                  placeholder="搜索历史任务..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-slate-800/50 border border-white/10 rounded-full pl-9 pr-4 py-1.5 text-sm w-48 focus:w-64 focus:bg-slate-800 focus:border-indigo-500/50 outline-none transition-all duration-300"
+                />
+              </div>
+
+              <div className="flex bg-slate-800/50 rounded-lg p-1 border border-white/5">
+                <button 
+                  onClick={() => setViewMode('month')}
+                  className={`p-1.5 rounded-md transition-colors ${viewMode === 'month' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  <CalendarIcon size={16} />
+                </button>
+                <button 
+                  onClick={() => setViewMode('list')}
+                  className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  <List size={16} />
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Search Results Overlay (if searching) */}
+          {searchQuery && (
+            <div className="flex-1 overflow-y-auto p-4 bg-slate-900/90 z-20">
+              <h3 className="text-sm font-medium text-slate-400 mb-3">搜索结果 ({searchResults.length})</h3>
+              <div className="space-y-2">
+                {searchResults.map(task => (
+                  <div key={task.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 hover:border-indigo-500/30">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full ${task.priority === 'high' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                      <div>
+                        <div className="text-sm text-white">{task.title}</div>
+                        <div className="text-xs text-slate-500">{task.date}</div>
+                      </div>
+                    </div>
+                    <span className="text-xs px-2 py-1 bg-white/5 rounded text-slate-400">{task.tag}</span>
+                  </div>
+                ))}
+                {searchResults.length === 0 && <div className="text-slate-500 text-center py-10">未找到相关任务</div>}
+              </div>
+            </div>
+          )}
+
+          {/* Calendar Grid View */}
+          {!searchQuery && viewMode === 'month' && (
+            <div className="flex-1 flex flex-col p-4 overflow-hidden">
+              <div className="grid grid-cols-7 mb-2">
+                {WEEKDAYS.map(day => (
+                  <div key={day} className="text-center text-xs text-slate-500 font-medium py-2">
+                    {day}
+                  </div>
+                ))}
+              </div>
+              <div className="flex-1 grid grid-cols-7 grid-rows-5 gap-1 overflow-y-auto">
+                {renderCalendarDays()}
+              </div>
+            </div>
+          )}
+
+           {/* List View (History Friendly) */}
+           {!searchQuery && viewMode === 'list' && (
+            <div className="flex-1 overflow-y-auto p-4">
+               {/* Simplified mock list view */}
+               <div className="space-y-4">
+                  {[...MOCK_TASKS].sort((a,b) => b.date.localeCompare(a.date)).map(task => (
+                     <div key={task.id} className="flex items-center p-3 bg-white/5 rounded-lg">
+                        <span className="text-sm w-24 text-slate-400">{task.date}</span>
+                        <span className="flex-1 text-sm font-medium">{task.title}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${task.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                           {task.status === 'completed' ? '已完成' : '进行中'}
+                        </span>
+                     </div>
+                  ))}
+               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Section: Task Details Panel */}
+        <div className="w-80 flex flex-col bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl">
+          <div className="p-5 border-b border-white/10 bg-white/5">
+            <h2 className="text-lg font-bold text-white mb-1">
+              {selectedDate.getMonth() + 1}月{selectedDate.getDate()}日
+            </h2>
+            <div className="text-xs text-slate-400 flex items-center gap-2">
+              <Clock size={12} />
+              <span>{WEEKDAYS[selectedDate.getDay()]} · {tasksForSelectedDate.length} 个任务</span>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            {tasksForSelectedDate.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-2">
+                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+                  <CalendarIcon size={24} className="opacity-50" />
+                </div>
+                <p className="text-sm">今日无任务</p>
+                <button className="text-xs text-indigo-400 hover:text-indigo-300">添加新任务</button>
+              </div>
+            ) : (
+              tasksForSelectedDate.map(task => (
+                <div key={task.id} className="group bg-[#161927] hover:bg-[#1c2030] border border-white/5 hover:border-indigo-500/30 rounded-xl p-3 transition-all duration-200 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <button className={`mt-0.5 ${task.status === 'completed' ? 'text-emerald-500' : 'text-slate-500 hover:text-indigo-400'}`}>
+                      {task.status === 'completed' ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium mb-1 truncate ${task.status === 'completed' ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+                        {task.title}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                          task.priority === 'high' ? 'border-rose-500/30 text-rose-400 bg-rose-500/10' : 
+                          'border-sky-500/30 text-sky-400 bg-sky-500/10'
+                        }`}>
+                          {task.priority === 'high' ? '高优' : '普通'}
+                        </span>
+                        <span className="text-[10px] text-slate-500">{task.tag}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="p-4 border-t border-white/10">
+            <button className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-900/20">
+              <Plus size={16} />
+              添加任务
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+export default TaskCalendar;

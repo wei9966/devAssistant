@@ -21,16 +21,27 @@
         }"
         @click="$emit('select-date', day.dateStr)"
       >
-        <span class="date-number">{{ day.date }}</span>
-        <div v-if="day.taskCount > 0" class="task-indicators">
+        <div class="date-header">
+          <span class="date-number">{{ day.date }}</span>
+          <span v-if="day.taskCount > 0" class="task-count-badge">{{ day.taskCount }}</span>
+        </div>
+
+        <div v-if="day.taskCount > 0" class="task-list">
           <div
-            v-for="(task, i) in day.tasks.slice(0, 3)"
+            v-for="(task, i) in day.tasks.slice(0, 2)"
             :key="task.id"
-            class="task-dot"
-            :class="[task.status, `priority-${task.priority}`]"
+            class="task-item"
             :title="task.title"
-          ></div>
-          <span v-if="day.taskCount > 3" class="more-count">+{{ day.taskCount - 3 }}</span>
+          >
+            <div
+              class="priority-indicator"
+              :class="[task.status, `priority-${task.priority}`]"
+            ></div>
+            <span class="task-title">{{ task.title }}</span>
+          </div>
+          <div v-if="day.taskCount > 2" class="more-tasks">
+            +{{ day.taskCount - 2 }} 更多
+          </div>
         </div>
       </div>
     </div>
@@ -203,17 +214,17 @@ const calendarDays = computed(() => {
 .weekday-header {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-  margin-bottom: 4px;
+  gap: 4px;
+  margin-bottom: 8px;
   flex-shrink: 0;
 }
 
 .weekday {
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #64748b;
-  padding: 4px 0;
+  padding: 6px 0;
   text-transform: uppercase;
 }
 
@@ -222,7 +233,7 @@ const calendarDays = computed(() => {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   grid-template-rows: repeat(6, 1fr);
-  gap: 2px;
+  gap: 4px;
   min-height: 0;
   height: 100%;
 }
@@ -230,116 +241,176 @@ const calendarDays = computed(() => {
 .date-cell {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 2px;
-  border-radius: 6px;
+  padding: 8px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   background: rgba(255, 255, 255, 0.02);
-  min-height: 0;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 80px;
   overflow: hidden;
   position: relative;
 }
 
 .date-cell:hover {
-  background: rgba(99, 102, 241, 0.15);
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.2);
 }
 
+/* 非当月日期半透明 */
 .date-cell.other-month {
-  opacity: 0.4;
+  opacity: 0.5;
 }
 
+/* 今天的样式 */
 .date-cell.today {
-  background: rgba(99, 102, 241, 0.2);
-  border: 1px solid rgba(99, 102, 241, 0.4);
-}
-
-.date-cell.selected {
-  background: rgba(99, 102, 241, 0.3);
-  border: 1px solid rgba(99, 102, 241, 0.6);
-}
-
-.date-cell.has-tasks {
-  background: rgba(99, 102, 241, 0.08);
-}
-
-/* 全部完成的日期 - 绿色标记 */
-.date-cell.all-done {
-  background: rgba(16, 185, 129, 0.12);
+  background: rgba(16, 185, 129, 0.1);
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
-.date-cell.all-done .date-number {
-  color: #10b981;
+.date-cell.today .date-number {
+  background: #10b981;
+  color: #ffffff;
+}
+
+/* 选中日期发光效果 */
+.date-cell.selected {
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.6);
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+}
+
+.date-cell.selected .date-number {
+  background: #6366f1;
+  color: #ffffff;
+}
+
+/* 有任务的日期 */
+.date-cell.has-tasks {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* 全部完成的日期 */
+.date-cell.all-done {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+/* 日期头部 */
+.date-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
 }
 
 .date-number {
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 13px;
   font-weight: 500;
   color: #e2e8f0;
-  margin-bottom: 2px;
-}
-
-.date-cell.today .date-number {
-  color: #818cf8;
-  font-weight: 700;
+  transition: all 0.2s;
 }
 
 .date-cell.other-month .date-number {
   color: #64748b;
 }
 
-.task-indicators {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-wrap: wrap;
-  justify-content: center;
+/* 任务数量徽章 */
+.task-count-badge {
+  font-size: 10px;
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.2);
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: 500;
 }
 
-.task-dot {
+/* 任务列表 */
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+/* 任务项 */
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+/* 优先级指示器 */
+.priority-indicator {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.task-dot.active {
-  background: #6366f1;
-  box-shadow: 0 0 4px #6366f1;
+/* 高优先级 - 红点 */
+.priority-indicator.priority-1 {
+  background: #f43f5e;
 }
 
-.task-dot.todo {
-  background: #64748b;
+/* 普通优先级 - 蓝点 */
+.priority-indicator.priority-2,
+.priority-indicator.priority-3 {
+  background: #3b82f6;
 }
 
-.task-dot.done {
+/* 已完成任务的指示器 */
+.priority-indicator.done {
   background: #10b981;
-  box-shadow: 0 0 4px rgba(16, 185, 129, 0.5);
+}
+
+/* 任务标题 */
+.task-title {
+  font-size: 10px;
+  line-height: 1.3;
+  color: #cbd5e1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  opacity: 0.9;
+}
+
+.task-item:hover .task-title {
+  opacity: 1;
+}
+
+/* 已完成任务的标题 */
+.task-item .priority-indicator.done ~ .task-title {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+/* 更多任务提示 */
+.more-tasks {
+  font-size: 10px;
+  color: #64748b;
+  padding-left: 12px;
+  margin-top: 2px;
 }
 
 /* 已完成任务的日期单元格样式 */
 .date-cell.has-done-tasks::after {
   content: '';
   position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 4px;
-  height: 4px;
+  bottom: 4px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
   background: #10b981;
   border-radius: 50%;
-}
-
-.task-dot.priority-1 {
-  border: 1px solid #f43f5e;
-}
-
-.task-dot.priority-2 {
-  border: 1px solid #f59e0b;
-}
-
-.more-count {
-  font-size: 9px;
-  color: #94a3b8;
+  opacity: 0.6;
 }
 </style>
