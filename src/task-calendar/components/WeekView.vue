@@ -1,42 +1,74 @@
 <template>
   <div class="week-view">
-    <!-- 日期头部 -->
-    <div class="day-headers">
+    <!-- 看板式7列布局 -->
+    <div class="kanban-columns">
       <div
         v-for="day in weekDays"
         :key="day.dateStr"
-        class="day-header"
-        :class="{ today: day.isToday, selected: day.dateStr === selectedDate }"
+        class="kanban-column"
+        :class="{
+          today: day.isToday,
+          selected: day.dateStr === selectedDate
+        }"
         @click="$emit('select-date', day.dateStr)"
       >
-        <span class="weekday-name">{{ day.weekdayName }}</span>
-        <span class="day-date">{{ day.date }}</span>
-        <span v-if="day.taskCount > 0" class="task-badge">{{ day.taskCount }}</span>
-      </div>
-    </div>
-
-    <!-- 任务列表区域 -->
-    <div class="task-columns">
-      <div
-        v-for="day in weekDays"
-        :key="day.dateStr"
-        class="task-column"
-        :class="{ today: day.isToday, selected: day.dateStr === selectedDate }"
-        @click="$emit('select-date', day.dateStr)"
-      >
-        <div
-          v-for="task in day.tasks"
-          :key="task.id"
-          class="task-item"
-          :class="[task.status, `priority-${task.priority}`]"
-          @click.stop="$emit('task-action', 'detail', task)"
-          @contextmenu.prevent="$emit('task-action', 'context', task)"
-        >
-          <div class="task-status-dot" :class="task.status"></div>
-          <span class="task-title">{{ task.title }}</span>
+        <!-- 列头部 -->
+        <div class="column-header" :class="{ today: day.isToday }">
+          <span class="weekday-name">{{ day.weekdayName }}</span>
+          <span
+            class="day-date"
+            :class="{
+              'is-today': day.isToday,
+              'is-selected': day.dateStr === selectedDate && !day.isToday
+            }"
+          >
+            {{ day.date }}
+          </span>
         </div>
-        <div v-if="day.tasks.length === 0" class="empty-day">
-          <span>-</span>
+
+        <!-- 任务列表 -->
+        <div class="task-list">
+          <div
+            v-for="task in day.tasks"
+            :key="task.id"
+            class="task-card"
+            :class="[task.status]"
+            @click.stop="$emit('task-action', 'detail', task)"
+            @contextmenu.prevent="$emit('task-action', 'context', task)"
+          >
+            <!-- 任务头部：优先级标签 + 完成状态 -->
+            <div class="task-card-header">
+              <span
+                class="priority-tag"
+                :class="`priority-${task.priority}`"
+              >
+                {{ task.priority === 1 ? 'P0' : task.priority === 2 ? 'P1' : 'P2' }}
+              </span>
+              <svg
+                v-if="task.status === 'done'"
+                class="done-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            </div>
+            <!-- 任务标题 -->
+            <p class="task-title" :class="{ done: task.status === 'done' }">
+              {{ task.title }}
+            </p>
+          </div>
+
+          <!-- 空状态 -->
+          <div v-if="day.tasks.length === 0" class="empty-column">
+            <svg class="add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </div>
         </div>
       </div>
     </div>
@@ -161,199 +193,220 @@ const weekDays = computed(() => {
   padding: 8px;
 }
 
-.day-headers {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  margin-bottom: 8px;
-  flex-shrink: 0;
-}
-
-.day-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 6px 4px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: rgba(255, 255, 255, 0.02);
-  position: relative;
-}
-
-.day-header:hover {
-  background: rgba(99, 102, 241, 0.15);
-}
-
-.day-header.today {
-  background: rgba(99, 102, 241, 0.2);
-  border: 1px solid rgba(99, 102, 241, 0.4);
-}
-
-.day-header.selected {
-  background: rgba(99, 102, 241, 0.3);
-  border: 1px solid rgba(99, 102, 241, 0.6);
-}
-
-.weekday-name {
-  font-size: 10px;
-  color: #64748b;
-  text-transform: uppercase;
-}
-
-.day-date {
-  font-size: 14px;
-  font-weight: 600;
-  color: #e2e8f0;
-  margin-top: 2px;
-}
-
-.day-header.today .day-date {
-  color: #818cf8;
-}
-
-.task-badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 14px;
-  height: 14px;
-  background: rgba(99, 102, 241, 0.8);
-  color: #fff;
-  font-size: 9px;
-  font-weight: 600;
-  border-radius: 7px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 3px;
-}
-
-.task-columns {
+/* 看板式7列布局 */
+.kanban-columns {
   flex: 1;
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  display: flex;
+  gap: 8px;
   min-height: 0;
-  height: 100%;
   overflow: hidden;
 }
 
-.task-column {
+/* 每一列（每一天） */
+.kanban-column {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
-  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  transition: all 0.3s ease;
   cursor: pointer;
+  overflow: hidden;
+}
+
+.kanban-column:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 今天的列 */
+.kanban-column.today {
+  background: rgba(16, 185, 129, 0.05);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+/* 选中的列 */
+.kanban-column.selected {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+}
+
+/* 列头部 */
+.column-header {
+  padding: 12px 8px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.column-header.today {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%);
+}
+
+.weekday-name {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.day-date {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e8f0;
+  border-radius: 50%;
   transition: all 0.2s;
 }
 
-.task-column:hover {
-  background: rgba(99, 102, 241, 0.05);
+/* 今天的日期圆圈 */
+.day-date.is-today {
+  background: #10b981;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
-.task-column.today {
-  background: rgba(99, 102, 241, 0.08);
+/* 选中的日期圆圈（非今天） */
+.day-date.is-selected {
+  background: #6366f1;
+  color: #ffffff;
 }
 
-.task-column.selected {
-  background: rgba(99, 102, 241, 0.12);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+/* 任务列表区域 */
+.task-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.task-column::-webkit-scrollbar {
-  width: 3px;
+.task-list::-webkit-scrollbar {
+  width: 4px;
 }
 
-.task-column::-webkit-scrollbar-track {
+.task-list::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.task-column::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.2);
+.task-list::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
   border-radius: 2px;
 }
 
-.task-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 4px 6px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.03);
-  cursor: default;
-  transition: all 0.2s;
+.task-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
 }
 
-.task-item:hover {
-  background: rgba(99, 102, 241, 0.15);
+/* 任务卡片 */
+.task-card {
+  background: #1a1d2d;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.task-status-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  margin-top: 4px;
+.task-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
 }
 
-.task-status-dot.active {
-  background: #6366f1;
-  box-shadow: 0 0 4px #6366f1;
-}
-
-.task-status-dot.todo {
-  background: #64748b;
-}
-
-.task-status-dot.done {
-  background: #10b981;
-  box-shadow: 0 0 4px rgba(16, 185, 129, 0.5);
-}
-
-/* 已完成任务样式 */
-.task-item.done {
+/* 已完成任务卡片 */
+.task-card.done {
   opacity: 0.7;
   background: rgba(16, 185, 129, 0.08);
 }
 
-.task-item.done .task-title {
-  text-decoration: line-through;
+/* 任务卡片头部 */
+.task-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+/* 优先级标签 */
+.priority-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.priority-tag.priority-1 {
+  background: rgba(244, 63, 94, 0.2);
+  color: #f43f5e;
+}
+
+.priority-tag.priority-2 {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.priority-tag.priority-3 {
+  background: rgba(100, 116, 139, 0.3);
   color: #94a3b8;
 }
 
+/* 完成图标 */
+.done-icon {
+  width: 14px;
+  height: 14px;
+  color: #10b981;
+}
+
+/* 任务标题 */
 .task-title {
   font-size: 12px;
   color: #e2e8f0;
   line-height: 1.4;
-  word-break: break-word;
+  margin: 0;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  word-break: break-word;
 }
 
-.task-item.priority-1 {
-  border-left: 2px solid #f43f5e;
+.task-title.done {
+  color: #64748b;
+  text-decoration: line-through;
 }
 
-.task-item.priority-2 {
-  border-left: 2px solid #f59e0b;
-}
-
-.task-item.priority-3 {
-  border-left: 2px solid #10b981;
-}
-
-.empty-day {
+/* 空状态 */
+.empty-column {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  color: #475569;
-  font-size: 12px;
+  min-height: 60px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.kanban-column:hover .empty-column {
+  opacity: 1;
+}
+
+.add-icon {
+  width: 24px;
+  height: 24px;
+  color: #64748b;
+  transition: color 0.2s;
+}
+
+.add-icon:hover {
+  color: #6366f1;
 }
 </style>
