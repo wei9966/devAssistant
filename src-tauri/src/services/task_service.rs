@@ -509,7 +509,8 @@ impl TaskService {
     /// 获取日期范围内的任务（用于日历显示）
     /// 会根据任务状态选择合适的日期字段：
     /// - 已完成任务：使用 completed_at
-    /// - 未完成任务：优先使用 current_date，其次 registered_at，最后 created_at
+    /// - 未完成任务：优先使用 display_date，其次 registered_at，最后 created_at
+    /// - 逾期未完成任务：如果日期 < start_date，也返回（前端会显示在"今天"）
     pub fn get_tasks_by_date_range(
         conn: &Connection,
         start_date: &str,
@@ -525,11 +526,18 @@ impl TaskService {
                  -- 已完成任务：使用完成日期
                  (status = 'done' AND date(completed_at) BETWEEN ? AND ?)
                  OR
-                 -- 未完成任务：使用 display_date 或 registered_at 或 created_at
+                 -- 未完成任务：日期在范围内
                  (status != 'done' AND (
                      (display_date IS NOT NULL AND display_date BETWEEN ? AND ?)
                      OR (display_date IS NULL AND registered_at IS NOT NULL AND registered_at BETWEEN ? AND ?)
                      OR (display_date IS NULL AND registered_at IS NULL AND date(created_at) BETWEEN ? AND ?)
+                 ))
+                 OR
+                 -- 逾期未完成任务：日期 < start_date（前端会显示在今天）
+                 (status != 'done' AND (
+                     (display_date IS NOT NULL AND display_date < ?)
+                     OR (display_date IS NULL AND registered_at IS NOT NULL AND registered_at < ?)
+                     OR (display_date IS NULL AND registered_at IS NULL AND date(created_at) < ?)
                  ))
              )
              ORDER BY priority ASC, created_at DESC",
@@ -541,7 +549,10 @@ impl TaskService {
                     start_date, end_date,
                     start_date, end_date,
                     start_date, end_date,
-                    start_date, end_date
+                    start_date, end_date,
+                    start_date,
+                    start_date,
+                    start_date
                 ],
                 |row| Self::map_row_to_task(row),
             )?
