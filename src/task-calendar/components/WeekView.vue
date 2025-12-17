@@ -11,6 +11,7 @@
           selected: day.dateStr === selectedDate
         }"
         @click="$emit('select-date', day.dateStr)"
+        @contextmenu.prevent="(e) => $emit('add-task', day.dateStr, e)"
       >
         <!-- 列头部 -->
         <div class="column-header" :class="{ today: day.isToday }">
@@ -34,7 +35,7 @@
             class="task-card"
             :class="[task.status]"
             @click.stop="$emit('task-action', 'detail', task)"
-            @contextmenu.prevent="$emit('task-action', 'context', task)"
+            @contextmenu.prevent.stop="(e) => $emit('task-action', 'context', task, e)"
           >
             <!-- 任务头部：优先级标签 + 完成状态 -->
             <div class="task-card-header">
@@ -87,7 +88,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'select-date', date: string): void;
-  (e: 'task-action', action: string, task: Task): void;
+  (e: 'task-action', action: string, task: Task, event?: MouseEvent): void;
+  (e: 'add-task', date: string, event: MouseEvent): void;
 }>();
 
 const weekdayNames = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];

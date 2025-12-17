@@ -9,6 +9,7 @@
       content: 'soft',
       footer: 'soft'
     }"
+    to="body"
   >
     <div class="tag-manager">
       <!-- 创建新标签 -->

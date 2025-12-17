@@ -20,6 +20,7 @@
           'all-done': day.allDone
         }"
         @click="$emit('select-date', day.dateStr)"
+        @contextmenu.prevent="(e) => $emit('add-task', day.dateStr, e)"
       >
         <div class="date-header">
           <span class="date-number">{{ day.date }}</span>
@@ -60,7 +61,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'select-date', date: string): void;
-  (e: 'task-action', action: string, task: Task): void;
+  (e: 'task-action', action: string, task: Task | null, event?: MouseEvent): void;
+  (e: 'add-task', date: string, event: MouseEvent): void;
 }>();
 
 const weekDays = ['一', '二', '三', '四', '五', '六', '日'];

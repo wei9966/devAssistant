@@ -83,6 +83,7 @@
               :selectedDate="selectedDate"
               @select-date="handleSelectDate"
               @task-action="handleTaskAction"
+              @add-task="handleAddTaskFromDate"
             />
             <!-- 周视图 -->
             <WeekView
@@ -92,6 +93,7 @@
               :selectedDate="selectedDate"
               @select-date="handleSelectDate"
               @task-action="handleTaskAction"
+              @add-task="handleAddTaskFromDate"
             />
           </div>
         </div>
@@ -237,6 +239,23 @@
         :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
         @mouseleave="hideContextMenu"
       >
+        <!-- 新增任务 -->
+        <div class="menu-item" @click="handleAddTask">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>新增任务</span>
+        </div>
+        <!-- 编辑任务（仅当有选中任务时） -->
+        <div v-if="contextMenu.task" class="menu-item" @click="handleEditTask">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+          <span>编辑任务</span>
+        </div>
+        <div class="menu-divider"></div>
         <template v-if="contextMenu.task?.status === 'active'">
           <div class="menu-item" @click="handleComplete">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
@@ -266,8 +285,8 @@
             <span>完成任务</span>
           </div>
         </template>
-        <div class="menu-divider"></div>
-        <div class="menu-item" @click="handleMoveToToday">
+        <div v-if="contextMenu.task" class="menu-divider"></div>
+        <div v-if="contextMenu.task" class="menu-item" @click="handleMoveToToday">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
             <circle cx="12" cy="12" r="10"></circle>
             <polyline points="12 6 12 12 16 14"></polyline>
@@ -293,22 +312,197 @@
           :readonly="true"
           @update:show="showDetailModal = $event"
         />
+
+        <!-- 新增/编辑任务弹窗 -->
+        <n-modal
+          v-model:show="showTaskModal"
+          preset="card"
+          :title="isEditing ? '编辑任务' : '新增任务'"
+          class="task-modal"
+          style="width: 680px; max-width: 90vw;"
+          :mask-closable="false"
+          :segmented="{
+            content: 'soft',
+            footer: 'soft'
+          }"
+          to="body"
+        >
+          <div class="task-form-container">
+            <n-form
+              ref="formRef"
+              :model="formData"
+              :rules="formRules"
+              label-placement="top"
+              label-width="auto"
+              size="medium"
+            >
+              <!-- 任务标题 -->
+              <n-form-item label="任务标题" path="title">
+                <div class="input-with-ai">
+                  <n-input
+                    v-model:value="formData.title"
+                    placeholder="请输入任务标题"
+                    :maxlength="100"
+                    show-count
+                  />
+                  <n-button
+                    v-if="isAiEnabled"
+                    quaternary
+                    type="primary"
+                    size="small"
+                    :loading="aiClassifying"
+                    :disabled="!formData.title"
+                    @click="handleAiClassify"
+                    title="AI 智能分类"
+                    class="ai-btn"
+                  >
+                    <template #icon>
+                      <n-icon><GridOutline /></n-icon>
+                    </template>
+                    AI 分类
+                  </n-button>
+                </div>
+              </n-form-item>
+
+              <!-- 任务描述 -->
+              <n-form-item label="任务描述" path="description">
+                <div class="input-with-ai-vertical">
+                  <n-input
+                    v-model:value="formData.description"
+                    type="textarea"
+                    placeholder="请输入任务描述（可选）"
+                    :autosize="{ minRows: 3, maxRows: 6 }"
+                    :maxlength="1000"
+                    show-count
+                  />
+                  <div class="ai-actions" v-if="isAiEnabled">
+                    <n-button
+                      quaternary
+                      size="tiny"
+                      :loading="aiEnhancing"
+                      :disabled="!formData.title"
+                      @click="handleAiEnhance"
+                      class="ai-btn-small"
+                    >
+                      AI 增强描述
+                    </n-button>
+                    <n-button
+                      quaternary
+                      size="tiny"
+                      :loading="aiGeneratingSubtasks"
+                      :disabled="!formData.title"
+                      @click="handleAiGenerateSubtasks"
+                      class="ai-btn-small"
+                    >
+                      AI 生成子任务
+                    </n-button>
+                  </div>
+                </div>
+              </n-form-item>
+
+              <!-- 四象限选择 -->
+              <n-form-item label="四象限" path="quadrant">
+                <QuadrantSelector v-model:value="formData.quadrant" />
+              </n-form-item>
+
+              <!-- 优先级选择 -->
+              <n-form-item label="优先级" path="priority">
+                <PrioritySelector v-model:value="formData.priority" />
+              </n-form-item>
+
+              <!-- 分类选择 -->
+              <n-form-item label="分类" path="category">
+                <CategorySelector v-model:value="formData.category" />
+              </n-form-item>
+
+              <!-- 标签选择 -->
+              <n-form-item label="标签">
+                <TagSelector
+                  v-model:modelValue="formData.tagIds"
+                  :available-tags="availableTags"
+                  @manage="showTagManager = true"
+                />
+              </n-form-item>
+
+              <!-- 日期选择 -->
+              <div class="date-row">
+                <n-form-item label="登记日期" path="registeredAt">
+                  <n-date-picker
+                    v-model:value="formData.registeredAt"
+                    type="date"
+                    clearable
+                    style="width: 100%"
+                  />
+                </n-form-item>
+                <n-form-item label="截止日期" path="dueDate">
+                  <n-date-picker
+                    v-model:value="formData.dueDate"
+                    type="date"
+                    clearable
+                    style="width: 100%"
+                  />
+                </n-form-item>
+              </div>
+
+              <n-form-item label="计划开始时间" path="scheduledStartTime">
+                <n-date-picker
+                  v-model:value="formData.scheduledStartTime"
+                  type="datetime"
+                  clearable
+                  style="width: 100%"
+                />
+              </n-form-item>
+            </n-form>
+          </div>
+
+          <template #footer>
+            <n-space justify="end">
+              <n-button @click="handleCancelTask" :disabled="isSubmitting">取消</n-button>
+              <n-button
+                type="primary"
+                :loading="isSubmitting"
+                :disabled="isSubmitting"
+                @click="handleSubmitTask"
+              >
+                {{ isSubmitting ? 'AI 分析中...' : (isEditing ? '保存' : (isAiEnabled ? 'AI 智能创建' : '创建')) }}
+              </n-button>
+            </n-space>
+          </template>
+        </n-modal>
+
+        <!-- 标签管理弹窗 -->
+        <TagManager
+          v-model:show="showTagManager"
+          :tags="availableTags"
+          @create="handleCreateTag"
+          @update="handleUpdateTag"
+          @delete="handleDeleteTag"
+        />
       </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { NConfigProvider, NMessageProvider, NDialogProvider, darkTheme } from 'naive-ui';
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
+import { NConfigProvider, NMessageProvider, NDialogProvider, NModal, NForm, NFormItem, NInput, NDatePicker, NButton, NSpace, NIcon, darkTheme } from 'naive-ui';
+import { GridOutline, AddOutline } from '@vicons/ionicons5';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow, Window, LogicalSize, LogicalPosition } from '@tauri-apps/api/window';
 import { listen, emit } from '@tauri-apps/api/event';
-import type { Task } from '@/types/task';
+import dayjs from 'dayjs';
+import type { Task, TaskQuadrant, Tag } from '@/types/task';
 import { CATEGORY_LABELS } from '@/types/task';
 import MonthView from './components/MonthView.vue';
 import WeekView from './components/WeekView.vue';
 import TaskDetailModal from '@/components/TaskDetailModal.vue';
+import QuadrantSelector from '@/components/QuadrantSelector.vue';
+import PrioritySelector from '@/components/PrioritySelector.vue';
+import CategorySelector from '@/components/CategorySelector.vue';
+import TagSelector from '@/components/TagSelector.vue';
+import TagManager from '@/components/TagManager.vue';
+import { aiApi } from '@/api/aiApi';
+import { tagApi } from '@/api/tagApi';
 
 // 日历窗口尺寸配置key
 const CALENDAR_SIZE_KEY = 'task_calendar_size';
@@ -363,6 +557,45 @@ const showSizeMenu = ref(false);
 // 任务详情弹窗
 const showDetailModal = ref(false);
 const detailTask = ref<Task | null>(null);
+
+// 新增/编辑任务弹框状态
+const showTaskModal = ref(false);
+const isEditing = ref(false);
+const editingTaskId = ref<number | null>(null);
+const isSubmitting = ref(false);
+const formRef = ref();
+
+// AI 功能状态
+const aiClassifying = ref(false);
+const aiEnhancing = ref(false);
+const aiGeneratingSubtasks = ref(false);
+const isAiEnabled = ref(false);
+
+// 标签数据
+const availableTags = ref<Tag[]>([]);
+const showTagManager = ref(false);
+
+// 表单数据
+const formData = reactive({
+  title: '',
+  description: '',
+  category: 'other' as Task['category'],
+  priority: 2 as Task['priority'],
+  quadrant: 'urgent_not_important' as TaskQuadrant,
+  tagIds: [] as number[],
+  dueDate: null as number | null,
+  registeredAt: Date.now() as number,
+  scheduledStartTime: null as number | null,
+});
+
+// 表单验证规则
+const formRules = {
+  title: {
+    required: true,
+    message: '请输入任务标题',
+    trigger: 'blur',
+  },
+};
 
 // 窗口置顶状态
 const isAlwaysOnTop = ref(false);
@@ -577,7 +810,7 @@ async function loadTasks() {
 }
 
 // 处理任务操作
-function handleTaskAction(action: string, task: Task) {
+function handleTaskAction(action: string, task: Task, event?: MouseEvent) {
   contextMenu.value.task = task;
   switch (action) {
     case 'start':
@@ -591,6 +824,20 @@ function handleTaskAction(action: string, task: Task) {
       break;
     case 'detail':
       showTaskDetail(task);
+      break;
+    case 'context':
+      // 从视图组件中触发的右键菜单
+      if (event) {
+        showContextMenu(event, task);
+      } else {
+        // 如果没有事件，使用一个默认位置
+        contextMenu.value = {
+          visible: true,
+          x: 100,
+          y: 100,
+          task,
+        };
+      }
       break;
   }
 }
@@ -666,6 +913,313 @@ async function handleMoveToToday() {
     console.error('移至今天失败:', error);
   }
   hideContextMenu();
+}
+
+// ========== 任务新增/编辑相关函数 ==========
+
+// 加载标签
+async function loadTags() {
+  try {
+    const tags = await tagApi.getAllTags();
+    availableTags.value = tags || [];
+  } catch (error) {
+    console.error('加载标签失败:', error);
+    availableTags.value = [];
+  }
+}
+
+// 从日期单元格添加任务（月视图右键）
+function handleAddTaskFromDate(date: string, event: MouseEvent) {
+  // 先选中这个日期
+  selectedDate.value = date;
+  // 显示右键菜单（无任务选中状态）
+  contextMenu.value = {
+    visible: true,
+    x: Math.min(event.clientX, window.innerWidth - 160),
+    y: Math.min(event.clientY, window.innerHeight - 120),
+    task: null,
+  };
+}
+
+// 新增任务
+function handleAddTask() {
+  isEditing.value = false;
+  editingTaskId.value = null;
+  resetFormData();
+  // 如果有选中的日期，设置为登记日期
+  if (selectedDate.value) {
+    formData.registeredAt = new Date(selectedDate.value).getTime();
+  }
+  showTaskModal.value = true;
+  hideContextMenu();
+}
+
+// 编辑任务
+function handleEditTask() {
+  if (!contextMenu.value.task) return;
+
+  isEditing.value = true;
+  editingTaskId.value = contextMenu.value.task.id ?? null;
+
+  formData.title = contextMenu.value.task.title;
+  formData.description = contextMenu.value.task.description || '';
+  formData.category = contextMenu.value.task.category;
+  formData.priority = contextMenu.value.task.priority;
+  formData.quadrant = contextMenu.value.task.quadrant || 'urgent_not_important';
+  formData.tagIds = contextMenu.value.task.tags?.map(t => t.id!).filter(id => id !== undefined) || [];
+  formData.dueDate = contextMenu.value.task.dueDate ? new Date(contextMenu.value.task.dueDate).getTime() : null;
+  formData.registeredAt = contextMenu.value.task.registeredAt ? new Date(contextMenu.value.task.registeredAt).getTime() : Date.now();
+  formData.scheduledStartTime = contextMenu.value.task.scheduledStartTime ? new Date(contextMenu.value.task.scheduledStartTime).getTime() : null;
+
+  showTaskModal.value = true;
+  hideContextMenu();
+}
+
+// 重置表单数据
+function resetFormData() {
+  formData.title = '';
+  formData.description = '';
+  formData.category = 'other';
+  formData.priority = 2;
+  formData.quadrant = 'urgent_not_important';
+  formData.tagIds = [];
+  formData.dueDate = null;
+  formData.registeredAt = Date.now();
+  formData.scheduledStartTime = null;
+}
+
+// 取消任务编辑
+function handleCancelTask() {
+  showTaskModal.value = false;
+  resetFormData();
+}
+
+// 提交任务
+async function handleSubmitTask() {
+  try {
+    await formRef.value?.validate();
+
+    if (formData.title.trim().length === 0) {
+      console.error('任务标题不能为空');
+      return;
+    }
+
+    isSubmitting.value = true;
+
+    let finalCategory = formData.category;
+    let finalPriority = formData.priority;
+    let finalQuadrant = formData.quadrant;
+    let aiSuggestedTagIds: number[] = [];
+
+    // 如果 AI 启用且是新建，自动进行 AI 分类
+    if (isAiEnabled.value && !isEditing.value) {
+      try {
+        const existingTagNames = availableTags.value.map(t => t.name);
+        const result = await aiApi.classifyTask(
+          formData.title,
+          formData.description || undefined,
+          existingTagNames
+        );
+
+        if (formData.category === 'other' && result.category) {
+          finalCategory = result.category as Task['category'];
+        }
+        if (formData.priority === 2 && result.priority) {
+          finalPriority = result.priority as Task['priority'];
+        }
+        if (formData.quadrant === 'urgent_not_important' && result.quadrant) {
+          finalQuadrant = result.quadrant as TaskQuadrant;
+        }
+
+        if (result.suggestedTags && result.suggestedTags.length > 0) {
+          for (const suggestedTag of result.suggestedTags) {
+            const matchedTag = availableTags.value.find(
+              t => t.name.toLowerCase() === suggestedTag.toLowerCase()
+            );
+            if (matchedTag && matchedTag.id) {
+              aiSuggestedTagIds.push(matchedTag.id);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('AI 分类失败，使用默认值:', error);
+      }
+    }
+
+    const dueDateStr = formData.dueDate ? dayjs(formData.dueDate).format('YYYY-MM-DD') : undefined;
+    const registeredAtStr = formData.registeredAt ? dayjs(formData.registeredAt).format('YYYY-MM-DD') : undefined;
+    const scheduledStartTimeStr = formData.scheduledStartTime ? dayjs(formData.scheduledStartTime).format('YYYY-MM-DD HH:mm:ss') : undefined;
+
+    if (isEditing.value && editingTaskId.value) {
+      await invoke('update_task', {
+        taskId: editingTaskId.value,
+        title: formData.title,
+        description: formData.description || null,
+        category: formData.category,
+        priority: formData.priority,
+        quadrant: formData.quadrant,
+        dueDate: dueDateStr,
+        registeredAt: registeredAtStr,
+        scheduledStartTime: scheduledStartTimeStr,
+      });
+
+      // 更新标签
+      try {
+        await tagApi.removeAllTagsFromTask(editingTaskId.value);
+        if (formData.tagIds.length > 0) {
+          await tagApi.addTagsToTask(editingTaskId.value, formData.tagIds);
+        }
+      } catch (error) {
+        console.error('更新标签失败:', error);
+      }
+    } else {
+      const taskId = await invoke<number>('create_task', {
+        title: formData.title,
+        description: formData.description || null,
+        category: finalCategory,
+        priority: finalPriority,
+        quadrant: finalQuadrant,
+        dueDate: dueDateStr,
+        registeredAt: registeredAtStr,
+        scheduledStartTime: scheduledStartTimeStr,
+      });
+
+      // 合并标签
+      const allTagIds = [...new Set([...formData.tagIds, ...aiSuggestedTagIds])];
+      if (allTagIds.length > 0) {
+        try {
+          await tagApi.addTagsToTask(taskId, allTagIds);
+        } catch (error) {
+          console.error('添加标签失败:', error);
+        }
+      }
+    }
+
+    await loadTasks();
+    await emit('task-updated');
+
+    showTaskModal.value = false;
+    resetFormData();
+  } catch (error) {
+    console.error(isEditing.value ? '更新任务失败:' : '创建任务失败:', error);
+  } finally {
+    isSubmitting.value = false;
+  }
+}
+
+// AI 智能分类
+async function handleAiClassify() {
+  if (!formData.title) return;
+
+  aiClassifying.value = true;
+
+  try {
+    const existingTagNames = availableTags.value.map(t => t.name);
+    const result = await aiApi.classifyTask(
+      formData.title,
+      formData.description || undefined,
+      existingTagNames
+    );
+
+    if (result.category) {
+      formData.category = result.category as Task['category'];
+    }
+    if (result.priority) {
+      formData.priority = result.priority as Task['priority'];
+    }
+    if (result.quadrant) {
+      formData.quadrant = result.quadrant as TaskQuadrant;
+    }
+
+    if (result.suggestedTags && result.suggestedTags.length > 0) {
+      const matchedTagIds: number[] = [];
+      for (const suggestedTag of result.suggestedTags) {
+        const matchedTag = availableTags.value.find(
+          t => t.name.toLowerCase() === suggestedTag.toLowerCase()
+        );
+        if (matchedTag && matchedTag.id) {
+          matchedTagIds.push(matchedTag.id);
+        }
+      }
+      if (matchedTagIds.length > 0) {
+        formData.tagIds = matchedTagIds;
+      }
+    }
+  } catch (error) {
+    console.error('AI 分类失败:', error);
+  } finally {
+    aiClassifying.value = false;
+  }
+}
+
+// AI 增强描述
+async function handleAiEnhance() {
+  if (!formData.title) return;
+
+  aiEnhancing.value = true;
+
+  try {
+    const enhancedDesc = await aiApi.enhanceTaskDescription(
+      formData.title,
+      formData.description || undefined
+    );
+    formData.description = enhancedDesc;
+  } catch (error) {
+    console.error('AI 增强描述失败:', error);
+  } finally {
+    aiEnhancing.value = false;
+  }
+}
+
+// AI 生成子任务
+async function handleAiGenerateSubtasks() {
+  if (!formData.title) return;
+
+  aiGeneratingSubtasks.value = true;
+
+  try {
+    const subtasks = await aiApi.generateSubtasks(
+      formData.title,
+      formData.description || undefined
+    );
+
+    if (subtasks.length > 0) {
+      const subtasksSection = '\n\n## 子任务\n' + subtasks.map((task, index) => `${index + 1}. ${task}`).join('\n');
+      formData.description = (formData.description || '') + subtasksSection;
+    }
+  } catch (error) {
+    console.error('AI 生成子任务失败:', error);
+  } finally {
+    aiGeneratingSubtasks.value = false;
+  }
+}
+
+// 标签管理回调
+async function handleCreateTag(tag: Omit<Tag, 'id'>) {
+  try {
+    await tagApi.createTag(tag.name, tag.color);
+    await loadTags();
+  } catch (error) {
+    console.error('创建标签失败:', error);
+  }
+}
+
+async function handleUpdateTag(id: number, updates: Partial<Tag>) {
+  try {
+    await tagApi.updateTag(id, updates.name!, updates.color!);
+    await loadTags();
+  } catch (error) {
+    console.error('更新标签失败:', error);
+  }
+}
+
+async function handleDeleteTag(id: number) {
+  try {
+    await tagApi.deleteTag(id);
+    await loadTags();
+  } catch (error) {
+    console.error('删除标签失败:', error);
+  }
 }
 
 async function openMainWindow() {
@@ -844,22 +1398,44 @@ async function restoreWindowSize() {
   try {
     const currentWindow = getCurrentWindow();
 
-    // 恢复尺寸
+    // 恢复尺寸（添加验证，防止无效尺寸导致崩溃）
     const sizeStr = localStorage.getItem(CALENDAR_SIZE_KEY);
     if (sizeStr) {
       const size = JSON.parse(sizeStr);
-      await currentWindow.setSize(new LogicalSize(size.width, size.height));
-      detectSizePreset(size.width, size.height);
+      // 验证尺寸有效性：必须大于最小值且小于合理最大值
+      const minWidth = 650;
+      const minHeight = 450;
+      const maxWidth = 2000;
+      const maxHeight = 1500;
+
+      if (size.width >= minWidth && size.width <= maxWidth &&
+          size.height >= minHeight && size.height <= maxHeight) {
+        await currentWindow.setSize(new LogicalSize(size.width, size.height));
+        detectSizePreset(size.width, size.height);
+      } else {
+        // 尺寸无效，清除保存的数据并使用默认尺寸
+        console.warn('保存的窗口尺寸无效，使用默认尺寸:', size);
+        localStorage.removeItem(CALENDAR_SIZE_KEY);
+        await currentWindow.setSize(new LogicalSize(SIZE_PRESETS.medium.width, SIZE_PRESETS.medium.height));
+      }
     }
 
     // 恢复位置
     const posStr = localStorage.getItem(CALENDAR_POSITION_KEY);
     if (posStr) {
       const pos = JSON.parse(posStr);
-      await currentWindow.setPosition(new LogicalPosition(pos.x, pos.y));
+      // 验证位置有效性
+      if (pos.x >= -100 && pos.y >= -100 && pos.x < 5000 && pos.y < 3000) {
+        await currentWindow.setPosition(new LogicalPosition(pos.x, pos.y));
+      } else {
+        localStorage.removeItem(CALENDAR_POSITION_KEY);
+      }
     }
   } catch (error) {
     console.error('恢复窗口尺寸失败:', error);
+    // 出错时清除保存的数据
+    localStorage.removeItem(CALENDAR_SIZE_KEY);
+    localStorage.removeItem(CALENDAR_POSITION_KEY);
   }
 }
 
@@ -908,6 +1484,15 @@ onMounted(async () => {
   await restoreWindowSettings();
 
   await loadTasks();
+  await loadTags();
+
+  // 检查 AI 是否启用
+  try {
+    isAiEnabled.value = await aiApi.isEnabled();
+  } catch (error) {
+    console.error('检查 AI 状态失败:', error);
+    isAiEnabled.value = false;
+  }
 
   // 监听任务更新事件
   unlistenTaskUpdate = await listen('task-updated', async () => {
@@ -1759,5 +2344,102 @@ onUnmounted(() => {
 
 .resize-corner:hover {
   background: linear-gradient(135deg, transparent 40%, rgba(99, 102, 241, 0.6) 40%);
+}
+
+/* ========== 任务表单样式 ========== */
+.task-form-container {
+  max-height: 65vh;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.task-form-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.task-form-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.task-form-container::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 3px;
+}
+
+.input-with-ai {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.input-with-ai :deep(.n-input) {
+  flex: 1;
+}
+
+.input-with-ai-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.ai-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.ai-btn {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.ai-btn-small {
+  font-size: 11px;
+  color: #818cf8;
+}
+
+.ai-btn-small:hover {
+  color: #a5b4fc;
+}
+
+.date-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* 任务表单弹窗深色主题适配 */
+:deep(.task-modal) {
+  background: rgba(30, 41, 59, 0.98);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+:deep(.task-modal .n-card-header) {
+  background: rgba(99, 102, 241, 0.1);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+:deep(.task-modal .n-card-header__main) {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+:deep(.task-modal .n-card__content) {
+  background: transparent;
+  padding: 20px !important;
+}
+
+:deep(.task-modal .n-card__footer) {
+  background: rgba(15, 23, 42, 0.5);
+  border-top: 1px solid rgba(99, 102, 241, 0.2);
+  padding: 12px 20px !important;
+}
+
+:deep(.n-form-item-label__text) {
+  color: #94a3b8;
+  font-weight: 500;
 }
 </style>
