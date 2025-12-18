@@ -1,6 +1,7 @@
 pub mod app_launcher;
 pub mod app_launcher_settings;
 pub mod clipboard;
+pub mod pomodoro;
 pub mod screen_context;
 pub mod sql_record;
 pub mod task;
@@ -15,6 +16,10 @@ pub use app_launcher::{
 };
 pub use app_launcher_settings::AppLauncherSettings;
 pub use clipboard::{ClipboardConfig, ClipboardContentType, ClipboardHistory, ClipboardQueryParams, CreateClipboardRecord};
+pub use pomodoro::{
+    AiFocusAnalysis, AiFocusSuggestion, CompletePomodoroRequest, CreatePomodoroRequest, FocusApp,
+    PomodoroDailyStats, PomodoroPhase, PomodoroSession, PomodoroStatus,
+};
 pub use screen_context::{
     ActiveTimeRange, ActivityDistribution, AppUsage, DailyActiveHours, DailySummary, DayContextSummary,
     DayStats, KeyActivity, ScreenContext, WeekContextSummary, WeeklyActivitySummary, WeeklyAppRanking,

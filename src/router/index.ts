@@ -16,6 +16,14 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/pomodoro',
+    name: 'pomodoro',
+    component: () => import('../views/PomodoroView.vue'),
+    meta: {
+      title: '专注时钟'
+    }
+  },
+  {
     path: '/sql-history',
     name: 'sql-history',
     component: () => import('../views/SqlHistory.vue'),

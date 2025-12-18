@@ -291,6 +291,7 @@ struct MessageContent {
 }
 
 /// 全局 AI 服务
+#[derive(Clone)]
 pub struct AiService {
     client: Client,
     pub config: AiConfig,

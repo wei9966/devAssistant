@@ -139,6 +139,16 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     // 迁移 apps 表：添加应用扫描器字段
     migrate_apps_add_scanner_fields(conn)?;
 
+    // 创建番茄钟相关表
+    create_pomodoro_sessions_table(conn)?;
+    create_pomodoro_sessions_indexes(conn)?;
+
+    create_pomodoro_focus_apps_table(conn)?;
+    create_pomodoro_focus_apps_indexes(conn)?;
+
+    create_pomodoro_daily_stats_table(conn)?;
+    create_pomodoro_daily_stats_indexes(conn)?;
+
     Ok(())
 }
 
@@ -2086,4 +2096,132 @@ fn init_default_prompts(conn: &Connection) -> Result<()> {
             Ok(())
         }
     }
+}
+
+/// 创建 pomodoro_sessions 表（番茄钟会话）
+fn create_pomodoro_sessions_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS pomodoro_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER,
+            duration_minutes INTEGER DEFAULT 25,
+            status TEXT NOT NULL DEFAULT 'pending',
+            phase TEXT NOT NULL DEFAULT 'prep',
+            focus_goal TEXT,
+            ai_suggestion TEXT,
+            actual_focus_seconds INTEGER DEFAULT 0,
+            distraction_count INTEGER DEFAULT 0,
+            focus_rate REAL DEFAULT 0.0,
+            feedback TEXT,
+            progress_update TEXT,
+            started_at TEXT,
+            paused_at TEXT,
+            completed_at TEXT,
+            created_at TEXT DEFAULT (datetime('now', 'localtime')),
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 pomodoro_sessions 表索引
+fn create_pomodoro_sessions_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_task_id ON pomodoro_sessions(task_id)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_status ON pomodoro_sessions(status)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_phase ON pomodoro_sessions(phase)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_started_at ON pomodoro_sessions(started_at DESC)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_created_at ON pomodoro_sessions(created_at DESC)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 pomodoro_focus_apps 表（专注应用白名单）
+fn create_pomodoro_focus_apps_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS pomodoro_focus_apps (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            process_name TEXT,
+            is_default INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 pomodoro_focus_apps 表索引
+fn create_pomodoro_focus_apps_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pomodoro_focus_apps_name ON pomodoro_focus_apps(name)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pomodoro_focus_apps_process_name ON pomodoro_focus_apps(process_name)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pomodoro_focus_apps_is_default ON pomodoro_focus_apps(is_default)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 创建 pomodoro_daily_stats 表（每日统计）
+fn create_pomodoro_daily_stats_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS pomodoro_daily_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL UNIQUE,
+            total_sessions INTEGER DEFAULT 0,
+            completed_sessions INTEGER DEFAULT 0,
+            total_focus_minutes INTEGER DEFAULT 0,
+            avg_focus_rate REAL DEFAULT 0.0,
+            total_distractions INTEGER DEFAULT 0,
+            app_usage TEXT,
+            ai_insight TEXT,
+            created_at TEXT DEFAULT (datetime('now', 'localtime')),
+            updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 pomodoro_daily_stats 表索引
+fn create_pomodoro_daily_stats_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pomodoro_daily_stats_date ON pomodoro_daily_stats(date DESC)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pomodoro_daily_stats_created_at ON pomodoro_daily_stats(created_at DESC)",
+        [],
+    )?;
+
+    Ok(())
 }

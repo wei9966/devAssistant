@@ -144,7 +144,8 @@ import {
   ImagesOutline as ScreenshotIcon,
   NotificationsOutline as NotificationIcon,
   SettingsOutline as SettingsIcon,
-  PieChartOutline as ReportIcon
+  PieChartOutline as ReportIcon,
+  TimerOutline as TimerIcon
 } from '@vicons/ionicons5'
 import { invoke } from '@tauri-apps/api/core'
 import CyberpunkLauncher from '@/components/appLauncher/CyberpunkLauncher.vue'
@@ -356,6 +357,11 @@ const menuOptions: MenuOption[] = [
     label: '任务看板',
     key: 'task-board',
     icon: () => h(TaskIcon)
+  },
+  {
+    label: '专注时钟',
+    key: 'pomodoro',
+    icon: () => h(TimerIcon)
   },
   {
     label: 'SQL历史',

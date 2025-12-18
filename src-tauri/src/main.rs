@@ -1368,6 +1368,34 @@ fn main() {
             commands::prediction_commands::ignore_predictions,
             commands::prediction_commands::get_pending_prediction_count,
             commands::prediction_commands::cleanup_old_predictions,
+            // 番茄钟相关命令
+            commands::pomodoro_commands::create_pomodoro_session,
+            commands::pomodoro_commands::start_pomodoro,
+            commands::pomodoro_commands::pause_pomodoro,
+            commands::pomodoro_commands::resume_pomodoro,
+            commands::pomodoro_commands::cancel_pomodoro,
+            commands::pomodoro_commands::complete_pomodoro,
+            commands::pomodoro_commands::record_pomodoro_distraction,
+            commands::pomodoro_commands::update_pomodoro_focus_time,
+            commands::pomodoro_commands::get_pomodoro_session,
+            commands::pomodoro_commands::get_active_pomodoro_session,
+            commands::pomodoro_commands::get_today_pomodoro_sessions,
+            commands::pomodoro_commands::get_task_pomodoro_sessions,
+            commands::pomodoro_commands::get_pomodoro_focus_apps,
+            commands::pomodoro_commands::add_pomodoro_focus_app,
+            commands::pomodoro_commands::remove_pomodoro_focus_app,
+            commands::pomodoro_commands::get_pomodoro_today_stats,
+            commands::pomodoro_commands::get_pomodoro_stats_by_date,
+            commands::pomodoro_commands::get_pomodoro_stats_range,
+            // 番茄钟 AI 功能
+            commands::pomodoro_commands::pomodoro_ai_task_breakdown,
+            commands::pomodoro_commands::pomodoro_ai_focus_analysis,
+            commands::pomodoro_commands::pomodoro_ai_daily_review,
+            commands::pomodoro_commands::pomodoro_ai_progress_eval,
+            // 番茄钟任务中断与恢复
+            commands::pomodoro_commands::pomodoro_ai_analyze_interruption,
+            commands::pomodoro_commands::pomodoro_ai_resume_suggestion,
+            commands::pomodoro_commands::pomodoro_ai_quick_resume,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");

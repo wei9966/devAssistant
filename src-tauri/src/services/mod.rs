@@ -10,6 +10,7 @@ pub mod clipboard_history_service;
 pub mod context_manager_service;
 pub mod context_store_service;
 pub mod notification_service;
+pub mod pomodoro_service;
 pub mod prompt_service;
 pub mod prompt_manager_service;
 pub mod prompt_db_service;
@@ -42,6 +43,7 @@ pub use app_scanner_service::AppScannerService;
 pub use clipboard_history_service::ClipboardHistoryService;
 pub use context_store_service::ContextStoreService;
 pub use notification_service::{Notification, NotificationService, NotificationSettings, NotificationType};
+pub use pomodoro_service::{PomodoroService, PomodoroAiService};
 pub use prompt_service::{PromptConfig, PromptService, PromptSettings};
 pub use prompt_manager_service::{
     PromptManager, PromptsConfig, ProcessingPrompts, GenerationPrompts,
