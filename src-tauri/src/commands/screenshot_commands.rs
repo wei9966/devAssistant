@@ -907,112 +907,159 @@ pub struct RunningApp {
 }
 
 /// 获取当前运行的应用列表（用于白名单选择）
+/// 只获取有可见窗口的应用程序，过滤掉后台进程
 #[tauri::command]
 pub async fn get_running_apps() -> Result<Vec<RunningApp>, String> {
     #[cfg(windows)]
     {
-        use std::collections::{HashSet, HashMap};
+        use std::collections::HashMap;
+        use winapi::shared::minwindef::{BOOL, LPARAM, TRUE};
+        use winapi::shared::windef::HWND;
+        use winapi::um::winuser::{
+            EnumWindows, GetWindowTextW, GetWindowTextLengthW, IsWindowVisible,
+            GetWindowThreadProcessId, GetWindowLongW, GWL_STYLE, GWL_EXSTYLE,
+            WS_VISIBLE, WS_EX_TOOLWINDOW, WS_EX_APPWINDOW,
+        };
         use winapi::um::processthreadsapi::OpenProcess;
-        use winapi::um::psapi::{EnumProcesses, GetModuleBaseNameW};
+        use winapi::um::psapi::GetModuleBaseNameW;
         use winapi::um::handleapi::CloseHandle;
         use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
 
-        let mut apps: Vec<RunningApp> = Vec::new();
-        let mut seen_processes: HashSet<String> = HashSet::new();
-        let mut seen_app_names: HashMap<String, String> = HashMap::new(); // app_name_lower -> process_name
+        // 用于收集有窗口的进程
+        struct WindowAppsCollector {
+            apps: HashMap<u32, (String, String)>, // pid -> (process_name, window_title)
+        }
 
+        // 回调函数：枚举所有顶级窗口
+        unsafe extern "system" fn enum_window_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
+            let collector = &mut *(lparam as *mut WindowAppsCollector);
+
+            // 检查窗口是否可见
+            if IsWindowVisible(hwnd) == 0 {
+                return TRUE;
+            }
+
+            // 获取窗口样式
+            let style = GetWindowLongW(hwnd, GWL_STYLE) as u32;
+            let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE) as u32;
+
+            // 跳过工具窗口（除非有 WS_EX_APPWINDOW）
+            if (ex_style & WS_EX_TOOLWINDOW as u32) != 0 && (ex_style & WS_EX_APPWINDOW as u32) == 0 {
+                return TRUE;
+            }
+
+            // 必须是可见窗口
+            if (style & WS_VISIBLE as u32) == 0 {
+                return TRUE;
+            }
+
+            // 获取窗口标题长度
+            let title_len = GetWindowTextLengthW(hwnd);
+            if title_len == 0 {
+                return TRUE; // 跳过没有标题的窗口
+            }
+
+            // 获取窗口标题
+            let mut title: [u16; 512] = [0; 512];
+            let len = GetWindowTextW(hwnd, title.as_mut_ptr(), title.len() as i32);
+            if len == 0 {
+                return TRUE;
+            }
+            let window_title = String::from_utf16_lossy(&title[..len as usize]);
+
+            // 跳过特定的系统窗口
+            let skip_titles = [
+                "Program Manager", "Windows Input Experience", "MSCTFIME UI",
+                "Default IME", "CiceroUIWndFrame", "Windows Shell Experience Host",
+                "Microsoft Text Input Application", "Settings", "Calculator",
+            ];
+            if skip_titles.iter().any(|&t| window_title == t) {
+                return TRUE;
+            }
+
+            // 获取进程 ID
+            let mut pid: u32 = 0;
+            GetWindowThreadProcessId(hwnd, &mut pid);
+            if pid == 0 {
+                return TRUE;
+            }
+
+            // 跳过已收集的进程
+            if collector.apps.contains_key(&pid) {
+                return TRUE;
+            }
+
+            // 获取进程名
+            let handle = OpenProcess(PROCESS_QUERY_INFORMATION | 0x0010, 0, pid);
+            if handle.is_null() {
+                return TRUE;
+            }
+
+            let mut name: [u16; 260] = [0; 260];
+            let name_len = GetModuleBaseNameW(handle, std::ptr::null_mut(), name.as_mut_ptr(), name.len() as u32);
+            CloseHandle(handle);
+
+            if name_len > 0 {
+                let process_name = String::from_utf16_lossy(&name[..name_len as usize]);
+                let process_lower = process_name.to_lowercase();
+
+                // 过滤系统进程和后台服务
+                let skip_processes = [
+                    "explorer.exe", "searchhost.exe", "shellexperiencehost.exe",
+                    "startmenuexperiencehost.exe", "textinputhost.exe", "runtimebroker.exe",
+                    "applicationframehost.exe", "systemsettings.exe", "lockapp.exe",
+                    "windows.immersivecontrolpanel", "securityhealthsystray.exe",
+                    "tauri.exe", "dev-assistant.exe", "devassistant.exe",
+                ];
+                if skip_processes.iter().any(|&s| process_lower == s || process_lower.contains(s.trim_end_matches(".exe"))) {
+                    return TRUE;
+                }
+
+                // 过滤缓存、服务类进程
+                let skip_keywords = [
+                    "cache", "service", "daemon", "helper", "agent", "crashpad",
+                    "renderer", "gpu-process", "utility", "broker", "container",
+                    "cloud", "sync", "update", "tray", "systray", "background",
+                ];
+                if skip_keywords.iter().any(|&k| process_lower.contains(k)) {
+                    return TRUE;
+                }
+
+                // 添加到结果
+                collector.apps.insert(pid, (process_name, window_title));
+            }
+
+            TRUE
+        }
+
+        // 创建收集器
+        let mut collector = WindowAppsCollector {
+            apps: HashMap::new(),
+        };
+
+        // 枚举所有窗口
         unsafe {
-            let mut process_ids: [u32; 2048] = [0; 2048];
-            let mut bytes_returned: u32 = 0;
+            EnumWindows(Some(enum_window_callback), &mut collector as *mut _ as LPARAM);
+        }
 
-            if EnumProcesses(
-                process_ids.as_mut_ptr(),
-                (process_ids.len() * std::mem::size_of::<u32>()) as u32,
-                &mut bytes_returned,
-            ) == 0
-            {
-                return Err("Failed to enumerate processes".to_string());
+        // 收集结果
+        let mut apps: Vec<RunningApp> = Vec::new();
+        let mut seen_app_names: HashMap<String, bool> = HashMap::new();
+
+        for (_, (process_name, _)) in collector.apps.iter() {
+            let app_name = map_process_to_app_name(process_name);
+            let app_name_lower = app_name.to_lowercase();
+
+            // 按应用名去重
+            if seen_app_names.contains_key(&app_name_lower) {
+                continue;
             }
+            seen_app_names.insert(app_name_lower, true);
 
-            let num_processes = bytes_returned as usize / std::mem::size_of::<u32>();
-
-            for i in 0..num_processes {
-                let pid = process_ids[i];
-                if pid == 0 {
-                    continue;
-                }
-
-                let handle = OpenProcess(PROCESS_QUERY_INFORMATION | 0x0010, 0, pid);
-                if handle.is_null() {
-                    continue;
-                }
-
-                let mut name: [u16; 260] = [0; 260];
-                let len = GetModuleBaseNameW(handle, std::ptr::null_mut(), name.as_mut_ptr(), name.len() as u32);
-                CloseHandle(handle);
-
-                if len > 0 {
-                    let process_name = String::from_utf16_lossy(&name[..len as usize]);
-                    let process_lower = process_name.to_lowercase();
-
-                    // 跳过已添加的进程
-                    if seen_processes.contains(&process_lower) {
-                        continue;
-                    }
-
-                    // 扩展的系统进程过滤列表
-                    let skip_processes = [
-                        // 核心系统进程
-                        "system", "svchost", "csrss", "wininit", "services", "lsass",
-                        "smss", "dwm", "conhost", "fontdrvhost", "sihost", "taskhostw",
-                        "explorer", "searchhost", "runtimebroker", "applicationframehost",
-                        "shellexperiencehost", "startmenuexperiencehost", "textinputhost",
-                        "ctfmon", "dllhost", "audiodg", "spoolsv", "searchindexer",
-                        "securityhealthservice", "sgrmbroker", "registry", "memory compression",
-                        "system idle process", "ntoskrnl", "wudfhost", "wmiprvse",
-                        "searchprotocolhost", "searchfilterhost", "gameinputsvc",
-                        // 额外的系统和后台进程
-                        "nvidia", "amd", "intel", "realtek", "logitech", "razer",
-                        "msmpeng", "antimalware", "defender", "windows security",
-                        "crashpad", "helper", "renderer", "gpu-process", "utility",
-                        "broker", "host", "agent", "service", "daemon", "worker",
-                        "update", "updater", "installer", "setup", "unins",
-                        "systray", "tray", "widget", "sidebar", "gadget",
-                        "backgroundtask", "background", "sync", "indexer",
-                        "phone", "yourphone", "gamebar", "xbox", "gamemode",
-                        "cortana", "widgets", "news", "weather", "clock",
-                        "print", "fax", "bluetooth", "wifi", "network",
-                        "tauri", "dev-assistant", // 排除自己
-                    ];
-
-                    let should_skip = skip_processes.iter().any(|&s| process_lower.contains(s));
-                    if should_skip {
-                        continue;
-                    }
-
-                    // 跳过短名称（通常是系统组件）
-                    if process_lower.len() < 4 {
-                        continue;
-                    }
-
-                    // 映射到应用名
-                    let app_name = map_process_to_app_name(&process_name);
-                    let app_name_lower = app_name.to_lowercase();
-
-                    // 按应用名去重（同一应用可能有多个进程）
-                    if seen_app_names.contains_key(&app_name_lower) {
-                        seen_processes.insert(process_lower);
-                        continue;
-                    }
-
-                    seen_processes.insert(process_lower.clone());
-                    seen_app_names.insert(app_name_lower, process_lower);
-                    apps.push(RunningApp {
-                        name: app_name,
-                        process_name: process_name,
-                    });
-                }
-            }
+            apps.push(RunningApp {
+                name: app_name,
+                process_name: process_name.clone(),
+            });
         }
 
         // 按应用名排序

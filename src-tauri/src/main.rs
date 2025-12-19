@@ -1411,6 +1411,10 @@ fn main() {
             commands::pomodoro_commands::pomodoro_ai_analyze_interruption,
             commands::pomodoro_commands::pomodoro_ai_resume_suggestion,
             commands::pomodoro_commands::pomodoro_ai_quick_resume,
+            // 工具箱相关命令
+            commands::tool_commands::check_port_usage,
+            commands::tool_commands::kill_process_by_pid,
+            commands::tool_commands::open_tool_window,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");

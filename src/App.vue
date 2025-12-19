@@ -144,7 +144,8 @@ import {
   NotificationsOutline as NotificationIcon,
   SettingsOutline as SettingsIcon,
   PieChartOutline as ReportIcon,
-  TimerOutline as TimerIcon
+  TimerOutline as TimerIcon,
+  ConstructOutline as ToolboxIcon
 } from '@vicons/ionicons5'
 import { invoke } from '@tauri-apps/api/core'
 import CyberpunkLauncher from '@/components/appLauncher/CyberpunkLauncher.vue'
@@ -386,6 +387,11 @@ const menuOptions: MenuOption[] = [
     label: '通知中心',
     key: 'notification-center',
     icon: () => h(NotificationIcon)
+  },
+  {
+    label: '工具箱',
+    key: 'toolbox',
+    icon: () => h(ToolboxIcon)
   },
   {
     label: '设置',

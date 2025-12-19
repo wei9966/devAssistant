@@ -72,6 +72,22 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/toolbox',
+    name: 'toolbox',
+    component: () => import('../views/Toolbox.vue'),
+    meta: {
+      title: '工具箱'
+    }
+  },
+  {
+    path: '/text-converter',
+    name: 'text-converter',
+    component: () => import('../views/TextConverter.vue'),
+    meta: {
+      title: '文本转换器'
+    }
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('../views/Settings.vue'),

@@ -31,6 +31,7 @@ pub mod user_activity_service;
 pub mod vlm_service;
 pub mod weekly_plan_service;
 pub mod work_log_service;
+pub mod tool_service;
 
 // 以下模块暂时注释，因为依赖其他额外的crate或有编码问题
 // pub mod git_service;

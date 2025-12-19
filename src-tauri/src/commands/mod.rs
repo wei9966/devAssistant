@@ -31,3 +31,4 @@ pub mod vlm_commands;
 pub mod weekly_plan_commands;
 pub mod window_commands;
 pub mod work_log_commands;
+pub mod tool_commands;
