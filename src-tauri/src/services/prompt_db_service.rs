@@ -1307,8 +1307,13 @@ impl PromptDbService {
             "pomodoro_task_breakdown",
             "pomodoro",
             "任务拆解建议",
-            Some("将任务拆解为25分钟可完成的小目标，帮助用户保持专注"),
-            Some(r#"你是一个冷静且专业的效率教练。你的任务是根据用户的任务描述，将其拆解为25分钟可完成的小目标，帮助用户保持专注。
+            Some("将任务拆解为25分钟可完成的小目标，结合任务进度和里程碑信息进行智能分析"),
+            Some(r#"你是一个冷静且专业的效率教练。你的任务是根据用户的任务描述、当前进度和历史里程碑，将其拆解为25分钟可完成的小目标，帮助用户保持专注。
+
+分析要点：
+1. 考虑任务当前进度，避免重复已完成的工作
+2. 参考历史里程碑，了解任务推进的脉络
+3. 基于当前状态，建议下一个可行的小目标
 
 输出要求：
 1. 建议的本次专注目标（具体、可执行、25分钟内可完成）
@@ -1327,9 +1332,16 @@ impl PromptDbService {
 
 任务标题：{task_title}
 任务描述：{task_description}
+{current_progress}
+{milestones}
 
-请根据任务复杂度，建议一个合适的本次专注目标。"#,
-            Some(vec!["task_title".to_string(), "task_description".to_string()]),
+请结合任务的当前进度和历史里程碑，建议一个合适的本次专注目标。"#,
+            Some(vec![
+                "task_title".to_string(),
+                "task_description".to_string(),
+                "current_progress".to_string(),
+                "milestones".to_string()
+            ]),
             true,
         )?;
 

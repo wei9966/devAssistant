@@ -194,6 +194,7 @@ pub struct CreatePomodoroRequest {
     pub duration_minutes: Option<i32>,
     pub focus_goal: Option<String>,
     pub focus_apps: Option<Vec<String>>,
+    pub ai_suggestion: Option<String>,  // AI任务执行建议(JSON字符串)
 }
 
 /// 完成番茄钟的请求

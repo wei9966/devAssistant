@@ -29,18 +29,27 @@
             <!-- 任务选择/输入 -->
             <div class="task-input-wrapper">
               <select
-                v-if="taskOptions.length > 0"
+                v-if="taskOptions.active.length > 0 || taskOptions.todo.length > 0"
                 v-model="selectedTaskId"
                 class="task-native-select"
                 @change="handleTaskSelectChange"
               >
                 <option :value="null" disabled>-- 选择现有任务 --</option>
-                <option v-for="task in taskOptions" :key="task.value" :value="task.value">
-                  {{ task.label }}
-                </option>
+
+                <optgroup v-if="taskOptions.active.length > 0" label="进行中">
+                  <option v-for="task in taskOptions.active" :key="task.value" :value="task.value">
+                    {{ task.label }}
+                  </option>
+                </optgroup>
+
+                <optgroup v-if="taskOptions.todo.length > 0" label="待办">
+                  <option v-for="task in taskOptions.todo" :key="task.value" :value="task.value">
+                    {{ task.label }}
+                  </option>
+                </optgroup>
               </select>
 
-              <div class="task-or-divider" v-if="taskOptions.length > 0">或</div>
+              <div class="task-or-divider" v-if="taskOptions.active.length > 0 || taskOptions.todo.length > 0">或</div>
 
               <div class="new-task-input-row">
                 <input
@@ -229,6 +238,108 @@
               <path fill="currentColor" d="M6 6h12v12H6z"/>
             </svg>
           </button>
+        </div>
+
+        <!-- Task Details Panel (Expandable) -->
+        <div class="task-details-panel">
+          <button class="panel-toggle-btn" @click="toggleTaskDetailsPanel">
+            <svg viewBox="0 0 24 24" width="16" height="16" class="toggle-icon" :class="{ expanded: showTaskDetails }">
+              <path fill="currentColor" d="M7 10l5 5 5-5z"/>
+            </svg>
+            <span>任务详情</span>
+          </button>
+
+          <transition name="panel-slide">
+            <div v-if="showTaskDetails" class="task-details-content">
+              <!-- AI 建议步骤 -->
+              <div v-if="aiSuggestionData?.subTasks?.length" class="detail-section">
+                <div class="section-header">
+                  <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path fill="#6366f1" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                  </svg>
+                  <span>AI 建议步骤</span>
+                </div>
+                <div class="steps-list">
+                  <div
+                    v-for="(step, index) in aiSuggestionData.subTasks"
+                    :key="index"
+                    class="step-item"
+                  >
+                    <span class="step-number">{{ index + 1 }}</span>
+                    <span class="step-text">{{ step }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 任务需求描述 -->
+              <div v-if="currentSession?.task?.notes" class="detail-section">
+                <div class="section-header">
+                  <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path fill="#6366f1" d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+                  </svg>
+                  <span>任务需求</span>
+                </div>
+                <div class="task-notes">{{ currentSession.task.notes }}</div>
+              </div>
+
+              <!-- 任务进度 -->
+              <div v-if="currentSession?.task?.progress !== undefined" class="detail-section">
+                <div class="section-header">
+                  <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path fill="#6366f1" d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm0 4c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm6 12H6v-1.4c0-2 4-3.1 6-3.1s6 1.1 6 3.1V19z"/>
+                  </svg>
+                  <span>任务进度</span>
+                </div>
+                <div class="progress-bar-wrapper">
+                  <div class="progress-bar-bg">
+                    <div
+                      class="progress-bar-fill"
+                      :style="{ width: `${currentSession.task.progress}%` }"
+                    ></div>
+                  </div>
+                  <span class="progress-text">{{ currentSession.task.progress }}%</span>
+                </div>
+              </div>
+
+              <!-- 里程碑记录 -->
+              <div v-if="taskMilestones.length > 0" class="detail-section">
+                <div class="section-header">
+                  <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path fill="#6366f1" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                  <span>最近里程碑</span>
+                </div>
+                <div class="milestones-list">
+                  <div
+                    v-for="milestone in taskMilestones.slice(0, 3)"
+                    :key="milestone.id"
+                    class="milestone-item"
+                  >
+                    <div class="milestone-icon"></div>
+                    <div class="milestone-content">
+                      <div class="milestone-title">{{ milestone.title }}</div>
+                      <div class="milestone-meta">
+                        <span v-if="milestone.progressSnapshot !== undefined">
+                          进度: {{ milestone.progressSnapshot }}%
+                        </span>
+                        <span v-if="milestone.createdAt" class="milestone-date">
+                          {{ formatMilestoneDate(milestone.createdAt) }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 空状态提示 -->
+              <div v-if="!hasAnyTaskDetails" class="empty-state">
+                <svg viewBox="0 0 24 24" width="32" height="32">
+                  <path fill="#64748b" d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                </svg>
+                <p>暂无任务详情</p>
+              </div>
+            </div>
+          </transition>
         </div>
       </div>
     </div>
@@ -539,6 +650,7 @@ import { aiTaskBreakdown, aiFocusAnalysis, aiDailyReview, getActiveWindowInfo, g
 import { taskApi } from '@/api/taskApi'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import type { PomodoroPhase, FocusApp, AppUsageStats } from '@/types/pomodoro'
+import type { TaskMilestone } from '@/types/task'
 
 const route = useRoute()
 const router = useRouter()
@@ -558,11 +670,18 @@ const selectedTaskId = ref<number | null>(null)
 const newTaskName = ref('')
 
 const taskOptions = computed(() => {
-  const tasks = [...taskStore.activeTasks, ...taskStore.todoTasks]
-  return tasks.map(t => ({
-    label: t.title,
-    value: t.id
-  }))
+  return {
+    active: taskStore.activeTasks.map(t => ({
+      label: t.title,
+      value: t.id,
+      status: 'active'
+    })),
+    todo: taskStore.todoTasks.map(t => ({
+      label: t.title,
+      value: t.id,
+      status: 'todo'
+    }))
+  }
 })
 
 const selectedTask = computed(() => {
@@ -613,9 +732,19 @@ function clearSelectedTask() {
 const aiSuggestions = ref<string[]>([])
 const aiSuggestionsLoading = ref(false)
 
-// 监听任务选择变化，获取AI建议
+// 监听任务选择变化，获取AI建议并自动更新任务状态
 watch(selectedTaskId, async (newTaskId) => {
   if (newTaskId && selectedTask.value) {
+    // 如果选中的任务状态是待办（todo），自动更新为进行中（active）
+    if (selectedTask.value.status === 'todo') {
+      try {
+        await taskStore.startTask(newTaskId)
+        message.success(`任务「${selectedTask.value.title}」已开始`)
+      } catch (error) {
+        console.error('自动开始任务失败:', error)
+        message.error('任务状态更新失败')
+      }
+    }
     await fetchAiSuggestions()
   } else {
     aiSuggestions.value = []
@@ -649,8 +778,10 @@ async function fetchAiSuggestions() {
   aiSuggestionData.value = null
   try {
     const result = await aiTaskBreakdown(
+      selectedTask.value.id,
       selectedTask.value.title,
-      selectedTask.value.description || undefined
+      selectedTask.value.description || undefined,
+      selectedTask.value.progress
     )
     // 解析AI返回的建议
     try {
@@ -721,6 +852,74 @@ const aiSuggestion2 = computed(() => {
     return `目标：专注完成「${selectedTask.value.title}」`
   }
   return '请选择或输入一个任务，AI 将为你定制专注建议。'
+})
+
+// Session Data (需要在 Task Details Panel 之前声明)
+const currentSession = computed(() => pomodoroStore.currentSession)
+
+// Task Details Panel
+const showTaskDetails = ref(false)
+const taskMilestones = ref<TaskMilestone[]>([])
+
+// 切换任务详情面板
+function toggleTaskDetailsPanel() {
+  showTaskDetails.value = !showTaskDetails.value
+}
+
+// 判断是否有任何任务详情
+const hasAnyTaskDetails = computed(() => {
+  return (
+    (aiSuggestionData.value?.subTasks?.length ?? 0) > 0 ||
+    !!currentSession.value?.task?.notes ||
+    currentSession.value?.task?.progress !== undefined ||
+    taskMilestones.value.length > 0
+  )
+})
+
+// 格式化里程碑日期
+function formatMilestoneDate(dateStr: string) {
+  try {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+    if (days === 0) {
+      return '今天'
+    } else if (days === 1) {
+      return '昨天'
+    } else if (days < 7) {
+      return `${days}天前`
+    } else {
+      return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+    }
+  } catch {
+    return ''
+  }
+}
+
+// 加载任务里程碑
+async function loadTaskMilestones(taskId: number) {
+  try {
+    const milestones = await taskApi.getTaskMilestones(taskId)
+    taskMilestones.value = milestones.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime()
+      const dateB = new Date(b.createdAt || 0).getTime()
+      return dateB - dateA // 最新的在前面
+    })
+  } catch (error) {
+    console.error('加载里程碑失败:', error)
+    taskMilestones.value = []
+  }
+}
+
+// 监听当前会话任务变化，加载里程碑
+watch(() => currentSession.value?.taskId, async (taskId) => {
+  if (taskId) {
+    await loadTaskMilestones(taskId)
+  } else {
+    taskMilestones.value = []
+  }
 })
 
 // Duration
@@ -1193,8 +1392,7 @@ const reportTaskTitle = computed(() => {
   return '专注完成'
 })
 
-// Session Data
-const currentSession = computed(() => pomodoroStore.currentSession)
+// Session Data (currentSession 已在前面声明)
 const isPaused = computed(() => currentSession.value?.status === 'paused')
 const todayStats = computed(() => pomodoroStore.todayStats)
 const focusApps = computed(() => pomodoroStore.focusApps)
@@ -1362,11 +1560,32 @@ async function handleStartPrep() {
     // 获取选中的白名单应用名称
     const focusAppsList = selectedAppNames.value
 
+    // 将AI建议序列化为JSON字符串保存到数据库
+    let aiSuggestionJson: string | undefined = undefined
+    if (aiSuggestionData.value) {
+      // 如果有结构化数据，保存结构化数据
+      try {
+        aiSuggestionJson = JSON.stringify(aiSuggestionData.value)
+      } catch (e) {
+        console.error('序列化AI建议失败:', e)
+      }
+    } else if (aiSuggestions.value.length > 0) {
+      // 如果只有简单建议，保存为简单格式
+      try {
+        aiSuggestionJson = JSON.stringify({
+          suggestions: aiSuggestions.value
+        })
+      } catch (e) {
+        console.error('序列化AI建议失败:', e)
+      }
+    }
+
     const session = await pomodoroStore.createSession({
       taskId: selectedTaskId.value,
       durationMinutes: duration.value,
       focusGoal: focusGoal,
-      focusApps: focusAppsList
+      focusApps: focusAppsList,
+      aiSuggestion: aiSuggestionJson
     })
 
     if (session.id) {
@@ -1573,10 +1792,17 @@ onMounted(async () => {
   await pomodoroStore.loadTodayStats()
   await pomodoroStore.loadTodaySessions()
 
-  // From route
-  const taskId = route.query.taskId
-  if (taskId) {
-    selectedTaskId.value = Number(taskId)
+  // 从路由参数获取任务ID并自动选择
+  const taskIdFromRoute = route.query.taskId
+  if (taskIdFromRoute) {
+    const taskId = Number(taskIdFromRoute)
+    // 确保任务存在
+    const task = taskStore.tasks.find(t => t.id === taskId)
+    if (task) {
+      selectedTaskId.value = taskId
+      // 清除路由参数，避免刷新页面时重复选择
+      router.replace({ query: {} })
+    }
   }
 
   // Resume active session
@@ -1737,6 +1963,22 @@ onUnmounted(() => {
   background: #1e293b;
   color: #f1f5f9;
   padding: 12px;
+}
+
+.task-native-select optgroup {
+  font-weight: 600;
+  font-size: 13px;
+  color: #94a3b8;
+  background: #0f172a;
+  padding: 8px 0;
+}
+
+.task-native-select optgroup[label="进行中"] {
+  color: #60a5fa;
+}
+
+.task-native-select optgroup[label="待办"] {
+  color: #94a3b8;
 }
 
 .task-or-divider {
@@ -2263,6 +2505,234 @@ onUnmounted(() => {
   color: #f87171;
   border-color: #f87171;
   background: rgba(248, 113, 113, 0.1);
+}
+
+/* ===== TASK DETAILS PANEL ===== */
+.task-details-panel {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.panel-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  border-radius: 12px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.panel-toggle-btn:hover {
+  color: #f1f5f9;
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.toggle-icon {
+  transition: transform 0.3s ease;
+}
+
+.toggle-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.task-details-content {
+  margin-top: 16px;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.detail-section {
+  margin-bottom: 20px;
+}
+
+.detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(51, 65, 85, 0.3);
+  border-radius: 8px;
+}
+
+.step-number {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 6px;
+  color: #818cf8;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.step-text {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
+
+.task-notes {
+  padding: 12px;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(51, 65, 85, 0.3);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cbd5e1;
+  white-space: pre-wrap;
+}
+
+.progress-bar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-bar-bg {
+  flex: 1;
+  height: 8px;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1 0%, #818cf8 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #818cf8;
+  min-width: 42px;
+  text-align: right;
+}
+
+.milestones-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.milestone-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(51, 65, 85, 0.3);
+  border-radius: 8px;
+}
+
+.milestone-icon {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  background: #6366f1;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.milestone-content {
+  flex: 1;
+}
+
+.milestone-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e2e8f0;
+  margin-bottom: 4px;
+}
+
+.milestone-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.milestone-date {
+  color: #64748b;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.empty-state svg {
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* Panel Slide Animation */
+.panel-slide-enter-active,
+.panel-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.panel-slide-enter-from {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.panel-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 
 /* ===== REPORT SCENE ===== */

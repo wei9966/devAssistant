@@ -86,8 +86,9 @@
 
 <script setup lang="ts">
 import { ref, computed, h } from 'vue';
+import { useRouter } from 'vue-router';
 import { NCard, NButton, NIcon, NDropdown, NProgress, useDialog } from 'naive-ui';
-import { EllipsisHorizontal, CreateOutline, TrashOutline, TimeOutline, GridOutline, TrendingUpOutline, FlagOutline } from '@vicons/ionicons5';
+import { EllipsisHorizontal, CreateOutline, TrashOutline, TimeOutline, GridOutline, TrendingUpOutline, FlagOutline, TimerOutline } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
@@ -121,9 +122,19 @@ const emit = defineEmits<{
 }>();
 
 const dialog = useDialog();
+const router = useRouter();
 
 const dropdownOptions = computed(() => {
   const options = [];
+
+  // 待办和进行中的任务可以开始番茄钟
+  if (props.task.status === 'todo' || props.task.status === 'active') {
+    options.push({
+      label: '开始番茄钟',
+      key: 'startPomodoro',
+      icon: () => h(NIcon, null, { default: () => h(TimerOutline) })
+    });
+  }
 
   if (!props.readonly) {
     options.push({
@@ -203,6 +214,14 @@ const handleCardClick = () => {
   emit('click', props.task);
 };
 
+const handleStartPomodoro = () => {
+  // 跳转到番茄钟页面，并传递任务ID
+  router.push({
+    name: 'pomodoro',
+    query: { taskId: props.task.id }
+  });
+};
+
 const handleDropdownSelect = (key: string) => {
   switch (key) {
     case 'edit':
@@ -219,6 +238,9 @@ const handleDropdownSelect = (key: string) => {
       break;
     case 'addMilestone':
       emit('addMilestone', props.task);
+      break;
+    case 'startPomodoro':
+      handleStartPomodoro();
       break;
   }
 };

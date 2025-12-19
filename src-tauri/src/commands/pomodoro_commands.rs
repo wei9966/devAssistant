@@ -198,8 +198,11 @@ pub fn get_pomodoro_stats_range(
 #[tauri::command]
 pub async fn pomodoro_ai_task_breakdown(
     ai_state: State<'_, AiState>,
+    db: State<'_, DbConnection>,
+    task_id: Option<i64>,
     task_title: String,
     task_description: Option<String>,
+    current_progress: Option<i32>,
 ) -> Result<String, String> {
     // 克隆 AI 服务以避免持有 MutexGuard 跨越 await
     let ai_service = {
@@ -207,10 +210,43 @@ pub async fn pomodoro_ai_task_breakdown(
         guard.as_ref().ok_or("AI 服务未初始化")?.clone()
     };
 
+    // 如果提供了 task_id，从数据库获取里程碑信息
+    let milestones_text = if let Some(tid) = task_id {
+        let conn = db.0.lock().map_err(|e| e.to_string())?;
+        match crate::services::milestone_service::MilestoneService::get_task_milestones(&conn, tid) {
+            Ok(milestones) => {
+                if milestones.is_empty() {
+                    None
+                } else {
+                    // 格式化里程碑信息
+                    let formatted = milestones
+                        .iter()
+                        .map(|m| {
+                            let progress = m.progress_snapshot
+                                .map(|p| format!("{}%", p))
+                                .unwrap_or_else(|| "未记录".to_string());
+                            format!("- {} (进度: {}) - {}",
+                                m.title,
+                                progress,
+                                m.description.as_deref().unwrap_or(""))
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    Some(formatted)
+                }
+            }
+            Err(_) => None,
+        }
+    } else {
+        None
+    };
+
     PomodoroAiService::get_task_breakdown(
         &ai_service,
         &task_title,
         task_description.as_deref(),
+        current_progress,
+        milestones_text.as_deref(),
     )
     .await
     .map_err(|e| e.to_string())

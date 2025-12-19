@@ -64,6 +64,7 @@ export interface CreatePomodoroRequest {
   durationMinutes?: number
   focusGoal?: string
   focusApps?: string[]
+  aiSuggestion?: string  // AI任务执行建议(JSON字符串)
 }
 
 // 完成番茄钟请求

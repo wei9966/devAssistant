@@ -24,14 +24,15 @@ impl PomodoroService {
 
         conn.execute(
             "INSERT INTO pomodoro_sessions (
-                task_id, duration_minutes, status, phase, focus_goal, created_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                task_id, duration_minutes, status, phase, focus_goal, ai_suggestion, created_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 request.task_id,
                 duration,
                 PomodoroStatus::Pending.as_str(),
                 PomodoroPhase::Prep.as_str(),
                 request.focus_goal,
+                request.ai_suggestion,
                 now,
             ],
         )?;
@@ -584,10 +585,32 @@ impl PomodoroAiService {
         ai_service: &AiService,
         task_title: &str,
         task_description: Option<&str>,
+        current_progress: Option<i32>,
+        milestones: Option<&str>,
     ) -> anyhow::Result<String> {
         let mut vars = HashMap::new();
         vars.insert("task_title".to_string(), task_title.to_string());
         vars.insert("task_description".to_string(), task_description.unwrap_or("无").to_string());
+
+        // 添加任务进度信息
+        let progress_text = if let Some(progress) = current_progress {
+            format!("当前进度：{}%", progress)
+        } else {
+            "当前进度：未开始（0%）".to_string()
+        };
+        vars.insert("current_progress".to_string(), progress_text);
+
+        // 添加里程碑信息
+        let milestone_text = if let Some(ms) = milestones {
+            if ms.trim().is_empty() {
+                "暂无里程碑记录".to_string()
+            } else {
+                format!("历史里程碑：\n{}", ms)
+            }
+        } else {
+            "暂无里程碑记录".to_string()
+        };
+        vars.insert("milestones".to_string(), milestone_text);
 
         let rendered = PromptDbService::render_prompt_cached("pomodoro_task_breakdown", &vars)?;
         let messages = vec![

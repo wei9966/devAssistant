@@ -150,12 +150,23 @@ export async function getStatsRange(
 /**
  * AI 任务拆解建议 - 在开始专注前调用
  * 帮助将任务拆解为25分钟可完成的小目标
+ * @param taskId 任务ID，用于获取里程碑信息
+ * @param taskTitle 任务标题
+ * @param taskDescription 任务描述
+ * @param currentProgress 当前进度百分比
  */
 export async function aiTaskBreakdown(
+  taskId: number | undefined,
   taskTitle: string,
-  taskDescription?: string
+  taskDescription?: string,
+  currentProgress?: number
 ): Promise<string> {
-  return invoke<string>('pomodoro_ai_task_breakdown', { taskTitle, taskDescription })
+  return invoke<string>('pomodoro_ai_task_breakdown', {
+    taskId,
+    taskTitle,
+    taskDescription,
+    currentProgress
+  })
 }
 
 /**
