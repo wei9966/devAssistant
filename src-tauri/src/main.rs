@@ -199,8 +199,16 @@ fn main() {
     // 初始化 SQL AI 状态
     let sql_ai_state = SqlAiState::new();
 
-    // 初始化全局 AI 状态
+    // 初始化全局 AI 状态，并从数据库加载已保存的配置
     let ai_state = AiState::new();
+    {
+        let conn = db_state.0.lock().expect("获取数据库连接失败");
+        match ai_state.load_from_db(&conn) {
+            Ok(true) => log_runtime("AI 服务已从数据库配置初始化"),
+            Ok(false) => log_runtime("AI 服务未配置或未启用"),
+            Err(e) => log_runtime(&format!("加载 AI 配置失败: {}", e)),
+        }
+    }
 
     // 初始化 VLM 状态
     let vlm_state = VlmState::new();
@@ -1084,6 +1092,11 @@ fn main() {
             commands::task_commands::update_task_display_date,
             commands::task_commands::move_task_to_today,
             commands::task_commands::get_upcoming_tasks,
+            commands::task_commands::update_task_progress,
+            // 里程碑相关命令
+            commands::milestone_commands::create_task_milestone,
+            commands::milestone_commands::get_task_milestones,
+            commands::milestone_commands::delete_task_milestone,
             // SQL 相关命令
             commands::sql_commands::save_sql,
             commands::sql_commands::get_recent_sqls,
@@ -1293,6 +1306,8 @@ fn main() {
             commands::screenshot_commands::screenshot_get_detail,
             commands::screenshot_commands::screenshot_get_activities,
             commands::screenshot_commands::screenshot_debug_dates,
+            commands::screenshot_commands::get_active_window_info,
+            commands::screenshot_commands::get_running_apps,
             // 时间线相关命令
             commands::timeline_commands::get_timeline,
             commands::timeline_commands::generate_daily_report,

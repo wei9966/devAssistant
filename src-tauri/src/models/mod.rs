@@ -27,7 +27,7 @@ pub use screen_context::{
 };
 pub use sql_record::SqlRecord;
 pub use task::{
-    FileContext, Tag, Task, TaskCategory, TaskPriority, TaskQuadrant, TaskStatus, WorkContext,
+    FileContext, Tag, Task, TaskCategory, TaskMilestone, TaskPriority, TaskQuadrant, TaskStatus, WorkContext,
 };
 pub use weekly_plan::{WeeklyPlan, WeeklyPlanStatus};
 pub use work_log::WorkLog;

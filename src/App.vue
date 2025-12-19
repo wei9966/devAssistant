@@ -141,7 +141,6 @@ import {
   DocumentTextOutline as SqlIcon,
   BookOutline as LogIcon,
   RocketOutline as LauncherIcon,
-  ImagesOutline as ScreenshotIcon,
   NotificationsOutline as NotificationIcon,
   SettingsOutline as SettingsIcon,
   PieChartOutline as ReportIcon,
@@ -377,11 +376,6 @@ const menuOptions: MenuOption[] = [
     label: '应用启动器',
     key: 'app-launcher',
     icon: () => h(LauncherIcon)
-  },
-  {
-    label: '截图回顾',
-    key: 'screenshot-gallery',
-    icon: () => h(ScreenshotIcon)
   },
   {
     label: '报表中心',

@@ -61,6 +61,56 @@
         </div>
       </div>
 
+      <!-- 任务进度（仅进行中任务显示） -->
+      <div v-if="task.status === 'active'" class="detail-section">
+        <div class="section-header">
+          <n-icon size="18" class="section-icon">
+            <TrendingUpOutline />
+          </n-icon>
+          <span class="section-title">任务进度</span>
+          <n-button
+            v-if="!readonly && !isEditingProgress"
+            size="tiny"
+            quaternary
+            type="primary"
+            @click="startEditProgress"
+            style="margin-left: auto;"
+          >
+            调整进度
+          </n-button>
+        </div>
+        <div class="progress-section">
+          <template v-if="isEditingProgress">
+            <div class="progress-edit">
+              <n-slider
+                v-model:value="editProgress"
+                :min="task.progress || 0"
+                :max="100"
+                :step="5"
+                :marks="progressEditMarks"
+              />
+              <div class="progress-edit-value">{{ editProgress }}%</div>
+              <div class="progress-edit-hint">进度不能低于当前值 {{ task.progress || 0 }}%</div>
+              <div class="progress-edit-actions">
+                <n-button size="small" @click="cancelEditProgress">取消</n-button>
+                <n-button size="small" type="primary" @click="saveProgress">保存</n-button>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <n-progress
+              type="line"
+              :percentage="task.progress || 0"
+              :height="20"
+              :border-radius="10"
+              :fill-border-radius="10"
+              indicator-placement="inside"
+              :color="getProgressColor(task.progress || 0)"
+            />
+          </template>
+        </div>
+      </div>
+
       <!-- 任务描述 -->
       <div v-if="task.description" class="detail-section">
         <div class="section-header">
@@ -114,14 +164,66 @@
         </div>
       </div>
 
-      <!-- 时间信息 -->
+      <!-- 时间信息与里程碑 -->
       <div class="detail-section">
         <div class="section-header">
           <n-icon size="18" class="section-icon">
             <TimeOutline />
           </n-icon>
           <span class="section-title">时间轴</span>
+          <n-button
+            v-if="!readonly && task.status === 'active'"
+            size="tiny"
+            quaternary
+            type="primary"
+            @click="showMilestoneForm = !showMilestoneForm"
+            style="margin-left: auto;"
+          >
+            <template #icon>
+              <n-icon><AddOutline /></n-icon>
+            </template>
+            {{ showMilestoneForm ? '取消' : '添加里程碑' }}
+          </n-button>
         </div>
+
+        <!-- 新增里程碑表单 -->
+        <div v-if="showMilestoneForm" class="milestone-form">
+          <n-input
+            v-model:value="newMilestoneTitle"
+            placeholder="里程碑标题（必填）"
+            size="small"
+          />
+          <n-input
+            v-model:value="newMilestoneDesc"
+            placeholder="描述（可选）"
+            size="small"
+            type="textarea"
+            :autosize="{ minRows: 2, maxRows: 3 }"
+          />
+          <div class="milestone-progress-setting">
+            <div class="milestone-progress-label">
+              <span>设置进度</span>
+              <span class="milestone-progress-value">{{ newMilestoneProgress }}%</span>
+            </div>
+            <n-slider
+              v-model:value="newMilestoneProgress"
+              :min="task.progress || 0"
+              :max="100"
+              :step="5"
+              :marks="milestoneProgressMarks"
+            />
+            <div class="milestone-progress-hint">
+              进度不能低于当前值 {{ task.progress || 0 }}%
+            </div>
+          </div>
+          <div class="milestone-form-footer">
+            <n-button size="small" @click="cancelMilestoneForm">取消</n-button>
+            <n-button size="small" type="primary" @click="handleCreateMilestone">
+              创建
+            </n-button>
+          </div>
+        </div>
+
         <div class="timeline">
           <div v-if="task.createdAt" class="timeline-item">
             <div class="timeline-dot"></div>
@@ -147,6 +249,45 @@
               <span class="timeline-relative">{{ formatRelativeTime(task.startedAt) }}</span>
             </div>
           </div>
+
+          <!-- 里程碑节点 -->
+          <div
+            v-for="milestone in milestones"
+            :key="milestone.id"
+            class="timeline-item milestone-item"
+          >
+            <div class="timeline-dot milestone"></div>
+            <div class="timeline-content">
+              <div class="milestone-header">
+                <n-icon size="14" class="milestone-icon">
+                  <FlagOutline />
+                </n-icon>
+                <span class="timeline-label milestone-label">{{ milestone.title }}</span>
+                <n-popconfirm
+                  v-if="!readonly"
+                  @positive-click="handleDeleteMilestone(milestone.id!)"
+                >
+                  <template #trigger>
+                    <n-button size="tiny" quaternary type="error" class="milestone-delete">
+                      <template #icon>
+                        <n-icon size="14"><TrashOutline /></n-icon>
+                      </template>
+                    </n-button>
+                  </template>
+                  确定删除这个里程碑吗？
+                </n-popconfirm>
+              </div>
+              <span v-if="milestone.description" class="milestone-desc">{{ milestone.description }}</span>
+              <div class="milestone-meta">
+                <span v-if="milestone.progressSnapshot !== null && milestone.progressSnapshot !== undefined" class="milestone-progress">
+                  进度: {{ milestone.progressSnapshot }}%
+                </span>
+                <span class="timeline-value">{{ formatDateTime(milestone.createdAt!) }}</span>
+              </div>
+              <span class="timeline-relative">{{ formatRelativeTime(milestone.createdAt!) }}</span>
+            </div>
+          </div>
+
           <div v-if="task.lastActiveAt" class="timeline-item">
             <div class="timeline-dot active"></div>
             <div class="timeline-content">
@@ -256,7 +397,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { NModal, NIcon, NSpace, NButton, NDatePicker, useMessage } from 'naive-ui';
+import { NModal, NIcon, NSpace, NButton, NDatePicker, NProgress, NSlider, NInput, NInputGroup, NPopconfirm, useMessage } from 'naive-ui';
 import {
   DocumentTextOutline,
   InformationCircleOutline,
@@ -266,14 +407,19 @@ import {
   GridOutline,
   PricetagOutline,
   CalendarOutline,
+  TrendingUpOutline,
+  FlagOutline,
+  AddOutline,
+  TrashOutline,
 } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
 import { marked } from 'marked';
 import { CATEGORY_LABELS, PRIORITY_LABELS, STATUS_LABELS, QUADRANT_CONFIG } from '@/types/task';
-import type { Task, TaskQuadrant, Tag } from '@/types/task';
+import type { Task, TaskQuadrant, Tag, TaskMilestone } from '@/types/task';
 import { tagApi } from '@/api/tagApi';
+import { taskApi } from '@/api/taskApi';
 import ContextViewer from './ContextViewer.vue';
 import Badge from './Badge.vue';
 import QuadrantSelector from './QuadrantSelector.vue';
@@ -338,6 +484,39 @@ const showTagManager = ref(false);
 // 标签数据
 const availableTags = ref<Tag[]>([]);
 
+// 里程碑数据
+const milestones = ref<TaskMilestone[]>([]);
+const showMilestoneForm = ref(false);
+const newMilestoneTitle = ref('');
+const newMilestoneDesc = ref('');
+const newMilestoneProgress = ref(0);
+
+// 里程碑进度标记
+const milestoneProgressMarks = computed(() => {
+  const currentProgress = props.task?.progress || 0;
+  const marks: Record<number, string> = {};
+  marks[currentProgress] = `${currentProgress}%`;
+  if (currentProgress < 50) marks[50] = '50%';
+  if (currentProgress < 75) marks[75] = '75%';
+  marks[100] = '100%';
+  return marks;
+});
+
+// 进度编辑
+const editProgress = ref(0);
+const isEditingProgress = ref(false);
+
+// 进度编辑标记
+const progressEditMarks = computed(() => {
+  const currentProgress = props.task?.progress || 0;
+  const marks: Record<number, string> = {};
+  marks[currentProgress] = `${currentProgress}%`;
+  if (currentProgress < 50) marks[50] = '50%';
+  if (currentProgress < 75) marks[75] = '75%';
+  marks[100] = '100%';
+  return marks;
+});
+
 // 加载标签
 onMounted(async () => {
   await loadTags();
@@ -349,6 +528,98 @@ async function loadTags() {
   } catch (error) {
     console.error('加载标签失败:', error);
   }
+}
+
+// 加载里程碑
+async function loadMilestones() {
+  if (props.task?.id) {
+    try {
+      milestones.value = await taskApi.getTaskMilestones(props.task.id);
+    } catch (error) {
+      console.error('加载里程碑失败:', error);
+    }
+  }
+}
+
+// 创建里程碑
+async function handleCreateMilestone() {
+  if (!props.task?.id || !newMilestoneTitle.value.trim()) {
+    message.warning('请输入里程碑标题');
+    return;
+  }
+  try {
+    // 使用用户设置的进度值
+    const progressValue = newMilestoneProgress.value;
+
+    await taskApi.createTaskMilestone(
+      props.task.id,
+      newMilestoneTitle.value.trim(),
+      newMilestoneDesc.value.trim() || undefined,
+      progressValue
+    );
+
+    // 如果进度有变化，同时更新任务进度
+    if (progressValue > (props.task.progress || 0)) {
+      await taskApi.updateTaskProgress(props.task.id, progressValue);
+      emit('update', props.task, { progress: progressValue });
+    }
+
+    message.success('里程碑创建成功');
+    newMilestoneTitle.value = '';
+    newMilestoneDesc.value = '';
+    showMilestoneForm.value = false;
+    await loadMilestones();
+  } catch (error) {
+    console.error('创建里程碑失败:', error);
+    message.error('创建里程碑失败');
+  }
+}
+
+// 取消里程碑表单
+function cancelMilestoneForm() {
+  showMilestoneForm.value = false;
+  newMilestoneTitle.value = '';
+  newMilestoneDesc.value = '';
+  newMilestoneProgress.value = props.task?.progress || 0;
+}
+
+// 删除里程碑
+async function handleDeleteMilestone(milestoneId: number) {
+  try {
+    await taskApi.deleteTaskMilestone(milestoneId);
+    message.success('里程碑删除成功');
+    await loadMilestones();
+  } catch (error) {
+    console.error('删除里程碑失败:', error);
+    message.error('删除里程碑失败');
+  }
+}
+
+// 开始编辑进度
+function startEditProgress() {
+  editProgress.value = props.task?.progress || 0;
+  isEditingProgress.value = true;
+}
+
+// 保存进度
+async function saveProgress() {
+  if (!props.task?.id) return;
+  try {
+    await taskApi.updateTaskProgress(props.task.id, editProgress.value);
+    message.success('进度更新成功');
+    isEditingProgress.value = false;
+    // 通知父组件更新
+    emit('update', props.task, { progress: editProgress.value });
+  } catch (error) {
+    console.error('更新进度失败:', error);
+    message.error('更新进度失败');
+  }
+}
+
+// 取消编辑进度
+function cancelEditProgress() {
+  isEditingProgress.value = false;
+  editProgress.value = props.task?.progress || 0;
 }
 
 const handleClose = () => {
@@ -430,10 +701,28 @@ const handleDeleteTag = async (id: number) => {
   }
 };
 
-// 重置编辑状态
-watch(() => props.show, (newVal) => {
-  if (!newVal) {
+// 重置编辑状态，加载里程碑
+watch(() => props.show, async (newVal) => {
+  if (newVal) {
+    // 打开时加载里程碑
+    await loadMilestones();
+    editProgress.value = props.task?.progress || 0;
+    newMilestoneProgress.value = props.task?.progress || 0;
+  } else {
+    // 关闭时重置状态
     isEditing.value = false;
+    isEditingProgress.value = false;
+    showMilestoneForm.value = false;
+    newMilestoneTitle.value = '';
+    newMilestoneDesc.value = '';
+    newMilestoneProgress.value = 0;
+  }
+});
+
+// 打开里程碑表单时初始化进度值
+watch(showMilestoneForm, (newVal) => {
+  if (newVal) {
+    newMilestoneProgress.value = props.task?.progress || 0;
   }
 });
 
@@ -466,6 +755,13 @@ const getPriorityBadgeType = (priority: number) => {
     3: 'low',
   };
   return priorityMap[priority] || 'medium';
+};
+
+// 获取进度颜色
+const getProgressColor = (progress: number) => {
+  if (progress < 30) return '#f59e0b';  // 黄色
+  if (progress < 70) return '#6366f1';  // 紫色
+  return '#10b981';  // 绿色
 };
 </script>
 
@@ -928,6 +1224,144 @@ const getPriorityBadgeType = (priority: number) => {
   font-size: 12px;
   color: #64748b;
   line-height: 1.5;
+}
+
+/* 进度区块样式 */
+.progress-section {
+  padding-left: 26px;
+}
+
+.progress-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.progress-edit-value {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+  color: #6366f1;
+}
+
+.progress-edit-hint {
+  font-size: 11px;
+  color: #64748b;
+  text-align: center;
+  margin-top: -8px;
+}
+
+.progress-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* 里程碑表单 */
+.milestone-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.milestone-form-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 里程碑进度设置 */
+.milestone-progress-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.milestone-progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.milestone-progress-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #6366f1;
+}
+
+.milestone-progress-hint {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: -4px;
+}
+
+/* 里程碑样式 */
+.timeline-dot.milestone {
+  background: #ec4899;
+  box-shadow: 0 0 8px rgba(236, 72, 153, 0.6);
+}
+
+.milestone-item {
+  background: rgba(236, 72, 153, 0.05);
+  padding: 8px;
+  border-radius: 8px;
+  margin: -8px;
+  margin-left: 0;
+}
+
+.milestone-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.milestone-icon {
+  color: #ec4899;
+}
+
+.milestone-label {
+  color: #f9a8d4 !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+}
+
+.milestone-delete {
+  margin-left: auto;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.milestone-delete:hover {
+  opacity: 1;
+}
+
+.milestone-desc {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.milestone-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.milestone-progress {
+  font-size: 12px;
+  color: #ec4899;
+  background: rgba(236, 72, 153, 0.15);
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 /* 响应式 */

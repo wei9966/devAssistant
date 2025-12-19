@@ -15,6 +15,62 @@ impl AiState {
     pub fn new() -> Self {
         AiState(Mutex::new(None))
     }
+
+    /// 从数据库加载已保存的 AI 配置并初始化服务
+    pub fn load_from_db(&self, conn: &rusqlite::Connection) -> Result<bool, String> {
+        let config_json: Option<String> = conn
+            .query_row(
+                "SELECT value FROM app_settings WHERE key = 'ai_config'",
+                [],
+                |row| row.get(0),
+            )
+            .ok();
+
+        if let Some(json) = config_json {
+            let config: serde_json::Value = serde_json::from_str(&json)
+                .map_err(|e| format!("解析 AI 配置失败: {}", e))?;
+
+            let enabled = config["enabled"].as_bool().unwrap_or(false);
+            if !enabled {
+                return Ok(false);
+            }
+
+            let provider_str = config["provider"].as_str().unwrap_or("deepseek");
+            let provider_enum = AiProvider::from_string(provider_str)?;
+            let api_key = config["api_key"].as_str().unwrap_or("").to_string();
+
+            if api_key.is_empty() {
+                return Ok(false);
+            }
+
+            let base_url = config["base_url"].as_str().map(|s| s.to_string());
+            let model = config["model"].as_str().map(|s| s.to_string());
+            let max_tokens = config["max_tokens"].as_u64().map(|n| n as u32);
+
+            let service_provider = match provider_enum {
+                AiProvider::DeepSeek => ServiceAiProvider::DeepSeek,
+                AiProvider::Qwen => ServiceAiProvider::Qwen,
+                AiProvider::Claude => ServiceAiProvider::DeepSeek,
+                AiProvider::Custom => ServiceAiProvider::Custom,
+            };
+
+            let ai_config = AiConfig {
+                provider: service_provider,
+                api_key,
+                base_url,
+                model,
+                enabled: true,
+                max_tokens,
+            };
+
+            let service = AiService::new(ai_config);
+            let mut state = self.0.lock().map_err(|e| e.to_string())?;
+            *state = Some(service);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
 }
 
 /// AI 配置响应（不返回完整 API Key）

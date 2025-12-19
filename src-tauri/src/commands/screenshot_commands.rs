@@ -749,6 +749,370 @@ pub async fn screenshot_debug_dates(
     Ok(results.join("\n"))
 }
 
+// === 活动窗口信息 ===
+
+/// 活动窗口信息响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveWindowResponse {
+    pub app_name: Option<String>,
+    pub window_title: Option<String>,
+    pub process_name: Option<String>,
+}
+
+/// 获取当前活动窗口信息
+#[tauri::command]
+pub async fn get_active_window_info() -> Result<ActiveWindowResponse, String> {
+    #[cfg(windows)]
+    {
+        use winapi::um::winuser::{GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId};
+        use winapi::um::processthreadsapi::OpenProcess;
+        use winapi::um::psapi::GetModuleBaseNameW;
+        use winapi::um::handleapi::CloseHandle;
+        use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
+
+        unsafe {
+            let hwnd = GetForegroundWindow();
+            if hwnd.is_null() {
+                return Ok(ActiveWindowResponse {
+                    app_name: None,
+                    window_title: None,
+                    process_name: None,
+                });
+            }
+
+            // 获取窗口标题
+            let mut title: [u16; 512] = [0; 512];
+            let len = GetWindowTextW(hwnd, title.as_mut_ptr(), title.len() as i32);
+            let window_title = if len > 0 {
+                Some(String::from_utf16_lossy(&title[..len as usize]))
+            } else {
+                None
+            };
+
+            // 获取进程ID
+            let mut process_id: u32 = 0;
+            GetWindowThreadProcessId(hwnd, &mut process_id);
+
+            // 获取进程名
+            let process_name = if process_id > 0 {
+                let handle = OpenProcess(PROCESS_QUERY_INFORMATION | 0x0010, 0, process_id); // 0x0010 = PROCESS_VM_READ
+                if !handle.is_null() {
+                    let mut name: [u16; 260] = [0; 260];
+                    let len = GetModuleBaseNameW(handle, std::ptr::null_mut(), name.as_mut_ptr(), name.len() as u32);
+                    CloseHandle(handle);
+                    if len > 0 {
+                        Some(String::from_utf16_lossy(&name[..len as usize]))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // 从进程名推断应用名
+            let app_name = process_name.as_ref().map(|name| {
+                let name_lower = name.to_lowercase();
+                if name_lower.contains("code") {
+                    "VS Code".to_string()
+                } else if name_lower.contains("chrome") {
+                    "Chrome".to_string()
+                } else if name_lower.contains("firefox") {
+                    "Firefox".to_string()
+                } else if name_lower.contains("edge") || name_lower.contains("msedge") {
+                    "Edge".to_string()
+                } else if name_lower.contains("idea") || name_lower.contains("idea64") {
+                    "IntelliJ IDEA".to_string()
+                } else if name_lower.contains("webstorm") {
+                    "WebStorm".to_string()
+                } else if name_lower.contains("rider") {
+                    "Rider".to_string()
+                } else if name_lower.contains("figma") {
+                    "Figma".to_string()
+                } else if name_lower.contains("notion") {
+                    "Notion".to_string()
+                } else if name_lower.contains("postman") {
+                    "Postman".to_string()
+                } else if name_lower.contains("datagrip") {
+                    "DataGrip".to_string()
+                } else if name_lower.contains("navicat") {
+                    "Navicat".to_string()
+                } else if name_lower.contains("terminal") || name_lower.contains("cmd") || name_lower.contains("powershell") || name_lower.contains("windowsterminal") {
+                    "Terminal".to_string()
+                } else if name_lower.contains("sourcetree") {
+                    "SourceTree".to_string()
+                } else if name_lower.contains("wechat") || name_lower.contains("weixin") {
+                    "微信".to_string()
+                } else if name_lower.contains("qq") {
+                    "QQ".to_string()
+                } else if name_lower.contains("dingtalk") {
+                    "钉钉".to_string()
+                } else if name_lower.contains("slack") {
+                    "Slack".to_string()
+                } else if name_lower.contains("discord") {
+                    "Discord".to_string()
+                } else if name_lower.contains("steam") {
+                    "Steam".to_string()
+                } else if name_lower.contains("spotify") {
+                    "Spotify".to_string()
+                } else if name_lower.contains("bilibili") {
+                    "哔哩哔哩".to_string()
+                } else if name_lower.contains("youku") {
+                    "优酷".to_string()
+                } else if name_lower.contains("iqiyi") {
+                    "爱奇艺".to_string()
+                } else if name_lower.contains("tiktok") || name_lower.contains("douyin") {
+                    "抖音".to_string()
+                } else if name_lower.contains("explorer") {
+                    "文件资源管理器".to_string()
+                } else if name_lower.contains("游戏") || name_lower.contains("game") {
+                    name.trim_end_matches(".exe").to_string()
+                } else {
+                    // 去掉.exe后缀，首字母大写
+                    let clean_name = name.trim_end_matches(".exe").trim_end_matches(".EXE");
+                    let mut chars: Vec<char> = clean_name.chars().collect();
+                    if !chars.is_empty() {
+                        chars[0] = chars[0].to_uppercase().next().unwrap_or(chars[0]);
+                    }
+                    chars.iter().collect()
+                }
+            });
+
+            Ok(ActiveWindowResponse {
+                app_name,
+                window_title,
+                process_name,
+            })
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        Ok(ActiveWindowResponse {
+            app_name: Some("Unknown".to_string()),
+            window_title: None,
+            process_name: None,
+        })
+    }
+}
+
+/// 运行中的应用信息
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct RunningApp {
+    pub name: String,
+    pub process_name: String,
+}
+
+/// 获取当前运行的应用列表（用于白名单选择）
+#[tauri::command]
+pub async fn get_running_apps() -> Result<Vec<RunningApp>, String> {
+    #[cfg(windows)]
+    {
+        use std::collections::{HashSet, HashMap};
+        use winapi::um::processthreadsapi::OpenProcess;
+        use winapi::um::psapi::{EnumProcesses, GetModuleBaseNameW};
+        use winapi::um::handleapi::CloseHandle;
+        use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
+
+        let mut apps: Vec<RunningApp> = Vec::new();
+        let mut seen_processes: HashSet<String> = HashSet::new();
+        let mut seen_app_names: HashMap<String, String> = HashMap::new(); // app_name_lower -> process_name
+
+        unsafe {
+            let mut process_ids: [u32; 2048] = [0; 2048];
+            let mut bytes_returned: u32 = 0;
+
+            if EnumProcesses(
+                process_ids.as_mut_ptr(),
+                (process_ids.len() * std::mem::size_of::<u32>()) as u32,
+                &mut bytes_returned,
+            ) == 0
+            {
+                return Err("Failed to enumerate processes".to_string());
+            }
+
+            let num_processes = bytes_returned as usize / std::mem::size_of::<u32>();
+
+            for i in 0..num_processes {
+                let pid = process_ids[i];
+                if pid == 0 {
+                    continue;
+                }
+
+                let handle = OpenProcess(PROCESS_QUERY_INFORMATION | 0x0010, 0, pid);
+                if handle.is_null() {
+                    continue;
+                }
+
+                let mut name: [u16; 260] = [0; 260];
+                let len = GetModuleBaseNameW(handle, std::ptr::null_mut(), name.as_mut_ptr(), name.len() as u32);
+                CloseHandle(handle);
+
+                if len > 0 {
+                    let process_name = String::from_utf16_lossy(&name[..len as usize]);
+                    let process_lower = process_name.to_lowercase();
+
+                    // 跳过已添加的进程
+                    if seen_processes.contains(&process_lower) {
+                        continue;
+                    }
+
+                    // 扩展的系统进程过滤列表
+                    let skip_processes = [
+                        // 核心系统进程
+                        "system", "svchost", "csrss", "wininit", "services", "lsass",
+                        "smss", "dwm", "conhost", "fontdrvhost", "sihost", "taskhostw",
+                        "explorer", "searchhost", "runtimebroker", "applicationframehost",
+                        "shellexperiencehost", "startmenuexperiencehost", "textinputhost",
+                        "ctfmon", "dllhost", "audiodg", "spoolsv", "searchindexer",
+                        "securityhealthservice", "sgrmbroker", "registry", "memory compression",
+                        "system idle process", "ntoskrnl", "wudfhost", "wmiprvse",
+                        "searchprotocolhost", "searchfilterhost", "gameinputsvc",
+                        // 额外的系统和后台进程
+                        "nvidia", "amd", "intel", "realtek", "logitech", "razer",
+                        "msmpeng", "antimalware", "defender", "windows security",
+                        "crashpad", "helper", "renderer", "gpu-process", "utility",
+                        "broker", "host", "agent", "service", "daemon", "worker",
+                        "update", "updater", "installer", "setup", "unins",
+                        "systray", "tray", "widget", "sidebar", "gadget",
+                        "backgroundtask", "background", "sync", "indexer",
+                        "phone", "yourphone", "gamebar", "xbox", "gamemode",
+                        "cortana", "widgets", "news", "weather", "clock",
+                        "print", "fax", "bluetooth", "wifi", "network",
+                        "tauri", "dev-assistant", // 排除自己
+                    ];
+
+                    let should_skip = skip_processes.iter().any(|&s| process_lower.contains(s));
+                    if should_skip {
+                        continue;
+                    }
+
+                    // 跳过短名称（通常是系统组件）
+                    if process_lower.len() < 4 {
+                        continue;
+                    }
+
+                    // 映射到应用名
+                    let app_name = map_process_to_app_name(&process_name);
+                    let app_name_lower = app_name.to_lowercase();
+
+                    // 按应用名去重（同一应用可能有多个进程）
+                    if seen_app_names.contains_key(&app_name_lower) {
+                        seen_processes.insert(process_lower);
+                        continue;
+                    }
+
+                    seen_processes.insert(process_lower.clone());
+                    seen_app_names.insert(app_name_lower, process_lower);
+                    apps.push(RunningApp {
+                        name: app_name,
+                        process_name: process_name,
+                    });
+                }
+            }
+        }
+
+        // 按应用名排序
+        apps.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(apps)
+    }
+
+    #[cfg(not(windows))]
+    {
+        Ok(vec![])
+    }
+}
+
+/// 将进程名映射到友好的应用名
+fn map_process_to_app_name(process_name: &str) -> String {
+    let name_lower = process_name.to_lowercase();
+
+    if name_lower.contains("code") && !name_lower.contains("unicode") {
+        "VS Code".to_string()
+    } else if name_lower.contains("chrome") {
+        "Chrome".to_string()
+    } else if name_lower.contains("firefox") {
+        "Firefox".to_string()
+    } else if name_lower.contains("edge") || name_lower.contains("msedge") {
+        "Edge".to_string()
+    } else if name_lower.contains("idea") || name_lower.contains("idea64") {
+        "IntelliJ IDEA".to_string()
+    } else if name_lower.contains("webstorm") {
+        "WebStorm".to_string()
+    } else if name_lower.contains("rider") {
+        "Rider".to_string()
+    } else if name_lower.contains("figma") {
+        "Figma".to_string()
+    } else if name_lower.contains("notion") {
+        "Notion".to_string()
+    } else if name_lower.contains("postman") {
+        "Postman".to_string()
+    } else if name_lower.contains("datagrip") {
+        "DataGrip".to_string()
+    } else if name_lower.contains("navicat") {
+        "Navicat".to_string()
+    } else if name_lower.contains("terminal") || name_lower.contains("windowsterminal") {
+        "Terminal".to_string()
+    } else if name_lower.contains("cmd") {
+        "命令提示符".to_string()
+    } else if name_lower.contains("powershell") {
+        "PowerShell".to_string()
+    } else if name_lower.contains("sourcetree") {
+        "SourceTree".to_string()
+    } else if name_lower.contains("wechat") || name_lower.contains("weixin") {
+        "微信".to_string()
+    } else if name_lower == "qq.exe" || name_lower.starts_with("qq") {
+        "QQ".to_string()
+    } else if name_lower.contains("dingtalk") {
+        "钉钉".to_string()
+    } else if name_lower.contains("slack") {
+        "Slack".to_string()
+    } else if name_lower.contains("discord") {
+        "Discord".to_string()
+    } else if name_lower.contains("steam") {
+        "Steam".to_string()
+    } else if name_lower.contains("spotify") {
+        "Spotify".to_string()
+    } else if name_lower.contains("typora") {
+        "Typora".to_string()
+    } else if name_lower.contains("obsidian") {
+        "Obsidian".to_string()
+    } else if name_lower.contains("notepad++") || name_lower.contains("notepad") {
+        "Notepad".to_string()
+    } else if name_lower.contains("word") || name_lower.contains("winword") {
+        "Word".to_string()
+    } else if name_lower.contains("excel") {
+        "Excel".to_string()
+    } else if name_lower.contains("powerpoint") || name_lower.contains("powerpnt") {
+        "PowerPoint".to_string()
+    } else if name_lower.contains("outlook") {
+        "Outlook".to_string()
+    } else if name_lower.contains("teams") {
+        "Teams".to_string()
+    } else if name_lower.contains("zoom") {
+        "Zoom".to_string()
+    } else if name_lower.contains("cursor") {
+        "Cursor".to_string()
+    } else if name_lower.contains("sublime") {
+        "Sublime Text".to_string()
+    } else if name_lower.contains("atom") {
+        "Atom".to_string()
+    } else if name_lower.contains("vim") || name_lower.contains("nvim") || name_lower.contains("gvim") {
+        "Vim".to_string()
+    } else {
+        // 去掉.exe后缀，首字母大写
+        let clean_name = process_name.trim_end_matches(".exe").trim_end_matches(".EXE");
+        let mut chars: Vec<char> = clean_name.chars().collect();
+        if !chars.is_empty() {
+            chars[0] = chars[0].to_uppercase().next().unwrap_or(chars[0]);
+        }
+        chars.iter().collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

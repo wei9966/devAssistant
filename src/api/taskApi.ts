@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Task, WorkContext } from '@/types/task';
+import type { Task, WorkContext, TaskMilestone } from '@/types/task';
 
 export const taskApi = {
   // 获取所有未完成任务
@@ -146,6 +146,36 @@ export const taskApi = {
   // 将任务移至今天
   async moveTaskToToday(taskId: number): Promise<void> {
     await invoke('move_task_to_today', { taskId });
+  },
+
+  // 更新任务进度
+  async updateTaskProgress(taskId: number, progress: number): Promise<void> {
+    await invoke('update_task_progress', { taskId, progress });
+  },
+
+  // 创建任务里程碑
+  async createTaskMilestone(
+    taskId: number,
+    title: string,
+    description?: string,
+    progressSnapshot?: number
+  ): Promise<TaskMilestone> {
+    return await invoke('create_task_milestone', {
+      taskId,
+      title,
+      description: description || null,
+      progressSnapshot: progressSnapshot ?? null,
+    });
+  },
+
+  // 获取任务的所有里程碑
+  async getTaskMilestones(taskId: number): Promise<TaskMilestone[]> {
+    return await invoke('get_task_milestones', { taskId });
+  },
+
+  // 删除任务里程碑
+  async deleteTaskMilestone(milestoneId: number): Promise<void> {
+    await invoke('delete_task_milestone', { milestoneId });
   },
 };
 

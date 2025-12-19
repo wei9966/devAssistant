@@ -24,6 +24,7 @@ pub struct Task {
     pub notes: Option<String>,
     pub quadrant: Option<TaskQuadrant>,
     pub tags: Option<Vec<Tag>>,
+    pub progress: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -226,4 +227,16 @@ pub struct Tag {
 pub struct QuadrantStatistics {
     pub quadrant: String,
     pub count: i64,
+}
+
+/// 任务里程碑结构
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskMilestone {
+    pub id: Option<i64>,
+    pub task_id: i64,
+    pub title: String,
+    pub description: Option<String>,
+    pub progress_snapshot: Option<i32>,
+    pub created_at: Option<String>,
 }

@@ -171,6 +171,8 @@
             @complete="handleComplete"
             @edit="handleEdit"
             @click="handleTaskClick"
+            @adjust-progress="handleAdjustProgress"
+            @add-milestone="handleAddMilestone"
             class="task-card-item"
           />
 
@@ -384,6 +386,66 @@
         />
       </n-drawer-content>
     </n-drawer>
+
+    <!-- 进度调整弹窗 -->
+    <n-modal v-model:show="showProgressModal" preset="card" title="调整任务进度" style="width: 450px;">
+      <div class="progress-modal-content">
+        <div class="progress-task-title">{{ progressTask?.title }}</div>
+        <div class="progress-slider-section">
+          <n-slider
+            v-model:value="progressValue"
+            :step="5"
+            :marks="{ 0: '0%', 25: '25%', 50: '50%', 75: '75%', 100: '100%' }"
+          />
+          <div class="progress-value-display">{{ progressValue }}%</div>
+        </div>
+      </div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showProgressModal = false">取消</n-button>
+          <n-button type="primary" @click="handleSaveProgress">保存</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <!-- 里程碑创建弹窗 -->
+    <n-modal v-model:show="showMilestoneModal" preset="card" title="添加里程碑" style="width: 450px;">
+      <div class="milestone-modal-content">
+        <div class="milestone-task-title">{{ milestoneTask?.title }}</div>
+        <n-form-item label="里程碑标题">
+          <n-input v-model:value="milestoneTitle" placeholder="请输入里程碑标题" />
+        </n-form-item>
+        <n-form-item label="描述（可选）">
+          <n-input
+            v-model:value="milestoneDesc"
+            type="textarea"
+            placeholder="请输入描述"
+            :autosize="{ minRows: 2, maxRows: 4 }"
+          />
+        </n-form-item>
+        <n-form-item label="设置进度">
+          <div class="milestone-progress-setting">
+            <n-slider
+              v-model:value="milestoneProgress"
+              :min="milestoneTask?.progress || 0"
+              :max="100"
+              :step="5"
+              :marks="milestoneProgressMarks"
+            />
+            <div class="milestone-progress-value">{{ milestoneProgress }}%</div>
+          </div>
+        </n-form-item>
+        <div class="milestone-progress-hint">
+          进度不能低于当前值 {{ milestoneTask?.progress || 0 }}%
+        </div>
+      </div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showMilestoneModal = false">取消</n-button>
+          <n-button type="primary" @click="handleSaveMilestone">创建</n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -391,12 +453,13 @@
 import { ref, reactive, onMounted, computed, onUnmounted } from 'vue';
 import { Window } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
-import { NCard, NSpace, NButton, NIcon, NEmpty, NCollapse, NCollapseItem, NModal, NForm, NFormItem, NInput, NSelect, NDatePicker, NDrawer, NDrawerContent, NBadge, useMessage } from 'naive-ui';
+import { NCard, NSpace, NButton, NIcon, NEmpty, NCollapse, NCollapseItem, NModal, NForm, NFormItem, NInput, NSelect, NDatePicker, NDrawer, NDrawerContent, NBadge, NSlider, useMessage } from 'naive-ui';
 import dayjs from 'dayjs';
 import { AddOutline, RefreshOutline, CloudUploadOutline, GridOutline, PricetagsOutline, CloseCircleOutline, LayersOutline, CalendarOutline, BulbOutline } from '@vicons/ionicons5';
 import { useTaskStore } from '@/stores/taskStore';
 import { tagApi } from '@/api/tagApi';
 import { aiApi } from '@/api/aiApi';
+import { taskApi } from '@/api/taskApi';
 import TaskCard from '@/components/TaskCard.vue';
 import TaskImport from '@/components/TaskImport.vue';
 import TaskDetailModal from '@/components/TaskDetailModal.vue';
@@ -435,6 +498,29 @@ const isCalendarFloatVisible = ref(false);
 const showPredictionDrawer = ref(false);
 const predictionListRef = ref<InstanceType<typeof PredictedTaskList> | null>(null);
 const pendingPredictionCount = ref(0);
+
+// 进度调整弹窗状态
+const showProgressModal = ref(false);
+const progressTask = ref<Task | null>(null);
+const progressValue = ref(0);
+
+// 里程碑弹窗状态
+const showMilestoneModal = ref(false);
+const milestoneTask = ref<Task | null>(null);
+const milestoneTitle = ref('');
+const milestoneDesc = ref('');
+const milestoneProgress = ref(0);
+
+// 里程碑进度标记
+const milestoneProgressMarks = computed(() => {
+  const currentProgress = milestoneTask.value?.progress || 0;
+  const marks: Record<number, string> = {};
+  marks[currentProgress] = `${currentProgress}%`;
+  if (currentProgress < 50) marks[50] = '50%';
+  if (currentProgress < 75) marks[75] = '75%';
+  marks[100] = '100%';
+  return marks;
+});
 
 // 切换悬浮窗显示
 async function toggleTaskFloat() {
@@ -915,6 +1001,68 @@ function updatePredictionCount() {
 function handleTaskClick(task: Task) {
   selectedTask.value = task;
   showDetailModal.value = true;
+}
+
+// 打开进度调整弹窗
+function handleAdjustProgress(task: Task) {
+  progressTask.value = task;
+  progressValue.value = task.progress || 0;
+  showProgressModal.value = true;
+}
+
+// 保存进度
+async function handleSaveProgress() {
+  if (!progressTask.value?.id) return;
+  try {
+    await taskApi.updateTaskProgress(progressTask.value.id, progressValue.value);
+    message.success('进度更新成功');
+    showProgressModal.value = false;
+    await taskStore.loadTasks();
+  } catch (error: any) {
+    console.error('更新进度失败:', error);
+    message.error(error?.message || '更新进度失败');
+  }
+}
+
+// 打开里程碑弹窗
+function handleAddMilestone(task: Task) {
+  milestoneTask.value = task;
+  milestoneTitle.value = '';
+  milestoneDesc.value = '';
+  milestoneProgress.value = task.progress || 0;
+  showMilestoneModal.value = true;
+}
+
+// 保存里程碑
+async function handleSaveMilestone() {
+  if (!milestoneTask.value?.id) return;
+  if (!milestoneTitle.value.trim()) {
+    message.warning('请输入里程碑标题');
+    return;
+  }
+  try {
+    const progressValue = milestoneProgress.value;
+
+    await taskApi.createTaskMilestone(
+      milestoneTask.value.id,
+      milestoneTitle.value.trim(),
+      milestoneDesc.value.trim() || undefined,
+      progressValue
+    );
+
+    // 如果进度有变化，同时更新任务进度
+    if (progressValue > (milestoneTask.value.progress || 0)) {
+      await taskApi.updateTaskProgress(milestoneTask.value.id, progressValue);
+      // 刷新任务列表
+      await taskStore.loadTasks();
+    }
+
+    message.success('里程碑创建成功');
+    showMilestoneModal.value = false;
+  } catch (error: any) {
+    console.error('创建里程碑失败:', error);
+    message.error(error?.message || '创建里程碑失败');
+  }
 }
 
 async function handleTaskUpdate(task: Task, updates: Partial<Task>) {
@@ -1522,5 +1670,78 @@ async function handleAiGenerateSubtasks() {
   50% {
     opacity: 0.5;
   }
+}
+
+/* 进度弹窗样式 */
+.progress-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.progress-task-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e8f0;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 8px;
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.progress-slider-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.3);
+  border-radius: 8px;
+}
+
+.progress-value-display {
+  text-align: center;
+  font-size: 32px;
+  font-weight: 700;
+  color: #6366f1;
+}
+
+/* 里程碑弹窗样式 */
+.milestone-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.milestone-task-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e8f0;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 8px;
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.milestone-progress-hint {
+  font-size: 12px;
+  color: #ec4899;
+  background: rgba(236, 72, 153, 0.1);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(236, 72, 153, 0.2);
+}
+
+.milestone-progress-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.milestone-progress-value {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+  color: #6366f1;
 }
 </style>

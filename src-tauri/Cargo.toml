@@ -48,7 +48,7 @@ sha2 = "0.10"
 winreg = "0.52"
 clipboard-win = "5.4"
 mslnk = "0.1"
-winapi = { version = "0.3", features = ["shellapi", "winuser", "windef", "wingdi", "handleapi", "errhandlingapi", "sysinfoapi"] }
+winapi = { version = "0.3", features = ["shellapi", "winuser", "windef", "wingdi", "handleapi", "errhandlingapi", "sysinfoapi", "psapi", "processthreadsapi"] }
 windows = { version = "0.58", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_Foundation", "Win32_System_SystemServices"] }
 encoding_rs = "0.8"  # 用于处理 Windows PowerShell 输出的 GBK 编码
 

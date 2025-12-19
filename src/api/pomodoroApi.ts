@@ -271,3 +271,38 @@ export async function aiQuickResume(
     lastActivity
   })
 }
+
+// === 活动窗口检测 ===
+
+/**
+ * 活动窗口信息
+ */
+export interface ActiveWindowInfo {
+  appName: string | null
+  windowTitle: string | null
+  processName: string | null
+}
+
+/**
+ * 获取当前活动窗口信息
+ * 用于番茄钟专注模式下检测用户当前使用的应用
+ */
+export async function getActiveWindowInfo(): Promise<ActiveWindowInfo> {
+  return invoke<ActiveWindowInfo>('get_active_window_info')
+}
+
+/**
+ * 运行中的应用信息
+ */
+export interface RunningApp {
+  name: string
+  processName: string
+}
+
+/**
+ * 获取当前运行的应用列表
+ * 用于番茄钟白名单选择
+ */
+export async function getRunningApps(): Promise<RunningApp[]> {
+  return invoke<RunningApp[]>('get_running_apps')
+}

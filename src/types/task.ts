@@ -20,6 +20,17 @@ export interface Task {
   actualHours?: number;
   context?: WorkContext;
   notes?: string;
+  progress?: number;     // 任务进度百分比（0-100）
+}
+
+// 任务里程碑
+export interface TaskMilestone {
+  id?: number;
+  taskId: number;
+  title: string;
+  description?: string;
+  progressSnapshot?: number;  // 创建里程碑时的进度快照
+  createdAt?: string;
 }
 
 export type TaskQuadrant =

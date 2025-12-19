@@ -222,3 +222,13 @@ pub fn get_upcoming_tasks(db: State<DbConnection>, minutes: i64) -> Result<Vec<T
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     TaskService::get_upcoming_tasks(&conn, minutes).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn update_task_progress(
+    db: State<DbConnection>,
+    task_id: i64,
+    progress: i32,
+) -> Result<Task, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::update_task_progress(&conn, task_id, progress).map_err(|e| e.to_string())
+}

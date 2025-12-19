@@ -35,6 +35,20 @@
 
     <h3 class="task-title">{{ task.title }}</h3>
 
+    <!-- 进行中任务显示进度 -->
+    <div v-if="task.status === 'active' && (task.progress ?? 0) > 0" class="task-progress-bar">
+      <n-progress
+        type="line"
+        :percentage="task.progress || 0"
+        :show-indicator="false"
+        :height="4"
+        :border-radius="2"
+        :rail-color="'rgba(51, 65, 85, 0.5)'"
+        :color="getProgressColor(task.progress || 0)"
+      />
+      <span class="progress-text">{{ task.progress }}%</span>
+    </div>
+
     <!-- 标签展示 -->
     <div v-if="task.tags && task.tags.length > 0" class="task-tags" @click.stop>
       <div
@@ -72,8 +86,8 @@
 
 <script setup lang="ts">
 import { ref, computed, h } from 'vue';
-import { NCard, NButton, NIcon, NDropdown, useDialog } from 'naive-ui';
-import { EllipsisHorizontal, CreateOutline, TrashOutline, TimeOutline, GridOutline } from '@vicons/ionicons5';
+import { NCard, NButton, NIcon, NDropdown, NProgress, useDialog } from 'naive-ui';
+import { EllipsisHorizontal, CreateOutline, TrashOutline, TimeOutline, GridOutline, TrendingUpOutline, FlagOutline } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
@@ -102,6 +116,8 @@ const emit = defineEmits<{
   delete: [taskId: number];
   defer: [taskId: number];
   click: [task: Task];
+  adjustProgress: [task: Task];
+  addMilestone: [task: Task];
 }>();
 
 const dialog = useDialog();
@@ -115,6 +131,20 @@ const dropdownOptions = computed(() => {
       key: 'edit',
       icon: () => h(NIcon, null, { default: () => h(CreateOutline) })
     });
+
+    // 进行中任务可以调整进度和添加里程碑
+    if (props.task.status === 'active') {
+      options.push({
+        label: '调整进度',
+        key: 'adjustProgress',
+        icon: () => h(NIcon, null, { default: () => h(TrendingUpOutline) })
+      });
+      options.push({
+        label: '添加里程碑',
+        key: 'addMilestone',
+        icon: () => h(NIcon, null, { default: () => h(FlagOutline) })
+      });
+    }
 
     if (props.task.status === 'todo') {
       options.push({
@@ -184,6 +214,12 @@ const handleDropdownSelect = (key: string) => {
     case 'delete':
       handleDelete();
       break;
+    case 'adjustProgress':
+      emit('adjustProgress', props.task);
+      break;
+    case 'addMilestone':
+      emit('addMilestone', props.task);
+      break;
   }
 };
 
@@ -209,6 +245,13 @@ const getPriorityBadgeType = (priority: number) => {
     1: 'low',
   };
   return priorityMap[priority] || 'medium';
+};
+
+const getProgressColor = (progress: number) => {
+  if (progress >= 80) return '#10b981'; // green
+  if (progress >= 50) return '#6366f1'; // indigo
+  if (progress >= 20) return '#f59e0b'; // amber
+  return '#94a3b8'; // gray
 };
 </script>
 
@@ -332,6 +375,26 @@ const getPriorityBadgeType = (priority: number) => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
+}
+
+/* 进度条 */
+.task-progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.task-progress-bar :deep(.n-progress) {
+  flex: 1;
+}
+
+.progress-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6366f1;
+  min-width: 32px;
+  text-align: right;
 }
 
 /* 标签展示 */

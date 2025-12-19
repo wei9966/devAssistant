@@ -149,6 +149,13 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     create_pomodoro_daily_stats_table(conn)?;
     create_pomodoro_daily_stats_indexes(conn)?;
 
+    // 迁移 tasks 表：添加 progress 字段
+    add_task_progress_field(conn)?;
+
+    // 创建任务里程碑表
+    create_task_milestones_table(conn)?;
+    create_task_milestones_indexes(conn)?;
+
     Ok(())
 }
 
@@ -2220,6 +2227,66 @@ fn create_pomodoro_daily_stats_indexes(conn: &Connection) -> Result<()> {
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_pomodoro_daily_stats_created_at ON pomodoro_daily_stats(created_at DESC)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+/// 迁移 tasks 表：添加 progress 字段（进度百分比 0-100）
+fn add_task_progress_field(conn: &Connection) -> Result<()> {
+    // 检查 progress 列是否存在
+    let has_progress: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name='progress'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_progress == 0 {
+        conn.execute(
+            "ALTER TABLE tasks ADD COLUMN progress INTEGER DEFAULT 0",
+            [],
+        )?;
+        println!("✓ 已添加 progress 列到 tasks 表");
+
+        // 创建索引以优化按进度查询
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tasks_progress ON tasks(progress)",
+            [],
+        )?;
+    }
+
+    Ok(())
+}
+
+/// 创建 task_milestones 表（任务里程碑）
+fn create_task_milestones_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS task_milestones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            progress_snapshot INTEGER,
+            created_at TEXT DEFAULT (datetime('now', 'localtime')),
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 task_milestones 表索引
+fn create_task_milestones_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_task_milestones_task_id ON task_milestones(task_id)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_task_milestones_created_at ON task_milestones(created_at DESC)",
         [],
     )?;
 

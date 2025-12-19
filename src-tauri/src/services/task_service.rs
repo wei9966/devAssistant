@@ -15,7 +15,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at, display_date, scheduled_start_time
+                    due_date, registered_at, display_date, scheduled_start_time, progress
              FROM tasks
              WHERE status != 'done'
              ORDER BY priority ASC, last_active_at DESC",
@@ -44,7 +44,7 @@ impl TaskService {
                 "SELECT id, title, description, category, priority, status, git_branch,
                         created_at, started_at, last_active_at, completed_at,
                         estimated_hours, actual_hours, context_json, notes, quadrant,
-                        due_date, registered_at, display_date, scheduled_start_time
+                        due_date, registered_at, display_date, scheduled_start_time, progress
                  FROM tasks
                  WHERE status = 'done'
                  ORDER BY completed_at DESC",
@@ -57,7 +57,7 @@ impl TaskService {
                 "SELECT id, title, description, category, priority, status, git_branch,
                         created_at, started_at, last_active_at, completed_at,
                         estimated_hours, actual_hours, context_json, notes, quadrant,
-                        due_date, registered_at, display_date, scheduled_start_time
+                        due_date, registered_at, display_date, scheduled_start_time, progress
                  FROM tasks
                  WHERE status = 'done'
                    AND completed_at >= datetime('now', 'localtime', ? || ' days')
@@ -326,7 +326,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at, display_date, scheduled_start_time
+                    due_date, registered_at, display_date, scheduled_start_time, progress
              FROM tasks
              WHERE status = 'todo'
                AND created_at < datetime('now', 'localtime', ? || ' days')
@@ -493,7 +493,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at, display_date, scheduled_start_time
+                    due_date, registered_at, display_date, scheduled_start_time, progress
              FROM tasks
              WHERE status != 'done' AND quadrant = ?
              ORDER BY priority ASC, last_active_at DESC",
@@ -520,7 +520,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at, display_date, scheduled_start_time
+                    due_date, registered_at, display_date, scheduled_start_time, progress
              FROM tasks
              WHERE (
                  -- 已完成任务：使用完成日期
@@ -614,7 +614,7 @@ impl TaskService {
             "SELECT id, title, description, category, priority, status, git_branch,
                     created_at, started_at, last_active_at, completed_at,
                     estimated_hours, actual_hours, context_json, notes, quadrant,
-                    due_date, registered_at, display_date, scheduled_start_time
+                    due_date, registered_at, display_date, scheduled_start_time, progress
              FROM tasks
              WHERE status != 'done'
                AND scheduled_start_time IS NOT NULL
@@ -698,6 +698,9 @@ impl TaskService {
         let display_date: Option<String> = row.get(18)?;
         let scheduled_start_time: Option<String> = row.get(19)?;
 
+        // 读取进度字段，如果为空则默认为0
+        let progress: i32 = row.get(20).unwrap_or(0);
+
         Ok(Task {
             id: Some(row.get(0)?),
             title: row.get(1)?,
@@ -720,6 +723,35 @@ impl TaskService {
             notes: safe_notes,
             quadrant,
             tags: None, // 标签需要单独查询，暂时设为 None
+            progress,
         })
+    }
+
+    /// 更新任务进度
+    pub fn update_task_progress(conn: &Connection, task_id: i64, progress: i32) -> Result<Task> {
+        // 验证进度值范围
+        if !(0..=100).contains(&progress) {
+            return Err(anyhow::anyhow!("进度值必须在 0-100 之间"));
+        }
+
+        // 更新任务进度
+        conn.execute(
+            "UPDATE tasks SET progress = ? WHERE id = ?",
+            params![progress, task_id],
+        )?;
+
+        // 返回更新后的任务
+        let mut stmt = conn.prepare(
+            "SELECT id, title, description, category, priority, status, git_branch,
+                    created_at, started_at, last_active_at, completed_at,
+                    estimated_hours, actual_hours, context_json, notes, quadrant,
+                    due_date, registered_at, display_date, scheduled_start_time, progress
+             FROM tasks
+             WHERE id = ?",
+        )?;
+
+        let task = stmt.query_row(params![task_id], |row| Self::map_row_to_task(row))?;
+
+        Ok(task)
     }
 }

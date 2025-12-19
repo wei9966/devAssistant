@@ -3,17 +3,10 @@ use crate::models::pomodoro::{
     PomodoroPhase, PomodoroSession, PomodoroStatus,
 };
 use crate::services::ai_service::{AiService, ChatMessage};
-use crate::prompts::pomodoro_prompts::{
-    TASK_BREAKDOWN_SYSTEM_PROMPT, task_breakdown_user_prompt,
-    FOCUS_ANALYSIS_SYSTEM_PROMPT, focus_analysis_user_prompt,
-    DAILY_REVIEW_SYSTEM_PROMPT, daily_review_user_prompt,
-    PROGRESS_EVAL_SYSTEM_PROMPT, progress_eval_user_prompt,
-    INTERRUPTION_ANALYSIS_SYSTEM_PROMPT, interruption_analysis_user_prompt,
-    RESUME_SUGGESTION_SYSTEM_PROMPT, resume_suggestion_user_prompt,
-    QUICK_RESUME_SYSTEM_PROMPT, quick_resume_user_prompt,
-};
+use crate::services::prompt_db_service::PromptDbService;
 use chrono::Local;
 use rusqlite::{params, Connection, Result};
+use std::collections::HashMap;
 
 /// 番茄钟服务
 pub struct PomodoroService;
@@ -582,6 +575,7 @@ impl PomodoroService {
 }
 
 /// AI 相关的番茄钟服务（异步方法）
+/// 使用数据库存储的提示词模板，支持用户自定义
 pub struct PomodoroAiService;
 
 impl PomodoroAiService {
@@ -591,9 +585,14 @@ impl PomodoroAiService {
         task_title: &str,
         task_description: Option<&str>,
     ) -> anyhow::Result<String> {
+        let mut vars = HashMap::new();
+        vars.insert("task_title".to_string(), task_title.to_string());
+        vars.insert("task_description".to_string(), task_description.unwrap_or("无").to_string());
+
+        let rendered = PromptDbService::render_prompt_cached("pomodoro_task_breakdown", &vars)?;
         let messages = vec![
-            ChatMessage::system(TASK_BREAKDOWN_SYSTEM_PROMPT.to_string()),
-            ChatMessage::user(task_breakdown_user_prompt(task_title, task_description)),
+            ChatMessage::system(rendered.system.unwrap_or_default()),
+            ChatMessage::user(rendered.user),
         ];
         ai_service.chat(messages).await
     }
@@ -607,15 +606,18 @@ impl PomodoroAiService {
         distraction_count: i32,
         user_feedback: Option<&str>,
     ) -> anyhow::Result<String> {
+        let mut vars = HashMap::new();
+        vars.insert("focus_goal".to_string(), focus_goal.to_string());
+        vars.insert("duration_minutes".to_string(), duration_minutes.to_string());
+        vars.insert("actual_focus_seconds".to_string(), actual_focus_seconds.to_string());
+        vars.insert("actual_focus_minutes".to_string(), format!("{:.1}", actual_focus_seconds as f64 / 60.0));
+        vars.insert("distraction_count".to_string(), distraction_count.to_string());
+        vars.insert("user_feedback".to_string(), user_feedback.unwrap_or("用户未填写反馈").to_string());
+
+        let rendered = PromptDbService::render_prompt_cached("pomodoro_focus_analysis", &vars)?;
         let messages = vec![
-            ChatMessage::system(FOCUS_ANALYSIS_SYSTEM_PROMPT.to_string()),
-            ChatMessage::user(focus_analysis_user_prompt(
-                focus_goal,
-                duration_minutes,
-                actual_focus_seconds,
-                distraction_count,
-                user_feedback,
-            )),
+            ChatMessage::system(rendered.system.unwrap_or_default()),
+            ChatMessage::user(rendered.user),
         ];
         ai_service.chat(messages).await
     }
@@ -630,16 +632,18 @@ impl PomodoroAiService {
         avg_focus_rate: f64,
         app_usage: &str,
     ) -> anyhow::Result<String> {
+        let mut vars = HashMap::new();
+        vars.insert("date".to_string(), date.to_string());
+        vars.insert("total_sessions".to_string(), total_sessions.to_string());
+        vars.insert("completed_sessions".to_string(), completed_sessions.to_string());
+        vars.insert("total_focus_minutes".to_string(), total_focus_minutes.to_string());
+        vars.insert("avg_focus_rate".to_string(), format!("{:.1}", avg_focus_rate));
+        vars.insert("app_usage".to_string(), app_usage.to_string());
+
+        let rendered = PromptDbService::render_prompt_cached("pomodoro_daily_review", &vars)?;
         let messages = vec![
-            ChatMessage::system(DAILY_REVIEW_SYSTEM_PROMPT.to_string()),
-            ChatMessage::user(daily_review_user_prompt(
-                date,
-                total_sessions,
-                completed_sessions,
-                total_focus_minutes,
-                avg_focus_rate,
-                app_usage,
-            )),
+            ChatMessage::system(rendered.system.unwrap_or_default()),
+            ChatMessage::user(rendered.user),
         ];
         ai_service.chat(messages).await
     }
@@ -652,14 +656,19 @@ impl PomodoroAiService {
         user_feedback: &str,
         previous_progress: Option<i32>,
     ) -> anyhow::Result<String> {
+        let mut vars = HashMap::new();
+        vars.insert("task_title".to_string(), task_title.to_string());
+        vars.insert("focus_goal".to_string(), focus_goal.to_string());
+        vars.insert("user_feedback".to_string(), user_feedback.to_string());
+        let prev_text = previous_progress
+            .map(|p| format!("之前进度：{}%", p))
+            .unwrap_or_else(|| "首次专注".to_string());
+        vars.insert("previous_progress_text".to_string(), prev_text);
+
+        let rendered = PromptDbService::render_prompt_cached("pomodoro_progress_eval", &vars)?;
         let messages = vec![
-            ChatMessage::system(PROGRESS_EVAL_SYSTEM_PROMPT.to_string()),
-            ChatMessage::user(progress_eval_user_prompt(
-                task_title,
-                focus_goal,
-                user_feedback,
-                previous_progress,
-            )),
+            ChatMessage::system(rendered.system.unwrap_or_default()),
+            ChatMessage::user(rendered.user),
         ];
         ai_service.chat(messages).await
     }
@@ -674,14 +683,16 @@ impl PomodoroAiService {
         interruption_duration_minutes: i32,
         activity_summaries: &str,
     ) -> anyhow::Result<String> {
+        let mut vars = HashMap::new();
+        vars.insert("original_task".to_string(), original_task.to_string());
+        vars.insert("focus_goal".to_string(), focus_goal.to_string());
+        vars.insert("interruption_duration_minutes".to_string(), interruption_duration_minutes.to_string());
+        vars.insert("activity_summaries".to_string(), activity_summaries.to_string());
+
+        let rendered = PromptDbService::render_prompt_cached("pomodoro_interruption_analysis", &vars)?;
         let messages = vec![
-            ChatMessage::system(INTERRUPTION_ANALYSIS_SYSTEM_PROMPT.to_string()),
-            ChatMessage::user(interruption_analysis_user_prompt(
-                original_task,
-                focus_goal,
-                interruption_duration_minutes,
-                activity_summaries,
-            )),
+            ChatMessage::system(rendered.system.unwrap_or_default()),
+            ChatMessage::user(rendered.user),
         ];
         ai_service.chat(messages).await
     }
@@ -696,16 +707,21 @@ impl PomodoroAiService {
         elapsed_focus_seconds: i32,
         remaining_seconds: i32,
     ) -> anyhow::Result<String> {
+        let mut vars = HashMap::new();
+        vars.insert("original_task".to_string(), original_task.to_string());
+        vars.insert("focus_goal".to_string(), focus_goal.to_string());
+        let progress_text = progress_before_interruption
+            .map(|p| format!("中断前进度：{}%", p))
+            .unwrap_or_else(|| "进度：未记录".to_string());
+        vars.insert("progress_text".to_string(), progress_text);
+        vars.insert("elapsed_focus_minutes".to_string(), (elapsed_focus_seconds / 60).to_string());
+        vars.insert("remaining_minutes".to_string(), (remaining_seconds / 60).to_string());
+        vars.insert("interruption_analysis".to_string(), interruption_analysis.to_string());
+
+        let rendered = PromptDbService::render_prompt_cached("pomodoro_resume_suggestion", &vars)?;
         let messages = vec![
-            ChatMessage::system(RESUME_SUGGESTION_SYSTEM_PROMPT.to_string()),
-            ChatMessage::user(resume_suggestion_user_prompt(
-                original_task,
-                focus_goal,
-                progress_before_interruption,
-                interruption_analysis,
-                elapsed_focus_seconds,
-                remaining_seconds,
-            )),
+            ChatMessage::system(rendered.system.unwrap_or_default()),
+            ChatMessage::user(rendered.user),
         ];
         ai_service.chat(messages).await
     }
@@ -716,9 +732,14 @@ impl PomodoroAiService {
         focus_goal: &str,
         last_activity: &str,
     ) -> anyhow::Result<String> {
+        let mut vars = HashMap::new();
+        vars.insert("focus_goal".to_string(), focus_goal.to_string());
+        vars.insert("last_activity".to_string(), last_activity.to_string());
+
+        let rendered = PromptDbService::render_prompt_cached("pomodoro_quick_resume", &vars)?;
         let messages = vec![
-            ChatMessage::system(QUICK_RESUME_SYSTEM_PROMPT.to_string()),
-            ChatMessage::user(quick_resume_user_prompt(focus_goal, last_activity)),
+            ChatMessage::system(rendered.system.unwrap_or_default()),
+            ChatMessage::user(rendered.user),
         ];
         ai_service.chat(messages).await
     }

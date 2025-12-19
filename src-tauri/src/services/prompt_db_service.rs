@@ -1301,7 +1301,261 @@ impl PromptDbService {
             true,
         )?;
 
-        println!("✓ 已初始化 26 个默认 AI 提示词 (5个work_log + 4个task + 3个app_launcher + 13个screen_context + 1个generation)");
+        // pomodoro 模块 - 番茄钟相关提示词 (7个)
+        Self::upsert_prompt(
+            conn,
+            "pomodoro_task_breakdown",
+            "pomodoro",
+            "任务拆解建议",
+            Some("将任务拆解为25分钟可完成的小目标，帮助用户保持专注"),
+            Some(r#"你是一个冷静且专业的效率教练。你的任务是根据用户的任务描述，将其拆解为25分钟可完成的小目标，帮助用户保持专注。
+
+输出要求：
+1. 建议的本次专注目标（具体、可执行、25分钟内可完成）
+2. 任务拆解为2-4个子步骤
+3. 预估完成整个任务需要的番茄钟数量
+4. 一条简短的专注小贴士
+
+请用JSON格式输出，字段如下：
+{
+  "suggested_goal": "本次专注的具体目标",
+  "sub_tasks": ["子步骤1", "子步骤2", ...],
+  "estimated_pomodoros": 3,
+  "tips": "专注小贴士"
+}"#),
+            r#"请帮我分析以下任务，并给出本次25分钟专注的建议目标：
+
+任务标题：{task_title}
+任务描述：{task_description}
+
+请根据任务复杂度，建议一个合适的本次专注目标。"#,
+            Some(vec!["task_title".to_string(), "task_description".to_string()]),
+            true,
+        )?;
+
+        Self::upsert_prompt(
+            conn,
+            "pomodoro_focus_analysis",
+            "pomodoro",
+            "专注力分析",
+            Some("分析专注表现并提供改进建议"),
+            Some(r#"你是一个专注力分析专家。根据用户本次番茄钟的数据，提供专注力分析和改进建议。
+
+分析维度：
+1. 专注率评估（根据实际专注时间/计划时间）
+2. 分心频率分析
+3. 生产力评分（1-100）
+4. 改进建议
+
+请用JSON格式输出：
+{
+  "focus_rate": 85.5,
+  "productivity_score": 78,
+  "summary": "本次专注表现总结",
+  "suggestions": ["建议1", "建议2"],
+  "next_session_tip": "下次专注的小贴士"
+}"#),
+            r#"请分析我本次番茄钟的专注表现：
+
+专注目标：{focus_goal}
+计划时长：{duration_minutes}分钟
+实际专注时间：{actual_focus_seconds}秒（约{actual_focus_minutes}分钟）
+分心次数：{distraction_count}次
+用户反馈：{user_feedback}
+
+请给出专注力分析结果。"#,
+            Some(vec![
+                "focus_goal".to_string(),
+                "duration_minutes".to_string(),
+                "actual_focus_seconds".to_string(),
+                "actual_focus_minutes".to_string(),
+                "distraction_count".to_string(),
+                "user_feedback".to_string(),
+            ]),
+            true,
+        )?;
+
+        Self::upsert_prompt(
+            conn,
+            "pomodoro_daily_review",
+            "pomodoro",
+            "每日复盘",
+            Some("根据今天的番茄钟数据提供每日复盘总结和明日建议"),
+            Some(r#"你是一个效率复盘专家。根据用户今天的番茄钟数据，提供每日复盘总结和明日建议。
+
+复盘内容：
+1. 今日总结（专注时长、完成的番茄钟数、专注率趋势）
+2. 亮点（做得好的方面）
+3. 可改进点
+4. 明日建议
+
+请用简洁、鼓励的语气，像一个贴心的效率教练。"#),
+            r#"请帮我复盘今天（{date}）的专注情况：
+
+总番茄钟数：{total_sessions}个
+完成的番茄钟：{completed_sessions}个
+总专注时长：{total_focus_minutes}分钟
+平均专注率：{avg_focus_rate}%
+应用使用情况：{app_usage}
+
+请给出今日复盘和明日建议。"#,
+            Some(vec![
+                "date".to_string(),
+                "total_sessions".to_string(),
+                "completed_sessions".to_string(),
+                "total_focus_minutes".to_string(),
+                "avg_focus_rate".to_string(),
+                "app_usage".to_string(),
+            ]),
+            true,
+        )?;
+
+        Self::upsert_prompt(
+            conn,
+            "pomodoro_progress_eval",
+            "pomodoro",
+            "进度评估",
+            Some("评估任务完成进度并更新进度百分比"),
+            Some(r#"你是一个任务进度评估专家。根据用户的反馈，评估任务完成进度并更新进度百分比。
+
+评估要点：
+1. 分析用户描述的完成内容
+2. 估算任务进度百分比（0-100）
+3. 预测剩余工作量
+4. 给出下次继续的建议
+
+请用JSON格式输出：
+{
+  "progress_percentage": 45,
+  "completed_items": ["已完成项1", "已完成项2"],
+  "remaining_items": ["待完成项1"],
+  "next_focus_suggestion": "下次专注建议从..."
+}"#),
+            r#"请评估我这次专注后的任务进度：
+
+任务：{task_title}
+本次专注目标：{focus_goal}
+{previous_progress_text}
+我的反馈：{user_feedback}
+
+请评估当前进度。"#,
+            Some(vec![
+                "task_title".to_string(),
+                "focus_goal".to_string(),
+                "previous_progress_text".to_string(),
+                "user_feedback".to_string(),
+            ]),
+            true,
+        )?;
+
+        Self::upsert_prompt(
+            conn,
+            "pomodoro_interruption_analysis",
+            "pomodoro",
+            "中断活动分析",
+            Some("分析中断期间的屏幕活动，判断与原任务的关联性"),
+            Some(r#"你是一个工作状态分析专家。请分析用户中断期间的屏幕活动记录，判断这些活动与原任务的关联性。
+
+分析要点：
+1. 中断期间的主要活动类型
+2. 这些活动是否与原任务相关（直接相关/间接相关/无关）
+3. 是否发生了上下文切换（从任务A切到任务B）
+4. 中断的可能原因（会议、即时通讯、浏览、其他任务等）
+
+请用JSON格式输出：
+{
+  "interruption_type": "会议|即时通讯|浏览|其他任务|休息|未知",
+  "relevance": "直接相关|间接相关|无关",
+  "context_switch": true/false,
+  "main_activities": ["活动1", "活动2"],
+  "summary": "中断期间活动的简要描述"
+}"#),
+            r#"请分析我中断期间的活动：
+
+原任务：{original_task}
+专注目标：{focus_goal}
+中断时长：{interruption_duration_minutes}分钟
+
+中断期间的屏幕活动记录：
+{activity_summaries}
+
+请分析这些活动与原任务的关联性。"#,
+            Some(vec![
+                "original_task".to_string(),
+                "focus_goal".to_string(),
+                "interruption_duration_minutes".to_string(),
+                "activity_summaries".to_string(),
+            ]),
+            true,
+        )?;
+
+        Self::upsert_prompt(
+            conn,
+            "pomodoro_resume_suggestion",
+            "pomodoro",
+            "任务恢复建议",
+            Some("基于中断分析结果，生成恢复工作的建议"),
+            Some(r#"你是一个专注力恢复教练。根据用户的原任务、中断分析结果，帮助用户快速恢复工作状态。
+
+你的建议应该：
+1. 简洁明了，不超过3条核心建议
+2. 帮助用户快速回忆上次的进度
+3. 提供具体的"下一步行动"
+4. 如果中断时间长，建议适当调整目标
+
+请用JSON格式输出：
+{
+  "can_continue": true/false,
+  "context_reminder": "上次你正在...(帮助用户回忆)",
+  "next_action": "建议的下一步具体行动",
+  "adjusted_goal": "如需调整，新的专注目标（可选）",
+  "estimated_time_to_refocus": 5,
+  "tips": ["快速恢复提示1", "提示2"]
+}"#),
+            r#"请帮我恢复工作状态：
+
+原任务：{original_task}
+专注目标：{focus_goal}
+{progress_text}
+已专注时间：{elapsed_focus_minutes}分钟
+剩余时间：{remaining_minutes}分钟
+
+中断分析结果：
+{interruption_analysis}
+
+请给出恢复工作的建议。"#,
+            Some(vec![
+                "original_task".to_string(),
+                "focus_goal".to_string(),
+                "progress_text".to_string(),
+                "elapsed_focus_minutes".to_string(),
+                "remaining_minutes".to_string(),
+                "interruption_analysis".to_string(),
+            ]),
+            true,
+        )?;
+
+        Self::upsert_prompt(
+            conn,
+            "pomodoro_quick_resume",
+            "pomodoro",
+            "快速恢复提示",
+            Some("轻量级的恢复提示，不需要完整分析时使用"),
+            Some(r#"你是一个简洁的工作助手。用户刚刚从中断中恢复，请用一句话帮助他快速回到工作状态。
+
+要求：
+- 直接、简洁、有行动导向
+- 不超过30个字
+- 格式：直接输出一句话，不需要JSON"#),
+            r#"专注目标：{focus_goal}
+最后一次活动：{last_activity}
+
+请给出一句快速恢复提示。"#,
+            Some(vec!["focus_goal".to_string(), "last_activity".to_string()]),
+            true,
+        )?;
+
+        println!("✓ 已初始化 33 个默认 AI 提示词 (5个work_log + 4个task + 3个app_launcher + 13个screen_context + 1个generation + 7个pomodoro)");
         Ok(())
     }
 }

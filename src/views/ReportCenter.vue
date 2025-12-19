@@ -36,6 +36,22 @@
             <template #icon><n-icon :component="EyeOutline" /></template>
             浏览记录
           </n-button>
+          <n-button
+            size="small"
+            :type="currentTab === 'screenshot' ? 'primary' : 'default'"
+            @click="currentTab = 'screenshot'"
+          >
+            <template #icon><n-icon :component="ImagesOutline" /></template>
+            截图回顾
+          </n-button>
+          <n-button
+            size="small"
+            :type="currentTab === 'pomodoro' ? 'primary' : 'default'"
+            @click="currentTab = 'pomodoro'"
+          >
+            <template #icon><n-icon :component="TimerOutline" /></template>
+            番茄钟报表
+          </n-button>
         </n-button-group>
       </div>
     </div>
@@ -59,6 +75,16 @@
     <div v-else-if="currentTab === 'browse'" class="tab-content">
       <ContextBrowser />
     </div>
+
+    <!-- 截图回顾视图 -->
+    <div v-else-if="currentTab === 'screenshot'" class="tab-content">
+      <ScreenshotGallery />
+    </div>
+
+    <!-- 番茄钟报表视图 -->
+    <div v-else-if="currentTab === 'pomodoro'" class="tab-content">
+      <PomodoroReport />
+    </div>
   </div>
 </template>
 
@@ -69,14 +95,18 @@ import {
   TimeOutline,
   EyeOutline,
   CheckboxOutline,
-  StatsChartOutline
+  StatsChartOutline,
+  ImagesOutline,
+  TimerOutline
 } from '@vicons/ionicons5';
 import ContextTimeline from '@/components/context/ContextTimeline.vue';
 import ContextBrowser from '@/components/context/ContextBrowser.vue';
 import TaskReport from '@/components/report/TaskReport.vue';
 import DataStatistics from '@/views/DataStatistics.vue';
+import ScreenshotGallery from '@/views/ScreenshotGallery.vue';
+import PomodoroReport from '@/components/report/PomodoroReport.vue';
 
-const currentTab = ref<'tasks' | 'statistics' | 'timeline' | 'browse'>('tasks');
+const currentTab = ref<'tasks' | 'statistics' | 'timeline' | 'browse' | 'screenshot' | 'pomodoro'>('tasks');
 </script>
 
 <style scoped>

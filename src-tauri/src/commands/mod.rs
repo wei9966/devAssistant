@@ -7,6 +7,7 @@ pub mod autostart_commands;
 pub mod clipboard_commands;
 pub mod context_commands;
 pub mod db_repair_commands;
+pub mod milestone_commands;
 pub mod notification_commands;
 pub mod pomodoro_commands;
 pub mod prediction_commands;
