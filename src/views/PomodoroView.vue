@@ -1458,16 +1458,24 @@ async function handleComplete() {
       progressUpdate: feedback.value
     })
 
-    // 如果有任务关联，更新进度
+    // 如果有任务关联，更新进度并创建里程碑
     if (sessionTaskId) {
       try {
         // 更新任务进度（确保是数字类型）
         const progressNum = Number(progressValue.value)
+
+        // 获取当前任务进度用于比较
+        const currentTask = taskStore.tasks.find(t => t.id === sessionTaskId)
+        const previousProgress = currentTask?.progress || 0
+
         await taskApi.updateTaskProgress(sessionTaskId, progressNum)
 
-        // 如果需要添加里程碑
-        if (addMilestone.value) {
-          const title = milestoneTitle.value.trim() || feedback.value.slice(0, 50) || '番茄钟专注完成'
+        // 当进度有变化时，自动创建里程碑记录
+        if (progressNum > previousProgress) {
+          // 用户自定义标题 > 反馈内容前50字 > 默认标题
+          const title = milestoneTitle.value.trim() ||
+                       (feedback.value ? feedback.value.slice(0, 50) : '') ||
+                       `番茄钟专注 - 进度${progressNum}%`
           await taskApi.createTaskMilestone(
             sessionTaskId,
             title,
