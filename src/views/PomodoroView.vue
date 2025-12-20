@@ -1669,6 +1669,7 @@ const progressValue = ref(0)
 const addMilestone = ref(false)
 const milestoneTitle = ref('')
 const fetchedAppUsage = ref<string | null>(null)  // 手动停止时获取的app_usage
+const lastCompletedSessionId = ref<number | null>(null)  // 刚完成的会话ID，用于AI分析
 const loading = computed(() => pomodoroStore.loading)
 
 // 获取当前任务的进度（从taskStore获取最新数据）
@@ -1746,31 +1747,49 @@ const aiDailyInsight = ref('')
 const aiInsightLoading = ref(false)
 
 // 获取最近完成的会话的AI分析
-async function loadLastSessionAnalysis() {
+async function loadLastSessionAnalysis(sessionId?: number) {
   if (analysisLoading.value) return
 
   analysisLoading.value = true
   lastSessionAnalysis.value = null
 
   try {
-    // 获取今日已完成的会话
-    const completedSessions = pomodoroStore.todaySessions.filter(
-      s => s.status === 'completed'
-    )
+    // 优先使用传入的sessionId（刚完成的会话）
+    let targetSessionId = sessionId
 
-    if (completedSessions.length === 0) {
+    // 如果没有传入，尝试从currentSession获取
+    if (!targetSessionId && currentSession.value?.id) {
+      targetSessionId = currentSession.value.id
+    }
+
+    // 如果还没有，从今日已完成的会话中查找最近的
+    if (!targetSessionId) {
+      const completedSessions = pomodoroStore.todaySessions.filter(
+        s => s.status === 'completed'
+      )
+
+      if (completedSessions.length === 0) {
+        return
+      }
+
+      // 按完成时间排序，获取最近完成的会话
+      const sortedSessions = [...completedSessions].sort((a, b) => {
+        const timeA = a.completedAt ? new Date(a.completedAt).getTime() : 0
+        const timeB = b.completedAt ? new Date(b.completedAt).getTime() : 0
+        return timeB - timeA  // 降序，最新的在前
+      })
+
+      targetSessionId = sortedSessions[0]?.id
+    }
+
+    if (!targetSessionId) {
       return
     }
 
-    // 获取最近完成的会话
-    const lastSession = completedSessions[completedSessions.length - 1]
-
-    if (!lastSession.id) {
-      return
-    }
+    console.log('[AI分析] 分析会话ID:', targetSessionId)
 
     // 调用AI分析接口
-    const result = await aiAnalyzeSession(lastSession.id)
+    const result = await aiAnalyzeSession(targetSessionId)
     console.log('[AI分析] 原始返回:', result)
 
     // 尝试解析JSON结果
@@ -1860,8 +1879,11 @@ watch(currentPhase, async (newPhase) => {
     // 刷新统计数据
     await pomodoroStore.loadTodayStats()
     await pomodoroStore.loadTodaySessions()
-    // 获取最近会话的AI分析
-    loadLastSessionAnalysis()
+    // 获取最近会话的AI分析（优先使用刚完成的会话ID）
+    const sessionIdToAnalyze = lastCompletedSessionId.value || undefined
+    loadLastSessionAnalysis(sessionIdToAnalyze)
+    // 清空已使用的ID
+    lastCompletedSessionId.value = null
   }
 })
 
@@ -2252,6 +2274,9 @@ async function handleComplete() {
     if (sessionTaskId) {
       await taskStore.loadTasks()
     }
+
+    // 保存刚完成的会话ID，用于AI分析
+    lastCompletedSessionId.value = sessionId
 
     // 重置状态
     taskCompleted.value = false
