@@ -1308,34 +1308,23 @@ impl PromptDbService {
             "pomodoro",
             "任务拆解建议",
             Some("将任务拆解为25分钟可完成的小目标，结合任务进度和里程碑信息进行智能分析"),
-            Some(r#"你是一个冷静且专业的效率教练。你的任务是根据用户的任务描述、当前进度和历史里程碑，将其拆解为25分钟可完成的小目标，帮助用户保持专注。
+            Some(r#"你是一个效率教练。根据任务描述、当前进度和历史里程碑，拆解为25分钟可完成的小目标。
 
-分析要点：
+**分析要点**：
 1. 考虑任务当前进度，避免重复已完成的工作
-2. 参考历史里程碑，了解任务推进的脉络
-3. 基于当前状态，建议下一个可行的小目标
+2. 参考历史里程碑，了解任务推进脉络
+3. 建议一个具体、可执行的小目标
 
-输出要求：
-1. 建议的本次专注目标（具体、可执行、25分钟内可完成）
-2. 任务拆解为2-4个子步骤
-3. 预估完成整个任务需要的番茄钟数量
-4. 一条简短的专注小贴士
+**重要**：你必须且只能输出纯JSON，不要包含任何其他文字或markdown标记。
 
-请用JSON格式输出，字段如下：
-{
-  "suggested_goal": "本次专注的具体目标",
-  "sub_tasks": ["子步骤1", "子步骤2", ...],
-  "estimated_pomodoros": 3,
-  "tips": "专注小贴士"
-}"#),
-            r#"请帮我分析以下任务，并给出本次25分钟专注的建议目标：
+输出格式（严格遵循）：
+{"suggested_goal":"本次专注的具体目标","sub_tasks":["子步骤1","子步骤2"],"estimated_pomodoros":3,"tips":"专注小贴士"}"#),
+            r#"分析任务并输出JSON：
 
-任务标题：{task_title}
-任务描述：{task_description}
+任务：{task_title}
+描述：{task_description}
 {current_progress}
-{milestones}
-
-请结合任务的当前进度和历史里程碑，建议一个合适的本次专注目标。"#,
+{milestones}"#,
             Some(vec![
                 "task_title".to_string(),
                 "task_description".to_string(),
@@ -1549,6 +1538,46 @@ impl PromptDbService {
 
         Self::upsert_prompt(
             conn,
+            "pomodoro_session_analysis",
+            "pomodoro",
+            "会话分析",
+            Some("分析番茄钟会话中的应用使用与任务相关性"),
+            Some(r#"你是一个专注力教练。请分析用户的番茄钟专注会话数据，评估专注表现。
+
+**分析要点**：
+1. 应用使用与任务相关性 - 根据使用的应用判断是否与任务目标相关
+2. 专注效率评分 - 基于专注率、应用相关性给出1-100分
+3. 改进建议 - 给出2-3条具体可操作的建议
+4. 下次行动 - 给出下次番茄钟的具体行动建议
+
+**重要**：你必须且只能输出纯JSON，不要包含任何其他文字或markdown标记。
+
+输出格式（严格遵循）：
+{"relevance_analysis":"根据应用使用情况分析与任务的相关性，说明哪些应用有助于任务完成","efficiency_score":75,"efficiency_comment":"专注效率的评价和原因说明","improvements":["具体改进建议1","具体改进建议2"],"next_action":"下次番茄钟建议做什么"}"#),
+            r#"分析此番茄钟会话数据，输出JSON：
+
+任务：{task_title} | 专注目标：{focus_goal}
+描述：{task_description}
+时长：{duration_minutes}分钟(实际{actual_focus_minutes}分钟) | 专注率：{focus_rate}%
+
+应用使用：{app_usage}
+
+活动记录：{activities_summary}"#,
+            Some(vec![
+                "task_title".to_string(),
+                "focus_goal".to_string(),
+                "task_description".to_string(),
+                "duration_minutes".to_string(),
+                "actual_focus_minutes".to_string(),
+                "focus_rate".to_string(),
+                "app_usage".to_string(),
+                "activities_summary".to_string(),
+            ]),
+            true,
+        )?;
+
+        Self::upsert_prompt(
+            conn,
             "pomodoro_quick_resume",
             "pomodoro",
             "快速恢复提示",
@@ -1567,7 +1596,7 @@ impl PromptDbService {
             true,
         )?;
 
-        println!("✓ 已初始化 33 个默认 AI 提示词 (5个work_log + 4个task + 3个app_launcher + 13个screen_context + 1个generation + 7个pomodoro)");
+        println!("✓ 已初始化 34 个默认 AI 提示词 (5个work_log + 4个task + 3个app_launcher + 13个screen_context + 1个generation + 8个pomodoro)");
         Ok(())
     }
 }

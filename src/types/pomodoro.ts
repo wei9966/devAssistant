@@ -21,6 +21,7 @@ export interface PomodoroSession {
   focusRate: number
   feedback?: string
   progressUpdate?: string
+  appUsage?: string  // JSON格式的应用使用统计
   startedAt?: string
   pausedAt?: string
   completedAt?: string
@@ -58,6 +59,14 @@ export interface AppUsageStats {
   percentage: number
 }
 
+// 应用使用统计项（与后端 AppUsageItem 对应）
+export interface AppUsageItem {
+  appName: string
+  count: number      // 出现次数
+  minutes: number    // 使用分钟数
+  percentage: number // 占比
+}
+
 // 创建番茄钟请求
 export interface CreatePomodoroRequest {
   taskId?: number
@@ -71,6 +80,7 @@ export interface CreatePomodoroRequest {
 export interface CompletePomodoroRequest {
   feedback?: string
   progressUpdate?: string
+  appUsage?: string  // 前端传入的应用使用统计JSON
 }
 
 // AI任务拆解建议

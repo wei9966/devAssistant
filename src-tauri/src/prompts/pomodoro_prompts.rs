@@ -281,3 +281,72 @@ pub fn quick_resume_user_prompt(
         last_activity
     )
 }
+
+// ==================== 会话分析相关 ====================
+
+/// 会话分析的 System Prompt
+pub const SESSION_ANALYSIS_SYSTEM_PROMPT: &str = r#"你是一个专注力教练。请分析用户的番茄钟专注会话数据，评估专注表现。
+
+**分析要点**：
+1. 应用使用与任务相关性 - 根据使用的应用判断是否与任务目标相关
+2. 专注效率评分 - 基于专注率、应用相关性给出1-100分
+3. 改进建议 - 给出2-3条具体可操作的建议
+4. 下次行动 - 给出下次番茄钟的具体行动建议
+
+**重要**：你必须且只能输出纯JSON，不要包含任何其他文字或markdown标记。
+
+输出格式（严格遵循）：
+{"relevance_analysis":"根据应用使用情况分析与任务的相关性，说明哪些应用有助于任务完成","efficiency_score":75,"efficiency_comment":"专注效率的评价和原因说明","improvements":["具体改进建议1","具体改进建议2"],"next_action":"下次番茄钟建议做什么"}"#;
+
+/// 会话分析的 User Prompt 模板
+pub fn session_analysis_user_prompt(
+    task_title: &str,
+    task_description: Option<&str>,
+    focus_goal: &str,
+    duration_minutes: i32,
+    actual_focus_seconds: i32,
+    app_usage_json: &str,
+    activities_summary: &str,
+) -> String {
+    let focus_rate = if duration_minutes > 0 {
+        (actual_focus_seconds as f64 / (duration_minutes * 60) as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    let task_desc = task_description.unwrap_or("无");
+
+    // 解析应用使用JSON为更易读的格式
+    let app_usage_display = if app_usage_json == "[]" || app_usage_json.is_empty() {
+        "暂无应用使用记录".to_string()
+    } else {
+        app_usage_json.to_string()
+    };
+
+    // 活动摘要处理
+    let activities_display = if activities_summary.is_empty() || activities_summary == "暂无活动记录" || activities_summary == "暂无详细活动记录" {
+        "暂无详细活动记录".to_string()
+    } else {
+        activities_summary.to_string()
+    };
+
+    format!(
+        r#"分析此番茄钟会话数据，输出JSON：
+
+任务：{} | 专注目标：{}
+描述：{}
+时长：{}分钟(实际{:.1}分钟) | 专注率：{:.1}%
+
+应用使用：{}
+
+活动记录：{}"#,
+        task_title,
+        focus_goal,
+        task_desc,
+        duration_minutes,
+        actual_focus_seconds as f64 / 60.0,
+        focus_rate,
+        app_usage_display,
+        activities_display
+    )
+}

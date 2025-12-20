@@ -1499,6 +1499,7 @@ function handleCopySql(sql: string) {
 .template-view-container {
   flex: 1;
   display: flex;
+  min-height: 0;
   overflow: hidden;
   background: rgba(15, 23, 42, 0.4);
   border-radius: 20px;
@@ -1509,8 +1510,18 @@ function handleCopySql(sql: string) {
 
 :deep(.template-view-container .sql-template-view) {
   width: 100%;
-  padding: 0;
+  height: 100%;
+  padding: 16px;
   background: transparent;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.template-view-container .group-list) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* 按钮组样式 */

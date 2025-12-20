@@ -478,6 +478,7 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
   border: 1px solid rgba(51, 65, 85, 0.5);
   border-radius: 10px;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .table-header {
@@ -487,6 +488,8 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
   padding: 12px 16px;
   cursor: pointer;
   transition: background 0.2s;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 
 .table-header:hover {
@@ -537,6 +540,8 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
   padding: 8px 12px;
   cursor: pointer;
   transition: background 0.2s;
+  min-height: 36px;
+  box-sizing: border-box;
 }
 
 .type-header:hover {

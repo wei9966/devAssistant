@@ -1,12 +1,26 @@
 use crate::models::pomodoro::{
-    CompletePomodoroRequest, CreatePomodoroRequest, FocusApp, PomodoroDailyStats,
+    AppUsageItem, CompletePomodoroRequest, CreatePomodoroRequest, FocusApp, PomodoroDailyStats,
     PomodoroPhase, PomodoroSession, PomodoroStatus,
 };
+use crate::prompts::pomodoro_prompts::{SESSION_ANALYSIS_SYSTEM_PROMPT, session_analysis_user_prompt};
 use crate::services::ai_service::{AiService, ChatMessage};
 use crate::services::prompt_db_service::PromptDbService;
 use chrono::Local;
 use rusqlite::{params, Connection, Result};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+/// 番茄钟期间的活动记录
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionActivity {
+    pub id: i64,
+    pub captured_at: String,
+    pub app_name: Option<String>,
+    pub window_title: Option<String>,
+    pub activity_type: String,
+    pub description: String,
+    pub key_content: Option<String>,
+}
 
 /// 番茄钟服务
 pub struct PomodoroService;
@@ -106,6 +120,72 @@ impl PomodoroService {
         Self::get_session_by_id(conn, session_id)
     }
 
+    /// 计算应用使用统计
+    /// 根据番茄钟的时间范围统计screen_contexts中各应用的使用情况
+    pub fn calculate_app_usage(
+        conn: &Connection,
+        started_at: &str,
+        completed_at: &str,
+    ) -> Result<String> {
+        // 查询时间范围内的所有screen_contexts记录
+        // 注意：screen_contexts的captured_at可能是ISO格式(带T)或空格分隔格式
+        // 使用replace将T替换为空格，并只取前19个字符进行比较
+        let mut stmt = conn.prepare(
+            "SELECT app_name FROM screen_contexts
+             WHERE replace(substr(captured_at, 1, 19), 'T', ' ') >= ?1
+             AND replace(substr(captured_at, 1, 19), 'T', ' ') <= ?2
+             AND app_name IS NOT NULL AND app_name != ''",
+        )?;
+
+        let mut app_counts: HashMap<String, i32> = HashMap::new();
+        let mut total_count = 0;
+
+        let rows = stmt.query_map(params![started_at, completed_at], |row| {
+            let app_name: String = row.get(0)?;
+            Ok(app_name)
+        })?;
+
+        for app_result in rows {
+            if let Ok(app_name) = app_result {
+                *app_counts.entry(app_name).or_insert(0) += 1;
+                total_count += 1;
+            }
+        }
+
+        // 如果没有任何记录，返回空JSON数组
+        if total_count == 0 {
+            return Ok("[]".to_string());
+        }
+
+        // 将统计结果转换为AppUsageItem列表
+        let mut usage_items: Vec<AppUsageItem> = app_counts
+            .into_iter()
+            .map(|(app_name, count)| {
+                // 假设每次采集间隔30秒
+                let minutes = (count * 30) / 60;
+                let percentage = (count as f64 / total_count as f64) * 100.0;
+                AppUsageItem {
+                    app_name,
+                    count,
+                    minutes,
+                    percentage,
+                }
+            })
+            .collect();
+
+        // 按占比降序排列
+        usage_items.sort_by(|a, b| {
+            b.percentage
+                .partial_cmp(&a.percentage)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // 序列化为JSON字符串
+        serde_json::to_string(&usage_items).map_err(|e| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
+        })
+    }
+
     /// 完成番茄钟
     pub fn complete_session(
         conn: &Connection,
@@ -114,16 +194,45 @@ impl PomodoroService {
     ) -> Result<PomodoroSession> {
         let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
+        // 获取会话信息以获取started_at
+        let session = Self::get_session_by_id(conn, session_id)?;
+
+        // 确定应用使用统计：
+        // 1. 优先使用前端传入的数据（基于窗口监控，不依赖VLM采集）
+        // 2. 如果前端没有传入或为空，则从screen_contexts计算（需要开启VLM采集）
+        let app_usage = if let Some(ref frontend_usage) = request.app_usage {
+            // 检查前端传入的数据是否有效（非空数组）
+            let is_valid = frontend_usage != "[]" && !frontend_usage.is_empty();
+            if is_valid {
+                Some(frontend_usage.clone())
+            } else {
+                // 前端数据为空，尝试从screen_contexts计算
+                if let Some(started_at) = &session.started_at {
+                    Self::calculate_app_usage(conn, started_at, &now).ok()
+                } else {
+                    None
+                }
+            }
+        } else {
+            // 前端没有传入，从screen_contexts计算
+            if let Some(started_at) = &session.started_at {
+                Self::calculate_app_usage(conn, started_at, &now).ok()
+            } else {
+                None
+            }
+        };
+
         conn.execute(
             "UPDATE pomodoro_sessions
-             SET status = ?1, phase = ?2, completed_at = ?3, feedback = ?4, progress_update = ?5
-             WHERE id = ?6",
+             SET status = ?1, phase = ?2, completed_at = ?3, feedback = ?4, progress_update = ?5, app_usage = ?6
+             WHERE id = ?7",
             params![
                 PomodoroStatus::Completed.as_str(),
                 PomodoroPhase::Report.as_str(),
                 now,
                 request.feedback,
                 request.progress_update,
+                app_usage,
                 session_id,
             ],
         )?;
@@ -176,7 +285,7 @@ impl PomodoroService {
         conn.query_row(
             "SELECT id, task_id, duration_minutes, status, phase, focus_goal, ai_suggestion,
                     actual_focus_seconds, distraction_count, focus_rate, feedback, progress_update,
-                    started_at, paused_at, completed_at, created_at
+                    app_usage, started_at, paused_at, completed_at, created_at
              FROM pomodoro_sessions WHERE id = ?1",
             params![session_id],
             |row| {
@@ -193,10 +302,11 @@ impl PomodoroService {
                     focus_rate: row.get(9)?,
                     feedback: row.get(10)?,
                     progress_update: row.get(11)?,
-                    started_at: row.get(12)?,
-                    paused_at: row.get(13)?,
-                    completed_at: row.get(14)?,
-                    created_at: row.get(15)?,
+                    app_usage: row.get(12)?,
+                    started_at: row.get(13)?,
+                    paused_at: row.get(14)?,
+                    completed_at: row.get(15)?,
+                    created_at: row.get(16)?,
                 })
             },
         )
@@ -216,7 +326,7 @@ impl PomodoroService {
         let result = conn.query_row(
             "SELECT id, task_id, duration_minutes, status, phase, focus_goal, ai_suggestion,
                     actual_focus_seconds, distraction_count, focus_rate, feedback, progress_update,
-                    started_at, paused_at, completed_at, created_at
+                    app_usage, started_at, paused_at, completed_at, created_at
              FROM pomodoro_sessions
              WHERE status IN (?1, ?2)
              ORDER BY created_at DESC
@@ -239,10 +349,11 @@ impl PomodoroService {
                     focus_rate: row.get(9)?,
                     feedback: row.get(10)?,
                     progress_update: row.get(11)?,
-                    started_at: row.get(12)?,
-                    paused_at: row.get(13)?,
-                    completed_at: row.get(14)?,
-                    created_at: row.get(15)?,
+                    app_usage: row.get(12)?,
+                    started_at: row.get(13)?,
+                    paused_at: row.get(14)?,
+                    completed_at: row.get(15)?,
+                    created_at: row.get(16)?,
                 })
             },
         );
@@ -268,7 +379,7 @@ impl PomodoroService {
         let mut stmt = conn.prepare(
             "SELECT id, task_id, duration_minutes, status, phase, focus_goal, ai_suggestion,
                     actual_focus_seconds, distraction_count, focus_rate, feedback, progress_update,
-                    started_at, paused_at, completed_at, created_at
+                    app_usage, started_at, paused_at, completed_at, created_at
              FROM pomodoro_sessions
              WHERE created_at >= ?1 AND created_at <= ?2
              ORDER BY created_at DESC",
@@ -289,10 +400,11 @@ impl PomodoroService {
                     focus_rate: row.get(9)?,
                     feedback: row.get(10)?,
                     progress_update: row.get(11)?,
-                    started_at: row.get(12)?,
-                    paused_at: row.get(13)?,
-                    completed_at: row.get(14)?,
-                    created_at: row.get(15)?,
+                    app_usage: row.get(12)?,
+                    started_at: row.get(13)?,
+                    paused_at: row.get(14)?,
+                    completed_at: row.get(15)?,
+                    created_at: row.get(16)?,
                 })
             })?
             .collect::<Result<Vec<_>>>()?;
@@ -305,7 +417,7 @@ impl PomodoroService {
         let mut stmt = conn.prepare(
             "SELECT id, task_id, duration_minutes, status, phase, focus_goal, ai_suggestion,
                     actual_focus_seconds, distraction_count, focus_rate, feedback, progress_update,
-                    started_at, paused_at, completed_at, created_at
+                    app_usage, started_at, paused_at, completed_at, created_at
              FROM pomodoro_sessions
              WHERE task_id = ?1
              ORDER BY created_at DESC",
@@ -326,10 +438,11 @@ impl PomodoroService {
                     focus_rate: row.get(9)?,
                     feedback: row.get(10)?,
                     progress_update: row.get(11)?,
-                    started_at: row.get(12)?,
-                    paused_at: row.get(13)?,
-                    completed_at: row.get(14)?,
-                    created_at: row.get(15)?,
+                    app_usage: row.get(12)?,
+                    started_at: row.get(13)?,
+                    paused_at: row.get(14)?,
+                    completed_at: row.get(15)?,
+                    created_at: row.get(16)?,
                 })
             })?
             .collect::<Result<Vec<_>>>()?;
@@ -573,6 +686,95 @@ impl PomodoroService {
         )?;
         Ok(())
     }
+
+    /// 获取番茄钟期间的活动记录
+    pub fn get_session_activities(
+        conn: &Connection,
+        session_id: i64,
+    ) -> Result<Vec<SessionActivity>> {
+        // 先获取session的时间范围
+        let session = Self::get_session_by_id(conn, session_id)?;
+
+        // 如果session还没有开始，返回空列表
+        let started_at = match session.started_at {
+            Some(start) => start,
+            None => return Ok(Vec::new()),
+        };
+
+        // 根据session是否完成，使用不同的查询逻辑
+        // 注意：screen_contexts的captured_at可能是ISO格式(带T)或空格分隔格式
+        // 使用replace将T替换为空格，并只取前19个字符进行比较
+        if let Some(ref completed_at_value) = session.completed_at {
+            // session已完成，查询started_at到completed_at之间的记录
+            let mut stmt = conn.prepare(
+                "SELECT id, captured_at, app_name, window_title, activity_type, description, key_content
+                 FROM screen_contexts
+                 WHERE replace(substr(captured_at, 1, 19), 'T', ' ') >= ?1
+                 AND replace(substr(captured_at, 1, 19), 'T', ' ') <= ?2
+                 ORDER BY captured_at ASC"
+            )?;
+
+            let activities = stmt.query_map(params![started_at, completed_at_value], |row| {
+                Ok(SessionActivity {
+                    id: row.get(0)?,
+                    captured_at: row.get(1)?,
+                    app_name: row.get(2)?,
+                    window_title: row.get(3)?,
+                    activity_type: row.get(4)?,
+                    description: row.get(5)?,
+                    key_content: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
+
+            Ok(activities)
+        } else {
+            // session未完成，只查询started_at之后的记录
+            let mut stmt = conn.prepare(
+                "SELECT id, captured_at, app_name, window_title, activity_type, description, key_content
+                 FROM screen_contexts
+                 WHERE replace(substr(captured_at, 1, 19), 'T', ' ') >= ?1
+                 ORDER BY captured_at ASC"
+            )?;
+
+            let activities = stmt.query_map(params![started_at], |row| {
+                Ok(SessionActivity {
+                    id: row.get(0)?,
+                    captured_at: row.get(1)?,
+                    app_name: row.get(2)?,
+                    window_title: row.get(3)?,
+                    activity_type: row.get(4)?,
+                    description: row.get(5)?,
+                    key_content: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
+
+            Ok(activities)
+        }
+    }
+
+    /// 获取番茄钟期间的应用使用统计
+    /// 用于在报告阶段展示应用使用分布
+    pub fn get_session_app_usage(
+        conn: &Connection,
+        session_id: i64,
+    ) -> Result<String> {
+        // 获取session信息
+        let session = Self::get_session_by_id(conn, session_id)?;
+
+        // 如果session还没有开始，返回空数组
+        let started_at = match session.started_at {
+            Some(start) => start,
+            None => return Ok("[]".to_string()),
+        };
+
+        // 使用当前时间或completed_at作为结束时间
+        let ended_at = session.completed_at
+            .unwrap_or_else(|| chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
+
+        Self::calculate_app_usage(conn, &started_at, &ended_at)
+    }
 }
 
 /// AI 相关的番茄钟服务（异步方法）
@@ -763,6 +965,37 @@ impl PomodoroAiService {
         let messages = vec![
             ChatMessage::system(rendered.system.unwrap_or_default()),
             ChatMessage::user(rendered.user),
+        ];
+        ai_service.chat(messages).await
+    }
+
+    // ==================== 会话分析相关 ====================
+
+    /// AI 会话分析 - 分析番茄钟会话中的应用使用与任务相关性
+    pub async fn analyze_session(
+        ai_service: &AiService,
+        task_title: &str,
+        task_description: Option<&str>,
+        focus_goal: &str,
+        duration_minutes: i32,
+        actual_focus_seconds: i32,
+        app_usage_json: &str,
+        activities_summary: &str,
+    ) -> anyhow::Result<String> {
+        // 使用代码中定义的prompt模板
+        let user_prompt = session_analysis_user_prompt(
+            task_title,
+            task_description,
+            focus_goal,
+            duration_minutes,
+            actual_focus_seconds,
+            app_usage_json,
+            activities_summary,
+        );
+
+        let messages = vec![
+            ChatMessage::system(SESSION_ANALYSIS_SYSTEM_PROMPT.to_string()),
+            ChatMessage::user(user_prompt),
         ];
         ai_service.chat(messages).await
     }

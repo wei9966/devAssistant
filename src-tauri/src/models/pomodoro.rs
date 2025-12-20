@@ -152,6 +152,7 @@ pub struct PomodoroSession {
     pub focus_rate: f64,
     pub feedback: Option<String>,
     pub progress_update: Option<String>,
+    pub app_usage: Option<String>, // JSON格式的应用使用统计
     pub started_at: Option<String>,
     pub paused_at: Option<String>,
     pub completed_at: Option<String>,
@@ -203,6 +204,7 @@ pub struct CreatePomodoroRequest {
 pub struct CompletePomodoroRequest {
     pub feedback: Option<String>,
     pub progress_update: Option<String>,
+    pub app_usage: Option<String>,  // 前端传入的应用使用统计JSON
 }
 
 /// AI任务拆解建议
@@ -224,4 +226,14 @@ pub struct AiFocusAnalysis {
     pub summary: String,
     pub suggestions: Vec<String>,
     pub next_session_tip: Option<String>,
+}
+
+/// 应用使用统计项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppUsageItem {
+    pub app_name: String,
+    pub count: i32,          // 出现次数
+    pub minutes: i32,        // 使用分钟数（按采集间隔估算，假设每次采集间隔30秒）
+    pub percentage: f64,     // 占比
 }

@@ -901,6 +901,7 @@ pub async fn get_active_window_info() -> Result<ActiveWindowResponse, String> {
 
 /// 运行中的应用信息
 #[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RunningApp {
     pub name: String,
     pub process_name: String,

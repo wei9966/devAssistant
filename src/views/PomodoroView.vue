@@ -133,9 +133,9 @@
             <div class="app-tags">
               <div
                 v-for="app in selectedWhitelistApps"
-                :key="app.id"
+                :key="app.processName"
                 class="app-tag"
-                @click="removeWhitelistApp(app.id)"
+                @click="removeWhitelistByProcess(app.processName)"
               >
                 {{ app.shortName }}
               </div>
@@ -407,6 +407,28 @@
           />
         </div>
 
+        <!-- App Usage Section -->
+        <div class="app-usage-section">
+          <div class="section-label">本次专注应用分布</div>
+          <div v-if="sessionAppUsage.length > 0" class="session-usage-list">
+            <div v-for="app in sessionAppUsage" :key="app.appName" class="session-usage-item">
+              <div class="usage-header">
+                <span class="app-name">{{ app.appName }}</span>
+                <span class="app-time">{{ app.minutes }} MIN</span>
+              </div>
+              <div class="usage-bar">
+                <div class="usage-fill" :style="{ width: app.percentage + '%' }"></div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="usage-empty">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+              <path fill="#9ca3af" d="M13 9h-2V7h2m0 10h-2v-6h2m-1-9A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2z"/>
+            </svg>
+            <span>暂无应用使用记录</span>
+          </div>
+        </div>
+
         <!-- Feedback Input -->
         <div class="feedback-section">
           <label class="feedback-label">记录本次产出</label>
@@ -487,20 +509,60 @@
             </div>
           </div>
 
-          <!-- AI Insight -->
+          <!-- Session Analysis -->
           <div class="chart-card ai-card">
             <div class="ai-card-header">
               <svg viewBox="0 0 24 24" width="20" height="20">
                 <path fill="#6366f1" d="M12 2L9.5 9.5L2 12l7.5 2.5L12 22l2.5-7.5L22 12l-7.5-2.5L12 2z"/>
               </svg>
-              <span>AI COACH DAILY</span>
+              <span>本次专注分析</span>
             </div>
-            <p class="ai-insight-text">
-              <template v-if="aiInsightLoading">AI 正在分析今日数据...</template>
-              <template v-else-if="aiDailyInsight">{{ aiDailyInsight }}</template>
-              <template v-else-if="todayStats?.aiInsight">{{ todayStats.aiInsight }}</template>
-              <template v-else>完成更多番茄钟后，AI 将为你生成个性化的每日复盘与建议。</template>
-            </p>
+
+            <!-- 加载状态 -->
+            <template v-if="analysisLoading">
+              <p class="ai-insight-text">AI 正在分析最近的专注会话...</p>
+            </template>
+
+            <!-- 有分析结果 -->
+            <template v-else-if="lastSessionAnalysis">
+              <div class="session-analysis-wrapper">
+                <div class="session-analysis">
+                  <!-- 效率评分 -->
+                  <div v-if="lastSessionAnalysis.efficiencyScore > 0" class="efficiency-score-section">
+                    <div class="score-circle" :class="getScoreClass(lastSessionAnalysis.efficiencyScore)">
+                      <span class="score-value">{{ lastSessionAnalysis.efficiencyScore }}</span>
+                      <span class="score-label">分</span>
+                    </div>
+                    <p class="efficiency-comment">{{ lastSessionAnalysis.efficiencyComment }}</p>
+                  </div>
+
+                  <div class="analysis-section">
+                    <h4 class="analysis-label">任务相关性</h4>
+                    <p class="analysis-text">{{ lastSessionAnalysis.relevanceAnalysis }}</p>
+                  </div>
+
+                  <div v-if="lastSessionAnalysis.improvements.length > 0" class="analysis-section">
+                    <h4 class="analysis-label">改进建议</h4>
+                    <ul class="analysis-list">
+                      <li v-for="(item, idx) in lastSessionAnalysis.improvements" :key="idx">
+                        {{ item }}
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div class="analysis-section">
+                    <h4 class="analysis-label">下次行动</h4>
+                    <p class="analysis-text highlight">{{ lastSessionAnalysis.nextAction }}</p>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- 无分析结果 -->
+            <template v-else>
+              <p class="ai-insight-text">完成番茄钟后，AI 将为你分析本次专注表现。</p>
+            </template>
+
             <button class="view-report-btn" @click="handleViewWeeklyReport">
               查看完整周报
               <svg viewBox="0 0 24 24" width="14" height="14">
@@ -562,14 +624,14 @@
           <div class="app-grid">
             <div
               v-for="app in availableApps"
-              :key="app.id"
+              :key="app.processName"
               class="app-item"
-              :class="{ selected: isAppSelected(app.id) }"
-              @click="toggleAppSelection(app.id)"
+              :class="{ selected: isAppSelectedByProcess(app.processName) }"
+              @click.stop="toggleAppByProcess(app.processName)"
             >
               <div class="app-icon-text">{{ app.shortName }}</div>
               <span class="app-name">{{ app.name }}</span>
-              <div v-if="isAppSelected(app.id)" class="check-icon">
+              <div v-if="isAppSelectedByProcess(app.processName)" class="check-icon">
                 <svg viewBox="0 0 24 24" width="16" height="16">
                   <path fill="#6366f1" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                 </svg>
@@ -612,13 +674,22 @@
         <p class="distraction-desc">
           检测到非工作应用 <strong>{{ distractedAppName }}</strong> 被打开。
         </p>
-        <p class="distraction-hint">这是工作中的必要查找，还是需要休息？</p>
+        <p class="distraction-hint">请选择接下来的操作：</p>
 
         <div class="distraction-actions">
           <button class="distraction-btn primary" @click="handleReturnToWork">
             立即重返工作
           </button>
-          <button class="distraction-btn secondary" @click="handleStopTimer">
+          <button class="distraction-btn whitelist" @click="handleAddToWhitelist">
+            <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 6px;">
+              <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+            添加到白名单
+          </button>
+          <button class="distraction-btn secondary" @click="handlePauseTimer">
+            暂停计时
+          </button>
+          <button class="distraction-btn danger" @click="handleStopTimer">
             停止本次计时
           </button>
         </div>
@@ -646,7 +717,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { NTag, useMessage } from 'naive-ui'
 import { usePomodoroStore } from '@/stores/pomodoroStore'
 import { useTaskStore } from '@/stores/taskStore'
-import { aiTaskBreakdown, aiFocusAnalysis, aiDailyReview, getActiveWindowInfo, getRunningApps, type RunningApp } from '@/api/pomodoroApi'
+import { aiTaskBreakdown, aiFocusAnalysis, aiDailyReview, aiAnalyzeSession, getActiveWindowInfo, getRunningApps, getSessionAppUsage, type RunningApp } from '@/api/pomodoroApi'
 import { taskApi } from '@/api/taskApi'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import type { PomodoroPhase, FocusApp, AppUsageStats } from '@/types/pomodoro'
@@ -783,11 +854,44 @@ async function fetchAiSuggestions() {
       selectedTask.value.description || undefined,
       selectedTask.value.progress
     )
-    // 解析AI返回的建议
+    console.log('[AI建议] 原始返回:', result)
+
+    // 尝试解析JSON结果
+    let parsed: any = null
     try {
-      const parsed = JSON.parse(result)
+      // 1. 先尝试直接解析
+      parsed = JSON.parse(result)
+    } catch {
+      // 2. 尝试从markdown代码块中提取JSON
+      const jsonMatch = result.match(/```(?:json)?\s*([\s\S]*?)```/)
+      if (jsonMatch && jsonMatch[1]) {
+        try {
+          parsed = JSON.parse(jsonMatch[1].trim())
+          console.log('[AI建议] 从markdown提取JSON成功')
+        } catch (e) {
+          console.log('[AI建议] markdown JSON解析失败:', e)
+        }
+      }
+
+      // 3. 尝试查找JSON对象边界
+      if (!parsed) {
+        const jsonStart = result.indexOf('{')
+        const jsonEnd = result.lastIndexOf('}')
+        if (jsonStart !== -1 && jsonEnd > jsonStart) {
+          try {
+            parsed = JSON.parse(result.substring(jsonStart, jsonEnd + 1))
+            console.log('[AI建议] 从文本提取JSON成功')
+          } catch (e) {
+            console.log('[AI建议] 文本JSON解析失败:', e)
+          }
+        }
+      }
+    }
+
+    // 处理解析结果
+    if (parsed && typeof parsed === 'object') {
       // 处理结构化的AI返回
-      if (parsed.sub_tasks || parsed.subTasks || parsed.suggested_goal) {
+      if (parsed.sub_tasks || parsed.subTasks || parsed.suggested_goal || parsed.suggestedGoal) {
         aiSuggestionData.value = {
           suggestedGoal: parsed.suggested_goal || parsed.suggestedGoal,
           subTasks: (parsed.sub_tasks || parsed.subTasks || []).map((t: string) =>
@@ -798,14 +902,21 @@ async function fetchAiSuggestions() {
         }
         // 同时设置 aiSuggestions 用于简单显示
         aiSuggestions.value = aiSuggestionData.value.subTasks?.slice(0, 3) || []
+        console.log('[AI建议] 解析成功:', aiSuggestionData.value)
       } else if (parsed.suggestions && Array.isArray(parsed.suggestions)) {
         aiSuggestions.value = parsed.suggestions.slice(0, 3)
       } else {
-        aiSuggestions.value = [result]
+        // JSON格式但不符合预期结构，使用原始文本
+        const lines = result.split('\n').filter((l: string) => l.trim() && !l.startsWith('```'))
+        aiSuggestions.value = lines.slice(0, 3)
       }
-    } catch {
-      // 如果不是JSON，直接使用文本
-      const lines = result.split('\n').filter((l: string) => l.trim())
+    } else {
+      // 如果完全无法解析为JSON，直接使用文本（过滤掉markdown标记）
+      console.log('[AI建议] 无法解析为JSON，使用原始文本')
+      const lines = result.split('\n').filter((l: string) => {
+        const trimmed = l.trim()
+        return trimmed && !trimmed.startsWith('```') && trimmed !== '{' && trimmed !== '}'
+      })
       aiSuggestions.value = lines.slice(0, 3)
     }
   } catch (error: any) {
@@ -987,6 +1098,35 @@ function isAppSelected(appId: number) {
   return selectedAppProcessNames.value.includes(app.processName.toLowerCase())
 }
 
+// 直接通过进程名判断是否选中（更可靠）
+function isAppSelectedByProcess(processName: string) {
+  if (!processName) return false
+  return selectedAppProcessNames.value.includes(processName.toLowerCase())
+}
+
+// 直接通过进程名切换选中状态（更可靠）
+function toggleAppByProcess(processName: string) {
+  if (!processName) return
+
+  const lowerName = processName.toLowerCase()
+  const isSelected = selectedAppProcessNames.value.includes(lowerName)
+
+  if (isSelected) {
+    // 取消选中 - 创建新数组以确保响应式更新
+    selectedAppProcessNames.value = selectedAppProcessNames.value.filter(name => name !== lowerName)
+  } else {
+    // 选中 - 创建新数组以确保响应式更新
+    selectedAppProcessNames.value = [...selectedAppProcessNames.value, lowerName]
+  }
+}
+
+// 直接通过进程名移除白名单应用
+function removeWhitelistByProcess(processName: string) {
+  if (!processName) return
+  const lowerName = processName.toLowerCase()
+  selectedAppProcessNames.value = selectedAppProcessNames.value.filter(name => name !== lowerName)
+}
+
 function toggleAppSelection(appId: number) {
   const app = availableApps.value.find(a => a.id === appId)
   if (!app?.processName) return
@@ -1017,6 +1157,13 @@ const isDistracted = ref(false)
 const distractionTimer = ref<number | null>(null)
 const windowCheckInterval = ref<number | null>(null)
 
+// 应用使用记录（番茄钟期间记录每次检测到的应用）
+interface AppRecord {
+  appName: string
+  timestamp: number
+}
+const appUsageRecords = ref<AppRecord[]>([])
+
 // 智能分心检测（无白名单时）
 const smartDistractionSeconds = ref(0) // 离开DevAssistant的累计秒数
 const SMART_DISTRACTION_THRESHOLD = 180 // 3分钟后提醒
@@ -1026,6 +1173,12 @@ const SMART_REMINDER_COOLDOWN = 300000 // 5分钟冷却期
 // 分心弹窗状态
 const showDistractionModal = ref(false)
 const distractedAppName = ref('')
+const distractedProcessName = ref('') // 保存分心应用的进程名，用于添加白名单
+
+// 白名单分心检测延迟（30秒后才弹窗）
+const WHITELIST_DISTRACTION_DELAY = 30 // 秒
+const whitelistDistractionSeconds = ref(0) // 在非白名单应用的累计秒数
+const pendingDistractionApp = ref<{ appName: string, processName: string } | null>(null)
 
 // 获取选中白名单应用的进程名列表
 const whitelistProcessNames = computed(() => {
@@ -1040,13 +1193,24 @@ async function checkActiveWindow() {
     const windowInfo = await getActiveWindowInfo()
 
     // 更新当前应用名称
+    let appName = '未知应用'
     if (windowInfo.appName) {
+      appName = windowInfo.appName
       currentAppName.value = windowInfo.appName
     } else if (windowInfo.processName) {
       // 去掉 .exe 后缀显示
-      currentAppName.value = windowInfo.processName.replace(/\.exe$/i, '')
+      appName = windowInfo.processName.replace(/\.exe$/i, '')
+      currentAppName.value = appName
     } else {
       currentAppName.value = '未知应用'
+    }
+
+    // 记录应用使用（用于统计）
+    if (currentPhase.value === 'focusing' && currentSession.value?.status === 'focusing') {
+      appUsageRecords.value.push({
+        appName: appName,
+        timestamp: Date.now()
+      })
     }
 
     // 只在专注阶段检测分心（且会话状态为 focusing）
@@ -1156,14 +1320,26 @@ function checkDistraction(windowInfo: { appName: string | null, processName: str
   })
 
   if (!isInWhitelist) {
-    if (!isDistracted.value) {
-      isDistracted.value = true
-      // 传递检测到的应用名称
-      const detectedAppName = windowInfo.appName || windowInfo.processName?.replace(/\.exe$/i, '') || '未知应用'
-      handleDistraction(detectedAppName)
+    // 记录当前分心应用信息
+    const detectedAppName = windowInfo.appName || windowInfo.processName?.replace(/\.exe$/i, '') || '未知应用'
+    const detectedProcessName = windowInfo.processName || ''
+
+    // 累加在非白名单应用的时间（每次检测间隔约2秒）
+    whitelistDistractionSeconds.value += 2
+    pendingDistractionApp.value = { appName: detectedAppName, processName: detectedProcessName }
+
+    // 检查是否超过延迟阈值（30秒）
+    if (whitelistDistractionSeconds.value >= WHITELIST_DISTRACTION_DELAY) {
+      if (!isDistracted.value && !showDistractionModal.value) {
+        isDistracted.value = true
+        handleDistraction(detectedAppName, detectedProcessName)
+      }
     }
   } else {
+    // 回到白名单应用，重置计时
     isDistracted.value = false
+    whitelistDistractionSeconds.value = 0
+    pendingDistractionApp.value = null
   }
 }
 
@@ -1211,15 +1387,16 @@ async function bringWindowToFront() {
 }
 
 // 处理分心事件（有白名单时）
-async function handleDistraction(appName: string) {
+async function handleDistraction(appName: string, processName: string = '') {
   if (!currentSession.value?.id) return
 
   // 如果弹窗已经显示，不重复触发
   if (showDistractionModal.value) return
 
   try {
-    // 记录分心的应用名称（直接使用传入的参数）
+    // 记录分心的应用名称和进程名
     distractedAppName.value = appName
+    distractedProcessName.value = processName
 
     // 暂停计时
     await pomodoroStore.pauseSession(currentSession.value.id)
@@ -1235,6 +1412,9 @@ async function handleDistraction(appName: string) {
 
     // 将窗口置顶到前台
     await bringWindowToFront()
+
+    // 重置分心计时
+    whitelistDistractionSeconds.value = 0
 
     // 显示分心弹窗
     showDistractionModal.value = true
@@ -1320,10 +1500,101 @@ async function handleStopTimer() {
   showDistractionModal.value = false
   isDistracted.value = false
 
+  // 先计算本地应用使用统计（在停止监控前计算）
+  const localAppUsage = calculateLocalAppUsage()
+
+  // 停止窗口监控
+  stopWindowMonitoring()
+
+  // 获取应用使用统计
+  if (currentSession.value?.id) {
+    try {
+      const backendAppUsage = await getSessionAppUsage(currentSession.value.id)
+      // 优先使用后端数据，如果为空则使用本地记录
+      const parsedBackend = JSON.parse(backendAppUsage || '[]')
+      if (parsedBackend.length > 0) {
+        fetchedAppUsage.value = backendAppUsage
+      } else {
+        fetchedAppUsage.value = localAppUsage
+      }
+    } catch (e) {
+      console.error('获取应用使用统计失败:', e)
+      fetchedAppUsage.value = localAppUsage
+    }
+  } else {
+    fetchedAppUsage.value = localAppUsage
+  }
+
   // 跳转到报告页面
   progressValue.value = getCurrentTaskProgress()
   currentPhase.value = 'report'
   message.info('专注已停止，请提交反馈')
+}
+
+// 暂停计时（保持会话暂停状态，稍后继续）
+function handlePauseTimer() {
+  // 关闭弹窗，但保持会话暂停状态
+  showDistractionModal.value = false
+  isDistracted.value = false
+
+  // 不恢复计时，让用户手动恢复
+  message.info('计时已暂停，处理完事务后可继续')
+
+  // 停止窗口监控
+  stopWindowMonitoring()
+}
+
+// 将分心应用添加到白名单
+async function handleAddToWhitelist() {
+  if (!distractedProcessName.value && !distractedAppName.value) {
+    message.warning('无法获取应用信息')
+    return
+  }
+
+  // 获取进程名，如果没有则用应用名生成
+  let processName = distractedProcessName.value
+  if (!processName) {
+    processName = distractedAppName.value.toLowerCase().replace(/\s+/g, '') + '.exe'
+  }
+
+  // 添加到本地列表（如果不存在）
+  const existingApp = runningAppsList.value.find(
+    app => app.processName.toLowerCase() === processName.toLowerCase()
+  )
+
+  if (!existingApp) {
+    runningAppsList.value.push({
+      name: distractedAppName.value,
+      processName: processName
+    })
+  }
+
+  // 添加到选中的白名单
+  const lowerProcessName = processName.toLowerCase()
+  if (!selectedAppProcessNames.value.includes(lowerProcessName)) {
+    selectedAppProcessNames.value = [...selectedAppProcessNames.value, lowerProcessName]
+  }
+
+  message.success(`已将 ${distractedAppName.value} 添加到白名单`)
+
+  // 恢复计时并关闭弹窗
+  if (currentSession.value?.id) {
+    try {
+      await pomodoroStore.resumeSession(currentSession.value.id)
+    } catch (error) {
+      console.error('恢复会话失败:', error)
+    }
+  }
+
+  showDistractionModal.value = false
+  isDistracted.value = false
+
+  // 延迟后重新开始监控
+  setTimeout(() => {
+    if (currentSession.value?.status === 'focusing') {
+      startWindowMonitoring()
+    }
+  }, 2000)
 }
 
 // 场景切换（调试用）
@@ -1343,6 +1614,8 @@ function startWindowMonitoring() {
   if (windowCheckInterval.value) {
     clearInterval(windowCheckInterval.value)
   }
+  // 清空应用使用记录
+  appUsageRecords.value = []
   // 每2秒检测一次活动窗口
   windowCheckInterval.value = window.setInterval(checkActiveWindow, 2000)
   // 立即执行一次
@@ -1359,6 +1632,33 @@ function stopWindowMonitoring() {
   smartDistractionSeconds.value = 0
 }
 
+// 从本地记录计算应用使用统计
+function calculateLocalAppUsage(): string {
+  if (appUsageRecords.value.length === 0) {
+    return '[]'
+  }
+
+  // 统计每个应用的出现次数
+  const appCounts: Record<string, number> = {}
+  for (const record of appUsageRecords.value) {
+    appCounts[record.appName] = (appCounts[record.appName] || 0) + 1
+  }
+
+  const totalCount = appUsageRecords.value.length
+
+  // 转换为统计数组
+  const usageItems = Object.entries(appCounts)
+    .map(([appName, count]) => ({
+      appName,
+      count,
+      minutes: Math.round((count * 2) / 60), // 每次检测间隔2秒
+      percentage: Math.round((count / totalCount) * 100)
+    }))
+    .sort((a, b) => b.percentage - a.percentage)
+
+  return JSON.stringify(usageItems)
+}
+
 // Resume Modal
 const showResumeModal = ref(false)
 
@@ -1368,6 +1668,7 @@ const taskCompleted = ref(false)
 const progressValue = ref(0)
 const addMilestone = ref(false)
 const milestoneTitle = ref('')
+const fetchedAppUsage = ref<string | null>(null)  // 手动停止时获取的app_usage
 const loading = computed(() => pomodoroStore.loading)
 
 // 获取当前任务的进度（从taskStore获取最新数据）
@@ -1379,6 +1680,14 @@ function getCurrentTaskProgress(): number {
   if (task?.progress !== undefined) return task.progress
   // 备选：从session中获取
   return currentSession.value?.task?.progress || 0
+}
+
+// 根据效率评分获取样式类
+function getScoreClass(score: number): string {
+  if (score >= 80) return 'score-excellent'
+  if (score >= 60) return 'score-good'
+  if (score >= 40) return 'score-average'
+  return 'score-low'
 }
 
 // Report task title
@@ -1419,11 +1728,116 @@ const currentDate = computed(() => {
   return new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
 })
 
-// AI 每日复盘
+// 会话分析结果类型（匹配后端返回的JSON格式）
+interface SessionAnalysis {
+  relevanceAnalysis: string    // 应用使用与任务相关性分析
+  efficiencyScore: number      // 专注效率评分 (1-100)
+  efficiencyComment: string    // 专注效率评估说明
+  improvements: string[]       // 改进建议
+  nextAction: string           // 下次行动建议
+}
+
+// 最近会话的AI分析
+const lastSessionAnalysis = ref<SessionAnalysis | null>(null)
+const analysisLoading = ref(false)
+
+// AI 每日复盘（保留用于右侧AI分析的备选显示）
 const aiDailyInsight = ref('')
 const aiInsightLoading = ref(false)
 
-// 获取 AI 每日复盘
+// 获取最近完成的会话的AI分析
+async function loadLastSessionAnalysis() {
+  if (analysisLoading.value) return
+
+  analysisLoading.value = true
+  lastSessionAnalysis.value = null
+
+  try {
+    // 获取今日已完成的会话
+    const completedSessions = pomodoroStore.todaySessions.filter(
+      s => s.status === 'completed'
+    )
+
+    if (completedSessions.length === 0) {
+      return
+    }
+
+    // 获取最近完成的会话
+    const lastSession = completedSessions[completedSessions.length - 1]
+
+    if (!lastSession.id) {
+      return
+    }
+
+    // 调用AI分析接口
+    const result = await aiAnalyzeSession(lastSession.id)
+    console.log('[AI分析] 原始返回:', result)
+
+    // 尝试解析JSON结果
+    let parsed: any = null
+    try {
+      // 1. 先尝试直接解析
+      parsed = JSON.parse(result)
+    } catch {
+      // 2. 尝试从markdown代码块中提取JSON
+      const jsonMatch = result.match(/```(?:json)?\s*([\s\S]*?)```/)
+      if (jsonMatch && jsonMatch[1]) {
+        try {
+          parsed = JSON.parse(jsonMatch[1].trim())
+          console.log('[AI分析] 从markdown提取JSON成功')
+        } catch (e) {
+          console.log('[AI分析] markdown JSON解析失败:', e)
+        }
+      }
+
+      // 3. 尝试查找JSON对象边界
+      if (!parsed) {
+        const jsonStart = result.indexOf('{')
+        const jsonEnd = result.lastIndexOf('}')
+        if (jsonStart !== -1 && jsonEnd > jsonStart) {
+          try {
+            parsed = JSON.parse(result.substring(jsonStart, jsonEnd + 1))
+            console.log('[AI分析] 从文本提取JSON成功')
+          } catch (e) {
+            console.log('[AI分析] 文本JSON解析失败:', e)
+          }
+        }
+      }
+    }
+
+    if (parsed && typeof parsed === 'object') {
+      lastSessionAnalysis.value = {
+        relevanceAnalysis: parsed.relevance_analysis || parsed.relevanceAnalysis || '分析中...',
+        efficiencyScore: parsed.efficiency_score || parsed.efficiencyScore || 0,
+        efficiencyComment: parsed.efficiency_comment || parsed.efficiencyComment || '分析中...',
+        improvements: parsed.improvements || [],
+        nextAction: parsed.next_action || parsed.nextAction || '继续保持专注'
+      }
+      console.log('[AI分析] 解析成功:', lastSessionAnalysis.value)
+    } else {
+      // 如果完全无法解析为JSON，使用原始文本
+      console.log('[AI分析] 无法解析为JSON，使用原始文本')
+      lastSessionAnalysis.value = {
+        relevanceAnalysis: result.length > 200 ? result.substring(0, 200) + '...' : result,
+        efficiencyScore: 0,
+        efficiencyComment: '分析结果格式异常',
+        improvements: [],
+        nextAction: '请重试或检查AI配置'
+      }
+    }
+  } catch (error: any) {
+    console.error('获取会话分析失败:', error)
+    const errorMsg = error?.toString() || ''
+    if (errorMsg.includes('AI 服务未初始化') || errorMsg.includes('AI 服务未配置')) {
+      // AI未配置时不显示错误
+      lastSessionAnalysis.value = null
+    }
+  } finally {
+    analysisLoading.value = false
+  }
+}
+
+// 获取 AI 每日复盘（备用）
 async function fetchAiDailyReview() {
   if (aiInsightLoading.value) return
 
@@ -1440,16 +1854,14 @@ async function fetchAiDailyReview() {
   }
 }
 
-// 监听进入统计页面时获取 AI 复盘
+// 监听进入统计页面时加载数据和分析
 watch(currentPhase, async (newPhase) => {
   if (newPhase === 'stats') {
     // 刷新统计数据
     await pomodoroStore.loadTodayStats()
     await pomodoroStore.loadTodaySessions()
-    // 获取 AI 每日复盘
-    if (!aiDailyInsight.value) {
-      fetchAiDailyReview()
-    }
+    // 获取最近会话的AI分析
+    loadLastSessionAnalysis()
   }
 })
 
@@ -1491,8 +1903,32 @@ function playCompleteSound() {
 
 // 处理计时完成
 async function handleTimerComplete() {
+  // 先计算本地应用使用统计（在停止监控前计算）
+  const localAppUsage = calculateLocalAppUsage()
+  console.log('[计时完成] 本地应用统计:', localAppUsage)
+
   // 停止窗口监控
   stopWindowMonitoring()
+
+  // 获取应用使用统计（与handleStop相同逻辑）
+  if (currentSession.value?.id) {
+    try {
+      const backendAppUsage = await getSessionAppUsage(currentSession.value.id)
+      const parsedBackend = JSON.parse(backendAppUsage || '[]')
+      if (parsedBackend.length > 0) {
+        fetchedAppUsage.value = backendAppUsage
+        console.log('[计时完成] 使用后端数据')
+      } else {
+        fetchedAppUsage.value = localAppUsage
+        console.log('[计时完成] 使用本地数据')
+      }
+    } catch (e) {
+      console.error('[计时完成] 获取应用使用统计失败:', e)
+      fetchedAppUsage.value = localAppUsage
+    }
+  } else {
+    fetchedAppUsage.value = localAppUsage
+  }
 
   // 播放完成音效
   playCompleteSound()
@@ -1513,14 +1949,75 @@ async function handleTimerComplete() {
   currentPhase.value = 'report'
 }
 
-// 解析后端返回的应用使用统计数据
+// 当前会话或今日完成会话的应用使用数据
+// 优先显示刚完成的当前会话数据，如果没有则显示最近完成的会话数据
 const appUsageList = computed(() => {
-  if (!todayStats.value?.appUsage) {
+  // 优先使用刚获取的当前会话应用数据（手动停止或计时完成时获取的）
+  if (fetchedAppUsage.value) {
+    try {
+      const usageData = JSON.parse(fetchedAppUsage.value)
+      if (Array.isArray(usageData) && usageData.length > 0) {
+        const totalMinutes = usageData.reduce((sum: number, item: any) => sum + (item.minutes || 0), 0)
+        if (totalMinutes > 0) {
+          return usageData.map((item: any) => ({
+            appName: item.appName || item.app_name || '未知',
+            minutes: Math.round(item.minutes || 0),
+            percentage: Math.round(((item.minutes || 0) / totalMinutes) * 100)
+          })).sort((a: any, b: any) => b.minutes - a.minutes)
+        }
+      }
+    } catch {
+      // 解析失败，继续使用下面的逻辑
+    }
+  }
+
+  // 获取今日已完成的番茄钟会话
+  const completedSessions = pomodoroStore.todaySessions.filter(
+    s => s.status === 'completed'
+  )
+
+  if (completedSessions.length === 0) {
+    return []
+  }
+
+  // 获取最近完成的会话的应用数据（而不是汇总所有会话）
+  const lastSession = completedSessions[completedSessions.length - 1]
+  if (lastSession?.appUsage) {
+    let usageData: any = lastSession.appUsage
+    if (typeof usageData === 'string') {
+      try {
+        usageData = JSON.parse(usageData)
+      } catch {
+        usageData = null
+      }
+    }
+    if (Array.isArray(usageData) && usageData.length > 0) {
+      const totalMinutes = usageData.reduce((sum: number, item: any) => sum + (item.minutes || 0), 0)
+      if (totalMinutes > 0) {
+        return usageData.map((item: any) => ({
+          appName: item.appName || item.app_name || '未知',
+          minutes: Math.round(item.minutes || 0),
+          percentage: Math.round(((item.minutes || 0) / totalMinutes) * 100)
+        })).sort((a: any, b: any) => b.minutes - a.minutes)
+      }
+    }
+  }
+
+  // 如果最近会话没有应用数据，显示空
+  return []
+})
+
+// 解析当前会话的应用使用统计数据（用于 report 阶段展示）
+const sessionAppUsage = computed(() => {
+  // 优先使用手动获取的app_usage（handleStop时获取）
+  // 如果没有，再尝试使用currentSession中的appUsage
+  const rawData = fetchedAppUsage.value || currentSession.value?.appUsage
+  if (!rawData) {
     return []
   }
 
   // 后端可能返回 JSON 字符串或对象数组
-  let usageData = todayStats.value.appUsage
+  let usageData = rawData
   if (typeof usageData === 'string') {
     try {
       usageData = JSON.parse(usageData)
@@ -1542,6 +2039,7 @@ const appUsageList = computed(() => {
     percentage: totalMinutes > 0 ? Math.round((item.minutes || 0) / totalMinutes * 100) : 0
   }))
 })
+
 const interruptionDuration = computed(() => pomodoroStore.getInterruptionDuration())
 
 // Methods
@@ -1641,12 +2139,35 @@ async function handleStop() {
     return
   }
 
+  const sessionId = currentSession.value.id
+
+  // 先计算本地应用使用统计（在停止监控前计算）
+  const localAppUsage = calculateLocalAppUsage()
+
   try {
     // 停止窗口监控
     stopWindowMonitoring()
 
+    // 尝试从后端获取应用使用统计（基于screen_contexts，如果开启了VLM采集）
+    let backendAppUsage = '[]'
+    try {
+      backendAppUsage = await getSessionAppUsage(sessionId)
+      console.log('后端应用使用统计:', backendAppUsage)
+    } catch (e) {
+      console.error('获取后端应用使用统计失败:', e)
+    }
+
+    // 优先使用后端数据，如果为空则使用本地记录
+    const parsedBackend = JSON.parse(backendAppUsage || '[]')
+    if (parsedBackend.length > 0) {
+      fetchedAppUsage.value = backendAppUsage
+    } else {
+      fetchedAppUsage.value = localAppUsage
+      console.log('使用本地应用使用统计:', localAppUsage)
+    }
+
     // 暂停当前会话
-    await pomodoroStore.pauseSession(currentSession.value.id)
+    await pomodoroStore.pauseSession(sessionId)
 
     // 进入报告阶段
     progressValue.value = getCurrentTaskProgress()
@@ -1671,10 +2192,11 @@ async function handleComplete() {
     // 先同步最终的专注时间，确保统计数据准确
     await pomodoroStore.updateFocusTime(sessionId, focusSeconds)
 
-    // 完成番茄钟会话
+    // 完成番茄钟会话（传入应用使用统计，保存到数据库）
     await pomodoroStore.completeSession(sessionId, {
       feedback: feedback.value,
-      progressUpdate: feedback.value
+      progressUpdate: feedback.value,
+      appUsage: fetchedAppUsage.value || undefined
     })
 
     // 如果有任务关联，更新进度并创建里程碑
@@ -2889,6 +3411,47 @@ onUnmounted(() => {
   border-color: #ec4899;
 }
 
+/* App Usage Section in Report */
+.app-usage-section {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: rgba(2, 6, 23, 0.5);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  border-radius: 16px;
+}
+
+.app-usage-section .section-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 16px;
+}
+
+.session-usage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.session-usage-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-usage-section .usage-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
 .feedback-section {
   margin-bottom: 24px;
 }
@@ -3132,6 +3695,146 @@ onUnmounted(() => {
   line-height: 1.7;
   color: #cbd5e1;
   margin: 0 0 20px 0;
+}
+
+/* 分析结果外层容器 - 添加高度限制和滚动 */
+.session-analysis-wrapper {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+  padding-right: 8px;
+}
+
+.session-analysis-wrapper::-webkit-scrollbar {
+  width: 4px;
+}
+
+.session-analysis-wrapper::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.session-analysis-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.4);
+  border-radius: 2px;
+}
+
+.session-analysis-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+}
+
+.session-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 效率评分展示 */
+.efficiency-score-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.score-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.score-circle.score-excellent {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.score-circle.score-good {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+}
+
+.score-circle.score-average {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.score-circle.score-low {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.score-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.score-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 2px;
+}
+
+.efficiency-comment {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.analysis-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.analysis-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6366f1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.analysis-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.analysis-text.highlight {
+  color: #a5b4fc;
+  font-weight: 500;
+}
+
+.analysis-list {
+  margin: 0;
+  padding-left: 20px;
+  list-style: none;
+}
+
+.analysis-list li {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cbd5e1;
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.analysis-list li::before {
+  content: "•";
+  color: #6366f1;
+  font-weight: bold;
+  position: absolute;
+  left: -15px;
 }
 
 .view-report-btn {
@@ -3593,9 +4296,35 @@ onUnmounted(() => {
 }
 
 .distraction-btn.secondary:hover {
-  border-color: rgba(248, 113, 113, 0.5);
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.distraction-btn.whitelist {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.distraction-btn.whitelist:hover {
+  border-color: rgba(34, 197, 94, 0.6);
+  background: rgba(34, 197, 94, 0.2);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+}
+
+.distraction-btn.danger {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
   color: #f87171;
-  background: rgba(248, 113, 113, 0.1);
+}
+
+.distraction-btn.danger:hover {
+  border-color: rgba(239, 68, 68, 0.6);
+  background: rgba(239, 68, 68, 0.1);
 }
 
 /* ===== SCENE SWITCHER ===== */

@@ -156,6 +156,9 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     create_task_milestones_table(conn)?;
     create_task_milestones_indexes(conn)?;
 
+    // 迁移 pomodoro_sessions 表：添加 app_usage 字段
+    migrate_pomodoro_sessions_add_app_usage(conn)?;
+
     Ok(())
 }
 
@@ -2289,6 +2292,25 @@ fn create_task_milestones_indexes(conn: &Connection) -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_task_milestones_created_at ON task_milestones(created_at DESC)",
         [],
     )?;
+
+    Ok(())
+}
+
+/// 迁移 pomodoro_sessions 表：添加 app_usage 字段
+fn migrate_pomodoro_sessions_add_app_usage(conn: &Connection) -> Result<()> {
+    // 检查字段是否已存在
+    let column_exists: bool = conn
+        .prepare("SELECT COUNT(*) FROM pragma_table_info('pomodoro_sessions') WHERE name='app_usage'")?
+        .query_row([], |row| row.get(0))
+        .map(|count: i32| count > 0)
+        .unwrap_or(false);
+
+    if !column_exists {
+        conn.execute(
+            "ALTER TABLE pomodoro_sessions ADD COLUMN app_usage TEXT",
+            [],
+        )?;
+    }
 
     Ok(())
 }

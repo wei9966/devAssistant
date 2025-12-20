@@ -179,6 +179,34 @@
                     </div>
                   </div>
 
+                  <div class="setting-item">
+                    <div class="setting-info">
+                      <div class="setting-label">剪切板历史</div>
+                      <div class="setting-desc">快速打开剪切板历史记录</div>
+                    </div>
+                    <div class="shortcut-input">
+                      <n-input
+                        v-model:value="shortcuts.clipboardHistory"
+                        placeholder="如: Ctrl+Shift+C"
+                        @keydown="handleShortcutKeyDown($event, 'clipboardHistory')"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="setting-item">
+                    <div class="setting-info">
+                      <div class="setting-label">复制图片路径</div>
+                      <div class="setting-desc">复制最近剪切板图片的路径</div>
+                    </div>
+                    <div class="shortcut-input">
+                      <n-input
+                        v-model:value="shortcuts.copyImagePath"
+                        placeholder="如: Ctrl+Shift+V"
+                        @keydown="handleShortcutKeyDown($event, 'copyImagePath')"
+                      />
+                    </div>
+                  </div>
+
                   <div class="shortcut-tips">
                     <n-alert type="info" :bordered="false">
                       <template #icon>
@@ -855,6 +883,8 @@ const shortcuts = ref({
   sqlHistory: 'Ctrl+Shift+S',
   appLauncher: 'Ctrl+Shift+Space',
   quickTask: 'Ctrl+Shift+T',
+  clipboardHistory: 'Ctrl+Shift+C',
+  copyImagePath: 'Ctrl+Shift+V',
 });
 
 // AI 配置
@@ -1135,6 +1165,8 @@ async function loadShortcuts() {
       sql_history: string;
       app_launcher: string;
       quick_task: string;
+      clipboard_history: string;
+      copy_image_path: string;
     }>('get_shortcut_config');
 
     shortcuts.value = {
@@ -1142,6 +1174,8 @@ async function loadShortcuts() {
       sqlHistory: config.sql_history,
       appLauncher: config.app_launcher,
       quickTask: config.quick_task,
+      clipboardHistory: config.clipboard_history,
+      copyImagePath: config.copy_image_path,
     };
   } catch (error) {
     console.error('加载快捷键配置失败:', error);
@@ -1159,6 +1193,8 @@ async function saveShortcuts() {
         sql_history: shortcuts.value.sqlHistory,
         app_launcher: shortcuts.value.appLauncher,
         quick_task: shortcuts.value.quickTask,
+        clipboard_history: shortcuts.value.clipboardHistory,
+        copy_image_path: shortcuts.value.copyImagePath,
       },
     });
     message.success('快捷键已更新');
@@ -1188,7 +1224,7 @@ async function resetShortcuts() {
   });
 }
 
-function handleShortcutKeyDown(event: KeyboardEvent, field: 'taskBoard' | 'sqlHistory' | 'appLauncher' | 'quickTask') {
+function handleShortcutKeyDown(event: KeyboardEvent, field: 'taskBoard' | 'sqlHistory' | 'appLauncher' | 'quickTask' | 'clipboardHistory' | 'copyImagePath') {
   event.preventDefault();
 
   const modifiers: string[] = [];

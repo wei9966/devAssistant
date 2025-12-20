@@ -317,3 +317,21 @@ export interface RunningApp {
 export async function getRunningApps(): Promise<RunningApp[]> {
   return invoke<RunningApp[]>('get_running_apps')
 }
+
+/**
+ * AI 会话分析 - 分析指定番茄钟会话
+ * 分析会话的任务相关性、效率评估、改进建议等
+ * @param sessionId 番茄钟会话ID
+ */
+export async function aiAnalyzeSession(sessionId: number): Promise<string> {
+  return invoke<string>('pomodoro_ai_analyze_session', { sessionId })
+}
+
+/**
+ * 获取番茄钟期间的应用使用统计
+ * @param sessionId 番茄钟会话ID
+ * @returns JSON格式的应用使用统计
+ */
+export async function getSessionAppUsage(sessionId: number): Promise<string> {
+  return invoke<string>('pomodoro_get_session_app_usage', { sessionId })
+}

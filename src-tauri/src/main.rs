@@ -1411,6 +1411,10 @@ fn main() {
             commands::pomodoro_commands::pomodoro_ai_analyze_interruption,
             commands::pomodoro_commands::pomodoro_ai_resume_suggestion,
             commands::pomodoro_commands::pomodoro_ai_quick_resume,
+            commands::pomodoro_commands::pomodoro_get_session_activities,
+            commands::pomodoro_commands::pomodoro_get_session_app_usage,
+            // 番茄钟会话分析
+            commands::pomodoro_commands::pomodoro_ai_analyze_session,
             // 工具箱相关命令
             commands::tool_commands::check_port_usage,
             commands::tool_commands::kill_process_by_pid,

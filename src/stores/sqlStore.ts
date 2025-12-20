@@ -111,7 +111,7 @@ export const useSqlStore = defineStore('sql', () => {
   });
 
   // 操作
-  async function loadRecentSqls(limit: number = 50) {
+  async function loadRecentSqls(limit: number = 500) {
     loading.value = true;
     try {
       recentSqls.value = await sqlApi.getRecentSqls(limit);
