@@ -717,7 +717,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { NTag, useMessage } from 'naive-ui'
 import { usePomodoroStore } from '@/stores/pomodoroStore'
 import { useTaskStore } from '@/stores/taskStore'
-import { aiTaskBreakdown, aiFocusAnalysis, aiDailyReview, aiAnalyzeSession, getActiveWindowInfo, getRunningApps, getSessionAppUsage, type RunningApp } from '@/api/pomodoroApi'
+import { aiTaskBreakdown, aiFocusAnalysis, aiDailyReview, aiAnalyzeSession, getActiveWindowInfo, getRunningApps, getSessionAppUsage, updateAiAnalysis, type RunningApp } from '@/api/pomodoroApi'
 import { taskApi } from '@/api/taskApi'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import type { PomodoroPhase, FocusApp, AppUsageStats } from '@/types/pomodoro'
@@ -1833,6 +1833,16 @@ async function loadLastSessionAnalysis(sessionId?: number) {
         nextAction: parsed.next_action || parsed.nextAction || '继续保持专注'
       }
       console.log('[AI分析] 解析成功:', lastSessionAnalysis.value)
+
+      // 保存AI分析结果到数据库
+      if (targetSessionId) {
+        try {
+          await updateAiAnalysis(targetSessionId, result)
+          console.log('[AI分析] 已保存到数据库')
+        } catch (saveError) {
+          console.error('[AI分析] 保存到数据库失败:', saveError)
+        }
+      }
     } else {
       // 如果完全无法解析为JSON，使用原始文本
       console.log('[AI分析] 无法解析为JSON，使用原始文本')

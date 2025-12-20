@@ -1,6 +1,6 @@
 [package]
 name = "dev-assistant"
-version = "1.0.18"
+version = "1.0.19"
 description = "DevAssistant - 个人开发效率工具"
 authors = ["DevAssistant Team"]
 edition = "2021"

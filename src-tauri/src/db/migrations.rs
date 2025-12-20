@@ -159,6 +159,9 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     // 迁移 pomodoro_sessions 表：添加 app_usage 字段
     migrate_pomodoro_sessions_add_app_usage(conn)?;
 
+    // 迁移 pomodoro_sessions 表：添加 ai_analysis 字段
+    migrate_pomodoro_sessions_add_ai_analysis(conn)?;
+
     Ok(())
 }
 
@@ -2308,6 +2311,25 @@ fn migrate_pomodoro_sessions_add_app_usage(conn: &Connection) -> Result<()> {
     if !column_exists {
         conn.execute(
             "ALTER TABLE pomodoro_sessions ADD COLUMN app_usage TEXT",
+            [],
+        )?;
+    }
+
+    Ok(())
+}
+
+/// 迁移 pomodoro_sessions 表：添加 ai_analysis 字段（AI完成分析结果）
+fn migrate_pomodoro_sessions_add_ai_analysis(conn: &Connection) -> Result<()> {
+    // 检查字段是否已存在
+    let column_exists: bool = conn
+        .prepare("SELECT COUNT(*) FROM pragma_table_info('pomodoro_sessions') WHERE name='ai_analysis'")?
+        .query_row([], |row| row.get(0))
+        .map(|count: i32| count > 0)
+        .unwrap_or(false);
+
+    if !column_exists {
+        conn.execute(
+            "ALTER TABLE pomodoro_sessions ADD COLUMN ai_analysis TEXT",
             [],
         )?;
     }

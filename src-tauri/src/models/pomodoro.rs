@@ -152,7 +152,8 @@ pub struct PomodoroSession {
     pub focus_rate: f64,
     pub feedback: Option<String>,
     pub progress_update: Option<String>,
-    pub app_usage: Option<String>, // JSON格式的应用使用统计
+    pub app_usage: Option<String>,    // JSON格式的应用使用统计
+    pub ai_analysis: Option<String>,  // AI完成分析结果(JSON格式)
     pub started_at: Option<String>,
     pub paused_at: Option<String>,
     pub completed_at: Option<String>,

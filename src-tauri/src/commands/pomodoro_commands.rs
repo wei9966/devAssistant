@@ -94,6 +94,17 @@ pub fn update_pomodoro_focus_time(
     PomodoroService::update_focus_time(&conn, session_id, seconds).map_err(|e| e.to_string())
 }
 
+/// 更新会话的AI分析结果
+#[tauri::command]
+pub fn update_pomodoro_ai_analysis(
+    db: State<DbConnection>,
+    session_id: i64,
+    ai_analysis: String,
+) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    PomodoroService::update_session_ai_analysis(&conn, session_id, &ai_analysis).map_err(|e| e.to_string())
+}
+
 /// 获取会话详情
 #[tauri::command]
 pub fn get_pomodoro_session(

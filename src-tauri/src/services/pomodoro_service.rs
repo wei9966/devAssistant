@@ -285,7 +285,7 @@ impl PomodoroService {
         conn.query_row(
             "SELECT id, task_id, duration_minutes, status, phase, focus_goal, ai_suggestion,
                     actual_focus_seconds, distraction_count, focus_rate, feedback, progress_update,
-                    app_usage, started_at, paused_at, completed_at, created_at
+                    app_usage, ai_analysis, started_at, paused_at, completed_at, created_at
              FROM pomodoro_sessions WHERE id = ?1",
             params![session_id],
             |row| {
@@ -303,10 +303,11 @@ impl PomodoroService {
                     feedback: row.get(10)?,
                     progress_update: row.get(11)?,
                     app_usage: row.get(12)?,
-                    started_at: row.get(13)?,
-                    paused_at: row.get(14)?,
-                    completed_at: row.get(15)?,
-                    created_at: row.get(16)?,
+                    ai_analysis: row.get(13)?,
+                    started_at: row.get(14)?,
+                    paused_at: row.get(15)?,
+                    completed_at: row.get(16)?,
+                    created_at: row.get(17)?,
                 })
             },
         )
@@ -326,7 +327,7 @@ impl PomodoroService {
         let result = conn.query_row(
             "SELECT id, task_id, duration_minutes, status, phase, focus_goal, ai_suggestion,
                     actual_focus_seconds, distraction_count, focus_rate, feedback, progress_update,
-                    app_usage, started_at, paused_at, completed_at, created_at
+                    app_usage, ai_analysis, started_at, paused_at, completed_at, created_at
              FROM pomodoro_sessions
              WHERE status IN (?1, ?2)
              ORDER BY created_at DESC
@@ -350,10 +351,11 @@ impl PomodoroService {
                     feedback: row.get(10)?,
                     progress_update: row.get(11)?,
                     app_usage: row.get(12)?,
-                    started_at: row.get(13)?,
-                    paused_at: row.get(14)?,
-                    completed_at: row.get(15)?,
-                    created_at: row.get(16)?,
+                    ai_analysis: row.get(13)?,
+                    started_at: row.get(14)?,
+                    paused_at: row.get(15)?,
+                    completed_at: row.get(16)?,
+                    created_at: row.get(17)?,
                 })
             },
         );
@@ -379,7 +381,7 @@ impl PomodoroService {
         let mut stmt = conn.prepare(
             "SELECT id, task_id, duration_minutes, status, phase, focus_goal, ai_suggestion,
                     actual_focus_seconds, distraction_count, focus_rate, feedback, progress_update,
-                    app_usage, started_at, paused_at, completed_at, created_at
+                    app_usage, ai_analysis, started_at, paused_at, completed_at, created_at
              FROM pomodoro_sessions
              WHERE created_at >= ?1 AND created_at <= ?2
              ORDER BY created_at DESC",
@@ -401,10 +403,11 @@ impl PomodoroService {
                     feedback: row.get(10)?,
                     progress_update: row.get(11)?,
                     app_usage: row.get(12)?,
-                    started_at: row.get(13)?,
-                    paused_at: row.get(14)?,
-                    completed_at: row.get(15)?,
-                    created_at: row.get(16)?,
+                    ai_analysis: row.get(13)?,
+                    started_at: row.get(14)?,
+                    paused_at: row.get(15)?,
+                    completed_at: row.get(16)?,
+                    created_at: row.get(17)?,
                 })
             })?
             .collect::<Result<Vec<_>>>()?;
@@ -417,7 +420,7 @@ impl PomodoroService {
         let mut stmt = conn.prepare(
             "SELECT id, task_id, duration_minutes, status, phase, focus_goal, ai_suggestion,
                     actual_focus_seconds, distraction_count, focus_rate, feedback, progress_update,
-                    app_usage, started_at, paused_at, completed_at, created_at
+                    app_usage, ai_analysis, started_at, paused_at, completed_at, created_at
              FROM pomodoro_sessions
              WHERE task_id = ?1
              ORDER BY created_at DESC",
@@ -439,10 +442,11 @@ impl PomodoroService {
                     feedback: row.get(10)?,
                     progress_update: row.get(11)?,
                     app_usage: row.get(12)?,
-                    started_at: row.get(13)?,
-                    paused_at: row.get(14)?,
-                    completed_at: row.get(15)?,
-                    created_at: row.get(16)?,
+                    ai_analysis: row.get(13)?,
+                    started_at: row.get(14)?,
+                    paused_at: row.get(15)?,
+                    completed_at: row.get(16)?,
+                    created_at: row.get(17)?,
                 })
             })?
             .collect::<Result<Vec<_>>>()?;
@@ -683,6 +687,15 @@ impl PomodoroService {
         conn.execute(
             "UPDATE pomodoro_daily_stats SET ai_insight = ?1, updated_at = ?2 WHERE date = ?3",
             params![insight, now, date],
+        )?;
+        Ok(())
+    }
+
+    /// 更新会话的AI分析结果
+    pub fn update_session_ai_analysis(conn: &Connection, session_id: i64, ai_analysis: &str) -> Result<()> {
+        conn.execute(
+            "UPDATE pomodoro_sessions SET ai_analysis = ?1 WHERE id = ?2",
+            params![ai_analysis, session_id],
         )?;
         Ok(())
     }

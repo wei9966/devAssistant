@@ -1392,6 +1392,7 @@ fn main() {
             commands::pomodoro_commands::complete_pomodoro,
             commands::pomodoro_commands::record_pomodoro_distraction,
             commands::pomodoro_commands::update_pomodoro_focus_time,
+            commands::pomodoro_commands::update_pomodoro_ai_analysis,
             commands::pomodoro_commands::get_pomodoro_session,
             commands::pomodoro_commands::get_active_pomodoro_session,
             commands::pomodoro_commands::get_today_pomodoro_sessions,

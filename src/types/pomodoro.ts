@@ -21,7 +21,8 @@ export interface PomodoroSession {
   focusRate: number
   feedback?: string
   progressUpdate?: string
-  appUsage?: string  // JSON格式的应用使用统计
+  appUsage?: string     // JSON格式的应用使用统计
+  aiAnalysis?: string   // AI完成分析结果(JSON格式)
   startedAt?: string
   pausedAt?: string
   completedAt?: string

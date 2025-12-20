@@ -69,6 +69,13 @@ export async function updateFocusTime(sessionId: number, seconds: number): Promi
 }
 
 /**
+ * 更新会话的AI分析结果
+ */
+export async function updateAiAnalysis(sessionId: number, aiAnalysis: string): Promise<void> {
+  return invoke<void>('update_pomodoro_ai_analysis', { sessionId, aiAnalysis })
+}
+
+/**
  * 获取会话详情
  */
 export async function getPomodoroSession(sessionId: number): Promise<PomodoroSession | null> {
