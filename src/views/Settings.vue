@@ -393,126 +393,107 @@
                 </n-alert>
               </div>
             </section>
-          </div>
-        </n-tab-pane>
 
-        <!-- AI 日志标签 -->
-        <n-tab-pane name="ai-logs" tab="AI日志">
-          <div class="tab-content">
-            <!-- 统计卡片 -->
+            <!-- AI 日志（折叠面板） -->
             <section class="settings-card">
-              <div class="card-header">
-                <h3 class="card-title">调用统计</h3>
-                <n-button text @click="loadAiLogs" :loading="loadingAiLogs">
-                  <template #icon>
-                    <n-icon :component="ReloadOutline" />
+              <n-collapse>
+                <n-collapse-item title="AI 调用日志" name="ai-logs">
+                  <template #header-extra>
+                    <n-space size="small" @click.stop>
+                      <n-button text size="small" @click="loadAiLogs" :loading="loadingAiLogs">
+                        <template #icon>
+                          <n-icon :component="ReloadOutline" />
+                        </template>
+                        刷新
+                      </n-button>
+                    </n-space>
                   </template>
-                  刷新
-                </n-button>
-              </div>
-              <div class="card-content">
-                <div v-if="loadingAiStats" class="loading-state">
-                  <n-spin size="small" />
-                  <span>加载中...</span>
-                </div>
-                <n-grid v-else :cols="4" :x-gap="16" :y-gap="16">
-                  <n-gi>
-                    <div class="stat-card">
-                      <div class="stat-value">{{ aiLogStats?.totalCalls || 0 }}</div>
-                      <div class="stat-label">总调用次数</div>
+                  <!-- 统计卡片 -->
+                  <div class="ai-logs-section">
+                    <div v-if="loadingAiStats" class="loading-state">
+                      <n-spin size="small" />
+                      <span>加载中...</span>
                     </div>
-                  </n-gi>
-                  <n-gi>
-                    <div class="stat-card stat-success">
-                      <div class="stat-value">{{ aiLogStats?.successCount || 0 }}</div>
-                      <div class="stat-label">成功次数</div>
-                    </div>
-                  </n-gi>
-                  <n-gi>
-                    <div class="stat-card stat-error">
-                      <div class="stat-value">{{ aiLogStats?.errorCount || 0 }}</div>
-                      <div class="stat-label">失败次数</div>
-                    </div>
-                  </n-gi>
-                  <n-gi>
-                    <div class="stat-card">
-                      <div class="stat-value">{{ formatDuration(aiLogStats?.avgDurationMs || 0) }}</div>
-                      <div class="stat-label">平均耗时</div>
-                    </div>
-                  </n-gi>
-                </n-grid>
+                    <n-grid v-else :cols="4" :x-gap="12" :y-gap="12">
+                      <n-gi>
+                        <div class="stat-card stat-card-small">
+                          <div class="stat-value">{{ aiLogStats?.totalCalls || 0 }}</div>
+                          <div class="stat-label">总调用</div>
+                        </div>
+                      </n-gi>
+                      <n-gi>
+                        <div class="stat-card stat-card-small stat-success">
+                          <div class="stat-value">{{ aiLogStats?.successCount || 0 }}</div>
+                          <div class="stat-label">成功</div>
+                        </div>
+                      </n-gi>
+                      <n-gi>
+                        <div class="stat-card stat-card-small stat-error">
+                          <div class="stat-value">{{ aiLogStats?.errorCount || 0 }}</div>
+                          <div class="stat-label">失败</div>
+                        </div>
+                      </n-gi>
+                      <n-gi>
+                        <div class="stat-card stat-card-small">
+                          <div class="stat-value">{{ formatDuration(aiLogStats?.avgDurationMs || 0) }}</div>
+                          <div class="stat-label">平均耗时</div>
+                        </div>
+                      </n-gi>
+                    </n-grid>
 
-                <!-- 模块统计 -->
-                <div v-if="aiLogStats?.callsByModule?.length" class="module-stats">
-                  <div class="module-stats-title">按模块统计</div>
-                  <div class="module-tags">
-                    <n-tag v-for="[module, count] in aiLogStats.callsByModule" :key="module" size="small">
-                      {{ getModuleName(module) }}: {{ count }}
-                    </n-tag>
+                    <!-- 日志列表 -->
+                    <div class="ai-logs-table">
+                      <div class="logs-filter">
+                        <n-space size="small">
+                          <n-select
+                            v-model:value="aiLogFilter.module"
+                            :options="moduleOptions"
+                            placeholder="筛选模块"
+                            clearable
+                            size="small"
+                            style="width: 110px;"
+                            @update:value="loadAiLogs"
+                          />
+                          <n-select
+                            v-model:value="aiLogFilter.status"
+                            :options="statusOptions"
+                            placeholder="状态"
+                            clearable
+                            size="small"
+                            style="width: 90px;"
+                            @update:value="loadAiLogs"
+                          />
+                          <n-button text type="error" size="small" @click="handleClearAiLogs">
+                            清空
+                          </n-button>
+                        </n-space>
+                      </div>
+                      <div v-if="loadingAiLogs" class="loading-state">
+                        <n-spin size="small" />
+                      </div>
+                      <n-empty v-else-if="!aiLogs.length" description="暂无日志" size="small" />
+                      <n-data-table
+                        v-else
+                        :columns="aiLogColumns"
+                        :data="aiLogs"
+                        :max-height="250"
+                        :row-key="(row: AiLog) => row.id"
+                        size="small"
+                      />
+                      <div v-if="aiLogs.length >= 50" class="load-more">
+                        <n-button text size="small" @click="loadMoreAiLogs" :loading="loadingMoreLogs">
+                          加载更多
+                        </n-button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </section>
+                </n-collapse-item>
 
-            <!-- 日志列表 -->
-            <section class="settings-card">
-              <div class="card-header">
-                <h3 class="card-title">调用日志</h3>
-                <n-space>
-                  <n-select
-                    v-model:value="aiLogFilter.module"
-                    :options="moduleOptions"
-                    placeholder="筛选模块"
-                    clearable
-                    size="small"
-                    style="width: 120px;"
-                    @update:value="loadAiLogs"
-                  />
-                  <n-select
-                    v-model:value="aiLogFilter.status"
-                    :options="statusOptions"
-                    placeholder="筛选状态"
-                    clearable
-                    size="small"
-                    style="width: 100px;"
-                    @update:value="loadAiLogs"
-                  />
-                  <n-button text type="error" @click="handleClearAiLogs">
-                    <template #icon>
-                      <n-icon :component="TrashOutline" />
-                    </template>
-                    清空日志
-                  </n-button>
-                </n-space>
-              </div>
-              <div class="card-content">
-                <div v-if="loadingAiLogs" class="loading-state">
-                  <n-spin size="small" />
-                  <span>加载中...</span>
-                </div>
-                <n-empty v-else-if="!aiLogs.length" description="暂无日志记录" />
-                <n-data-table
-                  v-else
-                  :columns="aiLogColumns"
-                  :data="aiLogs"
-                  :max-height="400"
-                  :row-key="(row: AiLog) => row.id"
-                  size="small"
-                />
-                <div v-if="aiLogs.length >= 50" class="load-more">
-                  <n-button text @click="loadMoreAiLogs" :loading="loadingMoreLogs">
-                    加载更多
-                  </n-button>
-                </div>
-              </div>
+                <n-collapse-item title="AI 提示词管理" name="prompts">
+                  <PromptManager />
+                </n-collapse-item>
+              </n-collapse>
             </section>
-          </div>
-        </n-tab-pane>
-
-        <!-- AI 提示词管理标签 -->
-        <n-tab-pane name="prompts" tab="提示词">
-          <div class="tab-content">
-            <PromptManager />
           </div>
         </n-tab-pane>
 
@@ -725,20 +706,107 @@
           </div>
         </n-tab-pane>
 
-        <!-- 软件介绍及操作标签 -->
-        <n-tab-pane name="manual" tab="软件介绍及操作">
-          <div class="tab-content manual-tab">
+        <!-- 帮助标签（合并了软件介绍、操作手册和关于） -->
+        <n-tab-pane name="help" tab="帮助">
+          <div class="tab-content help-tab">
+            <!-- 关于信息和更新 -->
+            <div class="help-top-section">
+              <section class="settings-card help-about-card">
+                <div class="card-header">
+                  <h3 class="card-title">关于</h3>
+                </div>
+                <div class="card-content">
+                  <div class="about-info-compact">
+                    <div class="about-item">
+                      <span class="about-label">应用名称</span>
+                      <span class="about-value">DevAssistant</span>
+                    </div>
+                    <div class="about-item">
+                      <span class="about-label">当前版本</span>
+                      <span class="about-value">v{{ appVersion }}</span>
+                    </div>
+                    <div class="about-item">
+                      <span class="about-label">技术栈</span>
+                      <span class="about-value">Tauri + Rust + Vue3 + TypeScript</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-card help-update-card">
+                <div class="card-header">
+                  <h3 class="card-title">软件更新</h3>
+                </div>
+                <div class="card-content">
+                  <div class="update-section-compact">
+                    <div class="update-info">
+                      <div v-if="!checkingUpdate && !updateAvailable && !updateError">
+                        <p class="update-status">点击检查是否有新版本</p>
+                      </div>
+                      <div v-else-if="checkingUpdate">
+                        <p class="update-status checking">
+                          <n-spin size="small" />
+                          正在检查更新...
+                        </p>
+                      </div>
+                      <div v-else-if="updateAvailable">
+                        <p class="update-status available">
+                          发现新版本: <strong>v{{ newVersion }}</strong>
+                        </p>
+                      </div>
+                      <div v-else-if="updateError">
+                        <p class="update-status error">{{ updateError }}</p>
+                      </div>
+                    </div>
+                    <div class="update-actions-compact">
+                      <n-button
+                        size="small"
+                        @click="handleCheckUpdate"
+                        :loading="checkingUpdate"
+                        :disabled="isUpdating"
+                      >
+                        <template #icon>
+                          <n-icon :component="RefreshOutline" />
+                        </template>
+                        检查更新
+                      </n-button>
+                      <n-button
+                        v-if="updateAvailable"
+                        type="primary"
+                        size="small"
+                        @click="handleDownloadUpdate"
+                        :loading="isUpdating"
+                      >
+                        {{ isUpdating ? `${updateProgress}%` : '立即更新' }}
+                      </n-button>
+                    </div>
+                    <n-progress
+                      v-if="isUpdating"
+                      type="line"
+                      :percentage="updateProgress"
+                      :height="4"
+                      :border-radius="2"
+                      color="#6366f1"
+                      rail-color="rgba(30, 41, 59, 0.5)"
+                      style="margin-top: 8px;"
+                    />
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <!-- 操作手册 iframe -->
             <div class="manual-container">
               <div class="manual-header">
-                <h3 class="manual-title">软件操作手册</h3>
+                <h3 class="manual-title">操作手册</h3>
                 <n-space>
-                  <n-button text @click="refreshManual">
+                  <n-button text size="small" @click="refreshManual">
                     <template #icon>
                       <n-icon :component="RefreshOutline" />
                     </template>
                     刷新
                   </n-button>
-                  <n-button text @click="openManualExternal">
+                  <n-button text size="small" @click="openManualExternal">
                     <template #icon>
                       <n-icon :component="OpenOutline" />
                     </template>
@@ -758,98 +826,6 @@
             </div>
           </div>
         </n-tab-pane>
-
-        <!-- 关于标签 -->
-        <n-tab-pane name="about" tab="关于">
-          <div class="tab-content">
-            <section class="settings-card">
-              <div class="card-header">
-                <h3 class="card-title">关于</h3>
-              </div>
-              <div class="card-content">
-                <div class="about-info">
-                  <p><strong>应用名称:</strong> DevAssistant</p>
-                  <p><strong>当前版本:</strong> v{{ appVersion }}</p>
-                  <p><strong>技术栈:</strong> Tauri + Rust + Vue3 + TypeScript + Naive UI</p>
-                </div>
-              </div>
-            </section>
-
-            <!-- 检查更新 -->
-            <section class="settings-card">
-              <div class="card-header">
-                <h3 class="card-title">软件更新</h3>
-              </div>
-              <div class="card-content">
-                <div class="update-section">
-                  <div class="update-info">
-                    <div v-if="!checkingUpdate && !updateAvailable">
-                      <p class="update-status">点击下方按钮检查是否有新版本</p>
-                    </div>
-                    <div v-else-if="checkingUpdate">
-                      <p class="update-status checking">
-                        <n-spin size="small" />
-                        正在检查更新...
-                      </p>
-                    </div>
-                    <div v-else-if="updateAvailable">
-                      <p class="update-status available">
-                        发现新版本: <strong>v{{ newVersion }}</strong>
-                      </p>
-                      <div class="update-notes" v-if="updateNotes">
-                        <div class="notes-label">更新内容:</div>
-                        <div class="notes-content" v-html="renderedUpdateNotes"></div>
-                      </div>
-                    </div>
-                    <div v-else-if="updateError">
-                      <p class="update-status error">{{ updateError }}</p>
-                    </div>
-                  </div>
-                  <div class="update-actions">
-                    <n-button
-                      @click="handleCheckUpdate"
-                      :loading="checkingUpdate"
-                      :disabled="isUpdating"
-                    >
-                      <template #icon>
-                        <n-icon :component="RefreshOutline" />
-                      </template>
-                      检查更新
-                    </n-button>
-                    <n-button
-                      v-if="updateAvailable"
-                      type="primary"
-                      @click="handleDownloadUpdate"
-                      :loading="isUpdating"
-                    >
-                      <template #icon>
-                        <n-icon :component="DownloadOutline" />
-                      </template>
-                      {{ isUpdating ? `下载中 ${updateProgress}%` : '立即更新' }}
-                    </n-button>
-                    <n-button
-                      quaternary
-                      size="small"
-                      @click="handleResetUpdateCheck"
-                    >
-                      重置自动检查
-                    </n-button>
-                  </div>
-                  <n-progress
-                    v-if="isUpdating"
-                    type="line"
-                    :percentage="updateProgress"
-                    :height="6"
-                    :border-radius="3"
-                    color="#6366f1"
-                    rail-color="rgba(30, 41, 59, 0.5)"
-                    style="margin-top: 16px;"
-                  />
-                </div>
-              </div>
-            </section>
-          </div>
-        </n-tab-pane>
       </n-tabs>
 
       <!-- 保存按钮 - 只在通用和快捷键 tab 中显示 -->
@@ -866,7 +842,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, h, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { NTabs, NTabPane, NSpace, NSwitch, NSelect, NInput, NInputNumber, NButton, NIcon, NSpin, NAlert, NDataTable, NTag, NEmpty, NStatistic, NGrid, NGi, NProgress, NText, useMessage, useDialog } from 'naive-ui';
+import { NTabs, NTabPane, NSpace, NSwitch, NSelect, NInput, NInputNumber, NButton, NIcon, NSpin, NAlert, NDataTable, NTag, NEmpty, NStatistic, NGrid, NGi, NProgress, NText, NCollapse, NCollapseItem, useMessage, useDialog } from 'naive-ui';
 import { TimeOutline, RefreshOutline, InformationCircleOutline, TrashOutline, ReloadOutline, DownloadOutline, OpenOutline } from '@vicons/ionicons5';
 import { open } from '@tauri-apps/plugin-shell';
 import { marked } from 'marked';
@@ -2343,14 +2319,67 @@ async function openManualExternal() {
   margin-top: 8px;
 }
 
-/* 软件操作手册样式 */
-.manual-tab {
+/* 帮助页面样式 */
+.help-tab {
   height: calc(100vh - 200px);
-  padding-top: 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 16px !important;
 }
 
+.help-top-section {
+  display: flex;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.help-about-card {
+  flex: 1;
+}
+
+.help-update-card {
+  flex: 1;
+}
+
+.about-info-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.about-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.about-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.about-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.update-section-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.update-actions-compact {
+  display: flex;
+  gap: 8px;
+}
+
+/* 操作手册样式 */
 .manual-container {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--card-bg);
@@ -2363,7 +2392,7 @@ async function openManualExternal() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
+  padding: 10px 16px;
   background: var(--bg-overlay);
   border-bottom: 1px solid var(--card-border);
   flex-shrink: 0;
@@ -2387,5 +2416,50 @@ async function openManualExternal() {
   height: 100%;
   border: none;
   background: #ffffff;
+}
+
+/* AI 日志折叠面板样式 */
+.ai-logs-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ai-logs-table {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.logs-filter {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.stat-card-small {
+  padding: 12px;
+}
+
+.stat-card-small .stat-value {
+  font-size: 18px;
+}
+
+.stat-card-small .stat-label {
+  font-size: 11px;
+}
+
+/* 折叠面板自定义样式 */
+:deep(.n-collapse) {
+  --n-title-text-color: var(--text-primary);
+  --n-arrow-color: var(--text-secondary);
+  --n-divider-color: var(--border-default);
+}
+
+:deep(.n-collapse-item__header) {
+  padding: 16px 20px !important;
+}
+
+:deep(.n-collapse-item__content-inner) {
+  padding: 16px 20px !important;
 }
 </style>
