@@ -1326,6 +1326,8 @@ fn main() {
             commands::system_commands::set_log_level,
             commands::system_commands::get_log_level,
             commands::system_commands::log_update_info,
+            commands::system_commands::get_device_info,
+            commands::system_commands::get_app_version,
             // 提示词相关命令
             commands::prompt_commands::get_prompt_config,
             commands::prompt_commands::save_prompt_config,

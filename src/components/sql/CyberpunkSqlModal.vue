@@ -1221,6 +1221,199 @@ watch(searchQuery, () => {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
+/* Solarized 主题 */
+[data-theme="solarized"].sql-backdrop {
+  background: rgba(101, 123, 131, 0.4);
+}
+
+[data-theme="solarized"] .sql-modal {
+  background: var(--bg-elevated);
+  border-color: var(--border-default);
+  box-shadow:
+    0 0 0 1px rgba(38, 139, 210, 0.1),
+    0 25px 50px -12px rgba(0, 0, 0, 0.1);
+  animation: none;
+}
+
+[data-theme="solarized"] .modal-header {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+}
+
+[data-theme="solarized"] .search-input {
+  color: var(--text-primary);
+}
+
+[data-theme="solarized"] .search-input::placeholder {
+  color: var(--text-muted);
+}
+
+[data-theme="solarized"] .hint-badge {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+
+[data-theme="solarized"] .list-panel {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+}
+
+[data-theme="solarized"] .list-item {
+  border-color: var(--border-default);
+}
+
+[data-theme="solarized"] .list-item:hover {
+  background: var(--bg-hover);
+}
+
+[data-theme="solarized"] .list-item.selected {
+  background: var(--bg-active);
+}
+
+[data-theme="solarized"] .selection-indicator {
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px rgba(38, 139, 210, 0.3);
+}
+
+[data-theme="solarized"] .item-title {
+  color: var(--text-secondary);
+}
+
+[data-theme="solarized"] .item-title.title-selected {
+  color: var(--text-primary);
+}
+
+[data-theme="solarized"] .item-preview {
+  color: var(--text-muted);
+}
+
+[data-theme="solarized"] .time-badge {
+  color: var(--text-muted);
+}
+
+[data-theme="solarized"] .preview-panel {
+  background: var(--bg-base);
+}
+
+[data-theme="solarized"] .preview-header {
+  background: var(--bg-elevated);
+  border-color: var(--border-default);
+}
+
+[data-theme="solarized"] .preview-label {
+  color: var(--text-secondary);
+}
+
+[data-theme="solarized"] .copy-btn {
+  background: rgba(38, 139, 210, 0.1);
+  border-color: rgba(38, 139, 210, 0.3);
+  color: #268bd2;
+}
+
+[data-theme="solarized"] .copy-btn:hover {
+  background: rgba(38, 139, 210, 0.2);
+  border-color: rgba(38, 139, 210, 0.5);
+}
+
+[data-theme="solarized"] .edit-btn {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+[data-theme="solarized"] .edit-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="solarized"] .sql-title {
+  color: var(--text-primary);
+}
+
+[data-theme="solarized"] .sql-meta-info {
+  color: var(--text-secondary);
+}
+
+[data-theme="solarized"] .code-block {
+  background: var(--input-bg);
+  border-color: var(--border-default);
+}
+
+[data-theme="solarized"] .code-lang-label {
+  color: var(--text-muted);
+}
+
+[data-theme="solarized"] .sql-code {
+  color: var(--text-primary);
+}
+
+[data-theme="solarized"] :deep(.sql-keyword) {
+  color: #6c71c4;
+  font-weight: 600;
+}
+
+[data-theme="solarized"] :deep(.sql-string) {
+  color: #859900;
+}
+
+[data-theme="solarized"] :deep(.sql-number) {
+  color: #cb4b16;
+}
+
+[data-theme="solarized"] .favorite-section {
+  border-color: var(--border-default);
+}
+
+[data-theme="solarized"] .favorite-btn {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+[data-theme="solarized"] .favorite-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="solarized"] .favorite-btn.active {
+  background: rgba(181, 137, 0, 0.1);
+  border-color: rgba(181, 137, 0, 0.3);
+  color: #b58900;
+}
+
+[data-theme="solarized"] .modal-footer {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+}
+
+[data-theme="solarized"] .shortcut {
+  color: var(--text-secondary);
+}
+
+[data-theme="solarized"] .shortcut kbd {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+
+[data-theme="solarized"] .record-count {
+  color: var(--text-secondary);
+}
+
+[data-theme="solarized"] .empty-state {
+  color: var(--text-muted);
+}
+
+[data-theme="solarized"] .preview-empty {
+  color: var(--text-muted);
+}
+
+[data-theme="solarized"] .toast-notification {
+  background: linear-gradient(135deg, #268bd2 0%, #2aa198 100%);
+  color: #fdf6e3;
+}
+
 /* ============================================ */
 /* 响应式                                       */
 /* ============================================ */

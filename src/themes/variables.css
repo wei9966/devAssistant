@@ -300,3 +300,84 @@
   --shadow-glow: 0 0 20px rgba(136, 192, 208, 0.15);
   --shadow-color: rgba(0, 0, 0, 0.25);
 }
+
+/* ========================================
+   Solarized Light 主题 - 经典护眼配色
+   基于 Solarized 色板: https://ethanschoonover.com/solarized/
+   ======================================== */
+[data-theme="solarized"] {
+  /* Solarized 基础色 */
+  /* base03: #002b36, base02: #073642, base01: #586e75, base00: #657b83 */
+  /* base0: #839496, base1: #93a1a1, base2: #eee8d5, base3: #fdf6e3 */
+
+  /* 背景色 - Solarized Light 使用 base3/base2 */
+  --bg-base: #fdf6e3;             /* base3 - 主背景 */
+  --bg-surface: #eee8d5;          /* base2 - 表面背景 */
+  --bg-elevated: #fdf6e3;         /* base3 - 提升背景 */
+  --bg-overlay: rgba(238, 232, 213, 0.9);
+  --bg-hover: rgba(147, 161, 161, 0.15);
+  --bg-active: rgba(147, 161, 161, 0.25);
+
+  /* 侧边栏 */
+  --sidebar-bg: linear-gradient(180deg, #eee8d5 0%, #fdf6e3 100%);
+  --sidebar-border: rgba(147, 161, 161, 0.4);
+
+  /* 卡片和面板 */
+  --card-bg: #fdf6e3;
+  --card-border: rgba(147, 161, 161, 0.3);
+  --card-hover-bg: #eee8d5;
+  --card-hover-border: rgba(131, 148, 150, 0.5);
+
+  /* 文字颜色 - Solarized 使用 base00-base01 作为主要文字 */
+  --text-primary: #073642;        /* base02 - 最深文字 */
+  --text-secondary: #586e75;      /* base01 - 次要文字 */
+  --text-muted: #657b83;          /* base00 - 弱化文字 */
+  --text-dim: #839496;            /* base0 - 最淡文字 */
+
+  /* 品牌色 */
+  --brand-title: linear-gradient(135deg, #268bd2 0%, #2aa198 100%);
+  --brand-subtitle: #657b83;
+
+  /* 强调色 - Solarized Blue/Cyan */
+  --accent-primary: #268bd2;      /* blue */
+  --accent-primary-hover: #2aa198;/* cyan */
+  --accent-secondary: #6c71c4;    /* violet */
+  --accent-glow: rgba(38, 139, 210, 0.15);
+
+  /* 状态色 - Solarized Accent Colors */
+  --success: #859900;             /* green */
+  --warning: #b58900;             /* yellow */
+  --error: #dc322f;               /* red */
+  --info: #268bd2;                /* blue */
+
+  /* 边框 */
+  --border-default: rgba(147, 161, 161, 0.3);
+  --border-hover: rgba(131, 148, 150, 0.5);
+  --border-active: rgba(38, 139, 210, 0.5);
+
+  /* 滚动条 */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(131, 148, 150, 0.3);
+  --scrollbar-thumb-hover: rgba(131, 148, 150, 0.5);
+
+  /* 输入框 */
+  --input-bg: #fdf6e3;
+  --input-border: rgba(147, 161, 161, 0.4);
+  --input-focus-border: rgba(38, 139, 210, 0.6);
+
+  /* 按钮 */
+  --button-default-bg: #eee8d5;
+  --button-default-border: rgba(147, 161, 161, 0.4);
+  --button-default-text: #586e75;
+
+  /* 进度条 */
+  --progress-bg: rgba(238, 232, 213, 0.8);
+  --progress-fill: linear-gradient(90deg, #268bd2 0%, #2aa198 100%);
+
+  /* 阴影 - 温暖的阴影 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+  --shadow-glow: 0 0 20px rgba(38, 139, 210, 0.1);
+  --shadow-color: rgba(0, 0, 0, 0.08);
+}

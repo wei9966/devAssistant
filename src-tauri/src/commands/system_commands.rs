@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
-use sysinfo::System;
+use sysinfo::{System, Networks};
 use crate::utils::crash_logger;
+use std::net::UdpSocket;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SystemInfo {
@@ -234,4 +235,90 @@ pub fn get_log_level() -> String {
 pub fn log_update_info(message: String) {
     crash_logger::log_runtime(&format!("[Updater] {}", message));
     log::info!("[Updater] {}", message);
+}
+
+/// 设备信息
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeviceInfo {
+    pub mac_address: String,
+    pub hostname: String,
+    pub username: String,
+    pub os_info: String,
+    pub local_ip: String,
+}
+
+/// 获取设备信息（用于设备追踪）
+#[tauri::command]
+pub fn get_device_info() -> Result<DeviceInfo, String> {
+    // 获取 MAC 地址
+    let mac_address = get_mac_address().unwrap_or_else(|| "00:00:00:00:00:00".to_string());
+
+    // 获取计算机名
+    let hostname = hostname::get()
+        .map(|h| h.to_string_lossy().to_string())
+        .unwrap_or_else(|_| "Unknown".to_string());
+
+    // 获取系统用户名
+    let username = whoami::username();
+
+    // 获取操作系统信息
+    let os_info = format!(
+        "{} {} ({})",
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        whoami::distro()
+    );
+
+    // 获取本地 IP
+    let local_ip = get_local_ip().unwrap_or_else(|| "127.0.0.1".to_string());
+
+    Ok(DeviceInfo {
+        mac_address,
+        hostname,
+        username,
+        os_info,
+        local_ip,
+    })
+}
+
+/// 获取 MAC 地址
+fn get_mac_address() -> Option<String> {
+    let networks = Networks::new_with_refreshed_list();
+
+    for (interface_name, data) in &networks {
+        // 跳过回环接口和虚拟接口
+        if interface_name.starts_with("lo")
+            || interface_name.starts_with("veth")
+            || interface_name.starts_with("docker")
+            || interface_name.starts_with("br-")
+            || interface_name.starts_with("virbr")
+        {
+            continue;
+        }
+
+        let mac = data.mac_address();
+        let mac_str = mac.to_string();
+
+        // 跳过全0的MAC地址
+        if mac_str != "00:00:00:00:00:00" && !mac_str.is_empty() {
+            return Some(mac_str);
+        }
+    }
+
+    None
+}
+
+/// 获取本地 IP 地址
+fn get_local_ip() -> Option<String> {
+    // 创建一个 UDP socket 并连接到外部地址来获取本地 IP
+    let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
+    socket.connect("8.8.8.8:80").ok()?;
+    let addr = socket.local_addr().ok()?;
+    Some(addr.ip().to_string())
+}
+
+/// 获取应用版本号
+#[tauri::command]
+pub fn get_app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
 }

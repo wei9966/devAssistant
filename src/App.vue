@@ -116,6 +116,14 @@
               @later="handleUpdateLater"
               @skip="handleUpdateSkip"
             />
+
+            <!-- 设备禁用遮罩 -->
+            <BannedOverlay
+              :visible="showBannedOverlay"
+              :reason="bannedReason"
+              :has-pending-appeal="hasPendingAppeal"
+              @appeal-submitted="handleAppealSubmitted"
+            />
           </n-dialog-provider>
         </n-notification-provider>
       </n-message-provider>
@@ -154,6 +162,7 @@ import QuickTaskModal from '@/components/QuickTaskModal.vue'
 import CyberpunkSqlModal from '@/components/sql/CyberpunkSqlModal.vue'
 import NotificationBell from '@/components/notification/NotificationBell.vue'
 import UpdateDialog from '@/components/UpdateDialog.vue'
+import BannedOverlay from '@/components/BannedOverlay.vue'
 import {
   checkForUpdate,
   setSkippedVersion,
@@ -161,6 +170,7 @@ import {
   shouldCheckUpdate,
   type UpdateInfo
 } from '@/services/updater'
+import { deviceTracker, type DeviceStatus } from '@/services/deviceTracker'
 import { relaunch } from '@tauri-apps/plugin-process'
 // 主题系统
 import { useTheme } from '@/themes'
@@ -213,6 +223,11 @@ const updateInfo = ref<UpdateInfo>({ available: false })
 const isUpdating = ref(false)
 const updateProgress = ref(0)
 const currentUpdate = shallowRef<any>(null)
+
+// 设备禁用状态
+const showBannedOverlay = ref(false)
+const bannedReason = ref('')
+const hasPendingAppeal = ref(false)
 
 // 打开赛博朋克启动器
 const openCyberpunkLauncher = () => {
@@ -521,6 +536,18 @@ const handleOpenSqlModal = () => {
   openCyberpunkSql()
 }
 
+// 处理设备被禁用
+const handleDeviceBanned = (status: DeviceStatus) => {
+  showBannedOverlay.value = true
+  bannedReason.value = status.reason || '违反使用条款'
+  hasPendingAppeal.value = status.has_pending_appeal || false
+}
+
+// 处理申诉提交
+const handleAppealSubmitted = () => {
+  hasPendingAppeal.value = true
+}
+
 onMounted(() => {
   // 从后端加载主题设置
   loadThemeFromBackend()
@@ -529,6 +556,13 @@ onMounted(() => {
   systemInterval = window.setInterval(() => {
     getSystemInfo()
   }, 3000)
+
+  // 初始化设备追踪器（延迟5秒，等待应用完全初始化）
+  setTimeout(() => {
+    deviceTracker.init(handleDeviceBanned).catch(err => {
+      console.error('[DeviceTracker] 初始化失败:', err)
+    })
+  }, 5000)
 
   // 监听打开启动器的自定义事件
   window.addEventListener('open-cyberpunk-launcher', handleOpenLauncher)

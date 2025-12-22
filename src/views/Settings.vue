@@ -35,6 +35,7 @@
                         { label: '深色模式', value: 'dark' },
                         { label: '浅色模式', value: 'light' },
                         { label: 'Nord 北极', value: 'nord' },
+                        { label: 'Solarized 护眼', value: 'solarized' },
                       ]"
                       class="theme-select"
                     />
@@ -817,8 +818,9 @@
         </n-tab-pane>
       </n-tabs>
 
-      <!-- 保存按钮 -->
-      <div class="save-section">
+      <!-- 保存按钮 - 只在通用和快捷键 tab 中显示 -->
+      <div v-if="showGlobalSaveButton" class="save-section">
+        <n-button @click="handleReset" :disabled="saving">重置</n-button>
         <n-button type="primary" @click="handleSave" :loading="saving" size="large">
           保存设置
         </n-button>
@@ -877,7 +879,7 @@ const settingsStore = useSettingsStore();
 watch(
   () => settings.value.theme,
   (newTheme) => {
-    settingsStore.updateSettings({ theme: newTheme as 'light' | 'dark' | 'nord' | 'auto' });
+    settingsStore.updateSettings({ theme: newTheme as 'light' | 'dark' | 'nord' | 'solarized' | 'auto' });
   }
 );
 
@@ -899,6 +901,10 @@ const shortcuts = ref({
   clipboardHistory: 'Ctrl+Shift+C',
   copyImagePath: 'Ctrl+Shift+V',
 });
+
+// 保存原始设置用于重置（放在 settings 和 shortcuts 定义之后）
+const originalSettings = ref({ ...settings.value });
+const originalShortcuts = ref({ ...shortcuts.value });
 
 // AI 配置
 const aiConfig = ref({
@@ -956,6 +962,12 @@ const isAiConfigValid = computed(() => {
     return !!(aiConfig.value.baseUrl && aiConfig.value.model);
   }
   return true;
+});
+
+// 控制底部通用保存按钮的显示：只在通用和快捷键 tab 中显示
+// 其他 tab 有各自的保存按钮（集成->保存AI配置，通知->保存定时任务设置，屏幕上下文->保存设置）
+const showGlobalSaveButton = computed(() => {
+  return ['general', 'shortcuts'].includes(activeTab.value);
 });
 
 // AI 日志相关
@@ -1166,8 +1178,11 @@ async function loadSettings() {
       logLevel: appSettings.log_level || 'info',
     };
 
+    // 保存原始设置用于重置
+    originalSettings.value = { ...settings.value };
+
     // 同步主题到全局 store（确保主题立即生效）
-    settingsStore.updateSettings({ theme: loadedTheme as 'light' | 'dark' | 'nord' | 'auto' });
+    settingsStore.updateSettings({ theme: loadedTheme as 'light' | 'dark' | 'nord' | 'solarized' | 'auto' });
   } catch (error) {
     console.error('加载设置失败:', error);
     // 使用默认值
@@ -1194,6 +1209,9 @@ async function loadShortcuts() {
       clipboardHistory: config.clipboard_history,
       copyImagePath: config.copy_image_path,
     };
+
+    // 保存原始快捷键用于重置
+    originalShortcuts.value = { ...shortcuts.value };
   } catch (error) {
     console.error('加载快捷键配置失败:', error);
     message.error('加载快捷键配置失败');
@@ -1296,6 +1314,13 @@ async function loadAlwaysOnTopStatus() {
   }
 }
 
+// 重置设置到上次保存的状态
+function handleReset() {
+  settings.value = { ...originalSettings.value };
+  shortcuts.value = { ...originalShortcuts.value };
+  message.info('已重置为上次保存的设置');
+}
+
 async function handleSave() {
   saving.value = true;
   try {
@@ -1341,6 +1366,10 @@ async function handleSave() {
 
     // 动态设置日志级别
     await invoke('set_log_level', { level: settings.value.logLevel });
+
+    // 保存成功后更新原始设置副本
+    originalSettings.value = { ...settings.value };
+    originalShortcuts.value = { ...shortcuts.value };
 
     message.success('设置已保存');
   } catch (error) {
@@ -2017,6 +2046,7 @@ async function handleDownloadUpdate() {
 .save-section {
   display: flex;
   justify-content: flex-end;
+  gap: 12px;
   padding-top: 16px;
   padding-bottom: 16px;
   position: sticky;
