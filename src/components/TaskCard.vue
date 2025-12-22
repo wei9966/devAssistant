@@ -377,7 +377,7 @@ const getProgressColor = (progress: number) => {
 }
 
 .more-btn {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   transition: color 0.2s;
 }
 
@@ -456,7 +456,7 @@ const getProgressColor = (progress: number) => {
   font-size: 10px;
   font-weight: 600;
   background: var(--bg-surface);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   border: 1px solid var(--border-default);
   cursor: help;
 }
@@ -503,7 +503,7 @@ const getProgressColor = (progress: number) => {
 
 .priority-label {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-primary);
   text-transform: uppercase;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -540,20 +540,24 @@ const getProgressColor = (progress: number) => {
 
 /* 主要按钮样式 */
 :deep(.primary-button) {
-  background-color: var(--accent-primary);
-  border-color: var(--accent-primary);
-  color: #ffffff;
+  background-color: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  color: #ffffff !important;
   box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2);
   transition: all 0.2s;
 }
 
+:deep(.primary-button .n-button__content) {
+  color: #ffffff !important;
+}
+
 :deep(.primary-button:hover) {
-  background-color: #4f46e5;
-  border-color: #4f46e5;
+  background-color: #4f46e5 !important;
+  border-color: #4f46e5 !important;
 }
 
 :deep(.primary-button:active) {
-  background-color: #4338ca;
-  border-color: #4338ca;
+  background-color: #4338ca !important;
+  border-color: #4338ca !important;
 }
 </style>

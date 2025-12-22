@@ -25,15 +25,15 @@
   --card-hover-bg: rgba(30, 41, 59, 1);
   --card-hover-border: rgba(71, 85, 105, 1);
 
-  /* 文字颜色 */
+  /* 文字颜色 - 提高深色模式下的可读性 */
   --text-primary: #f1f5f9;      /* slate-100 */
-  --text-secondary: #cbd5e1;    /* slate-300 */
-  --text-muted: #94a3b8;        /* slate-400 */
-  --text-dim: #64748b;          /* slate-500 */
+  --text-secondary: #e2e8f0;    /* slate-200 - 提亮次要文字 */
+  --text-muted: #cbd5e1;        /* slate-300 - 提亮弱化文字 */
+  --text-dim: #94a3b8;          /* slate-400 - 提亮最淡文字 */
 
   /* 品牌色 */
   --brand-title: linear-gradient(135deg, #a78bfa 0%, #c084fc 100%);
-  --brand-subtitle: #64748b;
+  --brand-subtitle: #94a3b8;
 
   /* 强调色 */
   --accent-primary: #6366f1;    /* indigo-500 */
@@ -65,7 +65,7 @@
   /* 按钮 */
   --button-default-bg: rgba(30, 41, 59, 0.6);
   --button-default-border: rgba(51, 65, 85, 0.5);
-  --button-default-text: #cbd5e1;
+  --button-default-text: #e2e8f0;
 
   /* 进度条 */
   --progress-bg: rgba(30, 41, 59, 0.5);
@@ -98,15 +98,15 @@
   --card-hover-bg: rgba(30, 41, 59, 1);
   --card-hover-border: rgba(71, 85, 105, 1);
 
-  /* 文字颜色 */
+  /* 文字颜色 - 提高深色模式下的可读性 */
   --text-primary: #f1f5f9;      /* slate-100 */
-  --text-secondary: #cbd5e1;    /* slate-300 */
-  --text-muted: #94a3b8;        /* slate-400 */
-  --text-dim: #64748b;          /* slate-500 */
+  --text-secondary: #e2e8f0;    /* slate-200 - 提亮次要文字 */
+  --text-muted: #cbd5e1;        /* slate-300 - 提亮弱化文字 */
+  --text-dim: #94a3b8;          /* slate-400 - 提亮最淡文字 */
 
   /* 品牌色 */
   --brand-title: linear-gradient(135deg, #a78bfa 0%, #c084fc 100%);
-  --brand-subtitle: #64748b;
+  --brand-subtitle: #94a3b8;
 
   /* 强调色 */
   --accent-primary: #6366f1;    /* indigo-500 */
@@ -138,7 +138,7 @@
   /* 按钮 */
   --button-default-bg: rgba(30, 41, 59, 0.6);
   --button-default-border: rgba(51, 65, 85, 0.5);
-  --button-default-text: #cbd5e1;
+  --button-default-text: #e2e8f0;
 
   /* 进度条 */
   --progress-bg: rgba(30, 41, 59, 0.5);

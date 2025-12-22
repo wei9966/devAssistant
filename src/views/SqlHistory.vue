@@ -1083,7 +1083,7 @@ function handleCopySql(sql: string) {
 
 .table-head {
   background: var(--bg-elevated);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-weight: 500;
   position: sticky;
   top: 0;
@@ -1101,7 +1101,7 @@ function handleCopySql(sql: string) {
 }
 
 .table-body {
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .table-row {
@@ -1151,7 +1151,7 @@ function handleCopySql(sql: string) {
 
 /* SQL Name */
 .sql-name {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
   transition: color 0.2s;

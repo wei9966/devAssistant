@@ -215,7 +215,7 @@ onMounted(() => {
 .category-name {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   transition: color 0.3s;
   pointer-events: none;  /* 让事件穿透到父元素 */
 }

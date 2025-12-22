@@ -493,7 +493,7 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
 .filter-label {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   white-space: nowrap;
 }
 
@@ -551,7 +551,8 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
 
 .stat-label {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 /* 加载状态 */
@@ -562,7 +563,7 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
   justify-content: center;
   gap: 16px;
   padding: 64px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 /* 任务表格 */
@@ -584,14 +585,14 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
   padding: 12px 16px;
   text-align: left;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   border-bottom: 1px solid var(--border-default);
 }
 
 .task-table td {
   padding: 16px;
   border-bottom: 1px solid var(--border-default);
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .task-table tbody tr:hover {
@@ -609,7 +610,7 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
 
 .task-desc {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   max-height: 40px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -643,7 +644,7 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
 }
 
 .no-tag {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .quadrant-badge {

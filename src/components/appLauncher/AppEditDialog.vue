@@ -539,7 +539,7 @@ const handleCancel = () => {
   background: var(--bg-hover);
   border-radius: 8px;
   border: 1px dashed var(--border-default);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
@@ -557,7 +557,7 @@ const handleCancel = () => {
 
 /* 表单样式覆盖 */
 .app-edit-dialog :deep(.n-form-item-label) {
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .app-edit-dialog :deep(.n-input) {
@@ -611,13 +611,13 @@ const handleCancel = () => {
 
 .meta-label {
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .meta-value {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   word-break: break-word;
 }
 
@@ -659,6 +659,6 @@ const handleCancel = () => {
 
 .source-manual {
   background: rgba(148, 163, 184, 0.15);
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 </style>

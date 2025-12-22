@@ -5,6 +5,7 @@
       <div
         v-if="isVisible"
         class="sql-backdrop"
+        :data-theme="currentTheme"
         @click.self="close"
       >
         <!-- 模态框主体 -->
@@ -199,6 +200,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useSqlStore } from '@/stores/sqlStore'
+import { useTheme } from '@/themes/useTheme'
 import type { SqlRecord } from '@/types/sql'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
@@ -206,6 +208,8 @@ import 'dayjs/locale/zh-cn'
 
 dayjs.extend(relativeTime)
 dayjs.locale('zh-cn')
+
+const { currentTheme } = useTheme()
 
 const props = defineProps<{
   modelValue: boolean
@@ -1044,6 +1048,177 @@ watch(searchQuery, () => {
     opacity: 0;
     transform: translateX(-50%) translateY(-20px);
   }
+}
+
+/* ============================================ */
+/* 主题适配                                      */
+/* ============================================ */
+
+/* 浅色主题 */
+[data-theme="light"].sql-backdrop {
+  background: rgba(100, 116, 139, 0.5);
+}
+
+[data-theme="light"] .sql-modal {
+  background: var(--bg-elevated);
+  border-color: var(--border-default);
+  box-shadow:
+    0 0 0 1px rgba(99, 102, 241, 0.1),
+    0 25px 50px -12px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .modal-header {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+}
+
+[data-theme="light"] .search-input {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .search-input::placeholder {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .hint-badge {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+
+[data-theme="light"] .list-panel {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+}
+
+[data-theme="light"] .list-item {
+  border-color: var(--border-default);
+}
+
+[data-theme="light"] .list-item:hover {
+  background: var(--bg-hover);
+}
+
+[data-theme="light"] .list-item.selected {
+  background: var(--bg-active);
+}
+
+[data-theme="light"] .item-title {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .item-title.title-selected {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .item-preview {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .time-badge {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .preview-panel {
+  background: var(--bg-base);
+}
+
+[data-theme="light"] .preview-header {
+  background: var(--bg-elevated);
+  border-color: var(--border-default);
+}
+
+[data-theme="light"] .preview-label {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .edit-btn {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .edit-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .sql-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .sql-meta-info {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .code-block {
+  background: var(--input-bg);
+  border-color: var(--border-default);
+}
+
+[data-theme="light"] .code-lang-label {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .sql-code {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .favorite-section {
+  border-color: var(--border-default);
+}
+
+[data-theme="light"] .favorite-btn {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .favorite-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .modal-footer {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+}
+
+[data-theme="light"] .shortcut {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .shortcut kbd {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+
+[data-theme="light"] .record-count {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .empty-state {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .preview-empty {
+  color: var(--text-muted);
+}
+
+/* Nord 主题 */
+[data-theme="nord"] .sql-modal {
+  background: var(--bg-elevated);
+  border-color: var(--border-default);
+  box-shadow:
+    0 0 0 1px rgba(136, 192, 208, 0.1),
+    0 0 20px rgba(136, 192, 208, 0.1),
+    0 25px 50px -12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="nord"] .selection-indicator {
+  background: var(--accent-primary);
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 /* ============================================ */

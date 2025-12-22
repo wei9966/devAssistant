@@ -1749,7 +1749,7 @@ async function handleDownloadUpdate() {
   padding: 4px 8px;
   border-radius: 4px;
   background: var(--bg-hover);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   border: 1px solid var(--border-default);
 }
 
@@ -1792,7 +1792,7 @@ async function handleDownloadUpdate() {
   justify-content: center;
   padding: 8px;
   background: var(--bg-elevated);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   border-radius: 8px;
 }
 
@@ -1805,7 +1805,7 @@ async function handleDownloadUpdate() {
 
 .setting-desc {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   line-height: 1.4;
 }
 
@@ -1835,7 +1835,7 @@ async function handleDownloadUpdate() {
 .shortcut-tips li {
   font-size: 13px;
   line-height: 1.6;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .shortcut-tips p {
@@ -1849,7 +1849,7 @@ async function handleDownloadUpdate() {
   justify-content: center;
   gap: 12px;
   padding: 32px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 /* 主题选择器 */
@@ -1895,7 +1895,7 @@ async function handleDownloadUpdate() {
 
 .stat-card .stat-label {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .stat-card.stat-success .stat-value {
@@ -1914,7 +1914,7 @@ async function handleDownloadUpdate() {
 
 .module-stats-title {
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-bottom: 12px;
 }
 
@@ -1944,7 +1944,7 @@ async function handleDownloadUpdate() {
   padding: 8px 12px;
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
   border-radius: 4px;
@@ -1984,7 +1984,7 @@ async function handleDownloadUpdate() {
   border-radius: 6px;
   font-family: 'Monaco', 'Menlo', monospace;
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   border: 1px solid var(--border-default);
   display: inline-block;
   word-break: break-all;
@@ -2151,7 +2151,7 @@ async function handleDownloadUpdate() {
 
 .update-status {
   font-size: 14px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin: 0;
   display: flex;
   align-items: center;
@@ -2187,7 +2187,7 @@ async function handleDownloadUpdate() {
 .notes-label {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 

@@ -400,7 +400,7 @@ const handleMouseDown = (e: MouseEvent) => {
 /* 启动次数 */
 .app-stats {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -459,7 +459,7 @@ const handleMouseDown = (e: MouseEvent) => {
 }
 
 .action-btn {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   background: var(--bg-overlay);
   backdrop-filter: blur(8px);
   border-radius: 8px;

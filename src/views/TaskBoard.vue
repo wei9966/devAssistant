@@ -1328,7 +1328,7 @@ async function handleAiGenerateSubtasks() {
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-primary);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1407,13 +1407,13 @@ async function handleAiGenerateSubtasks() {
 .title-text {
   font-size: 14px;
   font-weight: 700;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   letter-spacing: -0.01em;
 }
 
 .task-count {
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
   background: var(--bg-elevated);
   padding: 3px 10px;
   border-radius: 9999px;
@@ -1478,7 +1478,7 @@ async function handleAiGenerateSubtasks() {
   border: 1px dashed var(--border-default);
   border-radius: 14px;
   background: transparent;
-  color: var(--text-dim);
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -1515,7 +1515,7 @@ async function handleAiGenerateSubtasks() {
 }
 
 .empty-placeholder:deep(.n-empty__description) {
-  color: var(--text-muted);
+  color: var(--text-primary);
   font-size: 13px;
 }
 
@@ -1537,14 +1537,14 @@ async function handleAiGenerateSubtasks() {
 .deferred-title {
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .deferred-count {
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
   background: var(--bg-hover);
   padding: 2px 8px;
   border-radius: 9999px;

@@ -566,8 +566,9 @@ onMounted(() => {
 
 .stat-label {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-primary);
   margin-top: 4px;
+  font-weight: 500;
 }
 
 /* 区块 */
@@ -615,7 +616,7 @@ onMounted(() => {
 
 .bar-label {
   font-size: 10px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-top: 8px;
 }
 
@@ -673,13 +674,13 @@ onMounted(() => {
 
 .focus-goal {
   font-size: 14px;
-  color: var(--text-muted);
+  color: var(--text-primary);
   font-style: italic;
 }
 
 .no-task {
   font-size: 13px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
 }
 
 .session-meta {
@@ -690,7 +691,7 @@ onMounted(() => {
 
 .session-duration {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .session-status {
@@ -733,7 +734,7 @@ onMounted(() => {
 
 .session-stats .stat-label {
   font-size: 10px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
 }
 
 .session-stats .stat-value {
@@ -748,7 +749,7 @@ onMounted(() => {
 
 .session-feedback {
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-primary);
   background: var(--bg-overlay);
   padding: 10px 12px;
   border-radius: 8px;
@@ -756,7 +757,7 @@ onMounted(() => {
 }
 
 .feedback-label {
-  color: var(--text-dim);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -767,7 +768,7 @@ onMounted(() => {
 
 .session-time {
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
 }
 
 /* 空状态 */
@@ -784,7 +785,7 @@ onMounted(() => {
 
 .empty-text {
   font-size: 14px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
 }
 
 /* 滚动条 */
@@ -836,7 +837,7 @@ onMounted(() => {
 
 .detail-label {
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
 }
 
 .detail-value {
@@ -881,7 +882,7 @@ onMounted(() => {
 
 .app-time {
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
 }
 
 .app-bar {
@@ -901,14 +902,14 @@ onMounted(() => {
 
 .app-percentage {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-primary);
   min-width: 40px;
   text-align: right;
 }
 
 .empty-hint {
   font-size: 13px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
   text-align: center;
   padding: 16px;
 }
@@ -919,7 +920,7 @@ onMounted(() => {
   justify-content: center;
   gap: 12px;
   padding: 24px;
-  color: var(--text-muted);
+  color: var(--text-primary);
   font-size: 13px;
 }
 
@@ -941,14 +942,14 @@ onMounted(() => {
 .suggestion-label,
 .analysis-label {
   font-size: 11px;
-  color: var(--text-dim);
-  font-weight: 500;
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .suggestion-value,
 .analysis-value {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   line-height: 1.5;
 }
 
@@ -962,7 +963,7 @@ onMounted(() => {
 .sub-tasks-list li,
 .improvements-list li {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   margin-bottom: 4px;
   line-height: 1.4;
 }
@@ -1001,13 +1002,14 @@ onMounted(() => {
 
 .score-label {
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 /* 用户反馈 */
 .feedback-content {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   line-height: 1.6;
   background: var(--bg-overlay);
   padding: 12px;

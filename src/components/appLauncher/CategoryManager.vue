@@ -322,7 +322,7 @@ watch(() => props.show, (newValue) => {
 
 /* 表单样式覆盖 */
 .category-manager :deep(.n-form-item-label) {
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .category-manager :deep(.n-input) {
@@ -346,7 +346,7 @@ watch(() => props.show, (newValue) => {
 
 .category-manager :deep(.n-data-table-th) {
   background: var(--bg-overlay);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   border-color: var(--border-default);
 }
 

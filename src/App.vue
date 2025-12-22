@@ -248,14 +248,21 @@ const handleSqlEdit = (sql: any) => {
 }
 
 // 检查应用更新
-const checkAppUpdate = async () => {
+// force: 是否强制检查（定时器触发时强制检查）
+const checkAppUpdate = async (force: boolean = false) => {
   try {
-    // 记录自动更新检查开始
-    await invoke('log_update_info', { message: '[自动更新] 应用启动，开始检查更新...' })
+    const checkType = force ? '定时检查' : '启动检查'
+    await invoke('log_update_info', { message: `[自动更新] ${checkType}，开始检查更新...` })
 
-    // 检查是否应该检查更新（每24小时一次）
-    if (!shouldCheckUpdate()) {
-      await invoke('log_update_info', { message: '[自动更新] 24小时内已检查过，跳过本次检查' })
+    // 启动时检查是否在间隔内；定时器触发时强制检查
+    if (!force && !shouldCheckUpdate()) {
+      await invoke('log_update_info', { message: '[自动更新] 间隔时间内已检查过，跳过本次检查' })
+      return
+    }
+
+    // 如果更新弹窗已经显示，则不再检查
+    if (showUpdateDialog.value) {
+      await invoke('log_update_info', { message: '[自动更新] 更新弹窗已显示，跳过本次检查' })
       return
     }
 
@@ -268,9 +275,13 @@ const checkAppUpdate = async () => {
       // 直接使用 checkForUpdate 返回的 Update 对象
       currentUpdate.value = info.update
       showUpdateDialog.value = true
+      await invoke('log_update_info', { message: `[自动更新] 发现新版本 ${info.version}，已显示更新提示` })
+    } else {
+      await invoke('log_update_info', { message: '[自动更新] 当前已是最新版本' })
     }
   } catch (error) {
     console.error('检查更新失败:', error)
+    await invoke('log_update_info', { message: `[自动更新] 检查更新失败: ${error}` }).catch(() => {})
   }
 }
 
@@ -491,6 +502,10 @@ const formatMemory = (bytes: number): string => {
 // 定时获取系统信息
 let systemInterval: number | null = null
 
+// 定时检查更新（每1小时检查一次）
+let updateCheckInterval: number | null = null
+const UPDATE_CHECK_INTERVAL = 60 * 60 * 1000 // 1小时
+
 // 监听全局快捷键事件
 const handleOpenLauncher = () => {
   openCyberpunkLauncher()
@@ -526,11 +541,20 @@ onMounted(() => {
   setTimeout(() => {
     checkAppUpdate()
   }, 3000)
+
+  // 设置定时检查更新（每1小时检查一次）
+  updateCheckInterval = window.setInterval(() => {
+    checkAppUpdate(true) // 定时器触发时强制检查
+  }, UPDATE_CHECK_INTERVAL)
 })
 
 onUnmounted(() => {
   if (systemInterval) {
     clearInterval(systemInterval)
+  }
+  // 清除更新检查定时器
+  if (updateCheckInterval) {
+    clearInterval(updateCheckInterval)
   }
   // 移除事件监听
   window.removeEventListener('open-cyberpunk-launcher', handleOpenLauncher)
@@ -662,7 +686,7 @@ onUnmounted(() => {
 }
 
 .nav-menu :deep(.n-menu-item-content__icon) {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   transition: color 0.2s ease;
   margin-right: 10px !important;
 }
@@ -679,7 +703,7 @@ onUnmounted(() => {
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.025em;
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .nav-menu :deep(.n-menu-item-content:hover .n-menu-item-content-header) {

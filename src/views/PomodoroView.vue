@@ -2472,7 +2472,7 @@ onUnmounted(() => {
   margin-bottom: 16px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-primary, #e2e8f0);
 }
 
 .task-category-tag {
@@ -2675,7 +2675,7 @@ onUnmounted(() => {
 .ai-label {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-secondary, #cbd5e1);
+  color: var(--text-primary, #f1f5f9);
 }
 
 .suggestion-list {
@@ -2693,7 +2693,7 @@ onUnmounted(() => {
   border: 1px solid color-mix(in srgb, var(--card-border, #334155) 40%, transparent);
   border-radius: 12px;
   font-size: 14px;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-primary, #e2e8f0);
   line-height: 1.5;
 }
 

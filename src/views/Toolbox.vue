@@ -224,7 +224,7 @@ const handleOpenTool = async (toolId: string) => {
 
 .tool-description {
   font-size: 14px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   margin: 0;
   line-height: 1.5;
 }

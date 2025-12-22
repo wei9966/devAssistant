@@ -2118,7 +2118,7 @@ function truncate(text: string, length: number) {
 
 .timeline-date {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-family: 'Consolas', 'Monaco', monospace;
   font-weight: 500;
 }
@@ -2129,7 +2129,7 @@ function truncate(text: string, length: number) {
 
 .timeline-text {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   line-height: 1.6;
   overflow: hidden;
   display: -webkit-box;
@@ -2302,7 +2302,7 @@ function truncate(text: string, length: number) {
 }
 
 .task-description {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-size: 13px;
   line-height: 1.6;
   margin-bottom: 8px;
@@ -2317,7 +2317,7 @@ function truncate(text: string, length: number) {
 }
 
 .task-time {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 11px;
   font-family: 'Consolas', 'Monaco', monospace;
 }
@@ -2379,7 +2379,7 @@ function truncate(text: string, length: number) {
 }
 
 .task-time-simple {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 11px;
   font-family: 'Consolas', 'Monaco', monospace;
   flex-shrink: 0;
@@ -2405,7 +2405,7 @@ function truncate(text: string, length: number) {
 }
 
 .stat-label {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
@@ -2430,7 +2430,7 @@ function truncate(text: string, length: number) {
   align-items: center;
   margin-bottom: 8px;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .progress-percent {

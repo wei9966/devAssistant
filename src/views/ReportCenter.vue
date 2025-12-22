@@ -171,7 +171,7 @@ const currentTab = ref<'tasks' | 'statistics' | 'timeline' | 'browse' | 'screens
 :deep(.n-button--default-type) {
   background-color: var(--bg-surface);
   border-color: var(--border-default);
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 :deep(.n-button--default-type:hover) {

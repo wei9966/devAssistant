@@ -929,7 +929,7 @@ const getProgressColor = (progress: number) => {
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   letter-spacing: -0.01em;
 }
 
@@ -941,7 +941,7 @@ const getProgressColor = (progress: number) => {
 .markdown-content {
   font-size: 14px;
   line-height: 1.7;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   word-break: break-word;
 }
 
@@ -1013,7 +1013,7 @@ const getProgressColor = (progress: number) => {
 
 .markdown-content :deep(pre code) {
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   padding: 0;
 }
 
@@ -1021,7 +1021,7 @@ const getProgressColor = (progress: number) => {
   border-left: 3px solid var(--accent-primary);
   margin: 0.8em 0;
   padding-left: 1em;
-  color: var(--text-muted);
+  color: var(--text-primary);
   font-style: italic;
 }
 
@@ -1042,7 +1042,7 @@ const getProgressColor = (progress: number) => {
 }
 
 .markdown-content :deep(em) {
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .markdown-content :deep(hr) {
@@ -1106,7 +1106,7 @@ const getProgressColor = (progress: number) => {
 
 .info-label {
   font-size: 12px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1155,7 +1155,7 @@ const getProgressColor = (progress: number) => {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--text-dim);
+  background: var(--text-secondary);
   border: 2px solid var(--bg-base);
   flex-shrink: 0;
   margin-top: 4px;
@@ -1187,7 +1187,7 @@ const getProgressColor = (progress: number) => {
 
 .timeline-label {
   font-size: 12px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -1199,7 +1199,7 @@ const getProgressColor = (progress: number) => {
 
 .timeline-relative {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -1207,7 +1207,7 @@ const getProgressColor = (progress: number) => {
 .notes-text {
   font-size: 13px;
   line-height: 1.7;
-  color: var(--text-muted);
+  color: var(--text-primary);
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
@@ -1222,7 +1222,7 @@ const getProgressColor = (progress: number) => {
 .date-hint {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
@@ -1246,7 +1246,7 @@ const getProgressColor = (progress: number) => {
 
 .progress-edit-hint {
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
   text-align: center;
   margin-top: -8px;
 }
@@ -1288,7 +1288,7 @@ const getProgressColor = (progress: number) => {
   justify-content: space-between;
   align-items: center;
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .milestone-progress-value {
@@ -1299,7 +1299,7 @@ const getProgressColor = (progress: number) => {
 
 .milestone-progress-hint {
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--text-secondary);
   margin-top: -4px;
 }
 
@@ -1345,7 +1345,7 @@ const getProgressColor = (progress: number) => {
 
 .milestone-desc {
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-primary);
   margin-top: 4px;
 }
 
