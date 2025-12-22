@@ -633,61 +633,61 @@ onUnmounted(() => {
 .nav-menu :deep(.n-menu) {
   background-color: transparent;
   color: var(--text-secondary);
+  --n-item-color-hover: transparent;
+  --n-item-color-active: transparent;
+  --n-item-color-active-hover: transparent;
+  --n-item-color-active-collapsed: transparent;
 }
 
 .nav-menu :deep(.n-menu-item) {
   margin-bottom: 4px;
-  border-radius: 12px;
-  padding: 12px 16px;
+  margin-left: 8px;
+  margin-right: 8px;
+  height: auto !important;
+}
+
+.nav-menu :deep(.n-menu-item-content) {
+  padding: 10px 14px !important;
+  border-radius: 10px;
   transition: all 0.2s ease;
-  position: relative;
 }
 
-.nav-menu :deep(.n-menu-item:not(.n-menu-item--selected):hover) {
+.nav-menu :deep(.n-menu-item-content:not(.n-menu-item-content--selected):hover) {
   background-color: var(--bg-hover);
-  color: var(--text-primary);
 }
 
-.nav-menu :deep(.n-menu-item.n-menu-item--selected) {
+.nav-menu :deep(.n-menu-item-content.n-menu-item-content--selected) {
   background-color: var(--accent-glow);
-  color: var(--accent-secondary);
-  box-shadow: 0 0 20px var(--accent-glow);
-}
-
-.nav-menu :deep(.n-menu-item.n-menu-item--selected::after) {
-  content: '';
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--accent-secondary);
-  box-shadow: 0 0 8px var(--accent-glow);
+  box-shadow: 0 0 16px var(--accent-glow);
 }
 
 .nav-menu :deep(.n-menu-item-content__icon) {
   color: var(--text-muted);
   transition: color 0.2s ease;
+  margin-right: 10px !important;
 }
 
-.nav-menu :deep(.n-menu-item:hover .n-menu-item-content__icon) {
+.nav-menu :deep(.n-menu-item-content:hover .n-menu-item-content__icon) {
   color: var(--text-primary);
 }
 
-.nav-menu :deep(.n-menu-item.n-menu-item--selected .n-menu-item-content__icon) {
+.nav-menu :deep(.n-menu-item-content--selected .n-menu-item-content__icon) {
   color: var(--accent-secondary);
-}
-
-.nav-menu :deep(.n-menu-item-content) {
-  padding-left: 0 !important;
 }
 
 .nav-menu :deep(.n-menu-item-content-header) {
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.025em;
+  color: var(--text-secondary);
+}
+
+.nav-menu :deep(.n-menu-item-content:hover .n-menu-item-content-header) {
+  color: var(--text-primary);
+}
+
+.nav-menu :deep(.n-menu-item-content--selected .n-menu-item-content-header) {
+  color: var(--accent-secondary);
 }
 
 /* 底部信息区 */

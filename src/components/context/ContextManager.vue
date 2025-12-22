@@ -23,25 +23,33 @@ import VlmSettings from './VlmSettings.vue';
   flex-direction: column;
 }
 
+:deep(.n-tabs) {
+  --n-tab-text-color: var(--text-muted);
+  --n-tab-text-color-active: var(--accent-primary);
+  --n-tab-text-color-hover: var(--text-secondary);
+  --n-bar-color: var(--accent-primary);
+  --n-tab-padding: 10px 16px;
+  --n-tab-gap: 8px;
+}
+
 :deep(.n-tabs-nav) {
   position: sticky;
   top: 100px;
   background: var(--bg-base);
   z-index: 90;
-  padding-bottom: 8px;
-}
-
-:deep(.n-tabs-nav-scroll-content) {
-  border-bottom: 1px solid var(--border-default);
+  padding: 8px 0 12px 0;
 }
 
 :deep(.n-tabs-tab) {
-  --n-tab-text-color: var(--text-muted);
-  --n-tab-text-color-active: var(--accent-primary);
-  --n-tab-text-color-hover: var(--text-secondary);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+:deep(.n-tabs-tab:hover:not(.n-tabs-tab--active)) {
+  background-color: var(--bg-hover);
 }
 
 :deep(.n-tabs-bar) {
-  --n-bar-color: var(--accent-primary);
+  border-radius: 2px;
 }
 </style>
