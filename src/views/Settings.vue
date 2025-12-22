@@ -877,7 +877,7 @@ const settingsStore = useSettingsStore();
 watch(
   () => settings.value.theme,
   (newTheme) => {
-    settingsStore.updateSettings({ theme: newTheme as 'light' | 'dark' | 'auto' });
+    settingsStore.updateSettings({ theme: newTheme as 'light' | 'dark' | 'nord' | 'auto' });
   }
 );
 
@@ -1167,7 +1167,7 @@ async function loadSettings() {
     };
 
     // 同步主题到全局 store（确保主题立即生效）
-    settingsStore.updateSettings({ theme: loadedTheme as 'light' | 'dark' | 'auto' });
+    settingsStore.updateSettings({ theme: loadedTheme as 'light' | 'dark' | 'nord' | 'auto' });
   } catch (error) {
     console.error('加载设置失败:', error);
     // 使用默认值

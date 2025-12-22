@@ -344,20 +344,28 @@ const handleUpdateSkip = () => {
 }
 
 // 主题配置 - 根据当前主题动态切换
+// dark 和 nord 都是深色系主题，需要使用 Naive UI 的 darkTheme
 const theme = computed<GlobalTheme | null>(() => {
-  return currentTheme.value === 'dark' ? darkTheme : null
+  return (currentTheme.value === 'dark' || currentTheme.value === 'nord') ? darkTheme : null
 })
 
 // Naive UI 主题覆盖配置 - 根据当前主题动态调整
 const themeOverrides = computed(() => {
-  const isDark = currentTheme.value === 'dark'
+  // dark 和 nord 都是深色系主题
+  const isDark = currentTheme.value === 'dark' || currentTheme.value === 'nord'
+  const isNord = currentTheme.value === 'nord'
+
+  // Nord 主题使用 Frost 冰蓝色系，默认使用 indigo 紫色系
+  const primaryColor = isNord ? '#88c0d0' : '#6366f1'
+  const primaryColorHover = isNord ? '#8fbcbb' : '#818cf8'
+  const primaryColorPressed = isNord ? '#81a1c1' : '#4f46e5'
 
   return {
     common: {
-      primaryColor: '#6366f1',        // indigo-600
-      primaryColorHover: '#818cf8',   // indigo-500
-      primaryColorPressed: '#4f46e5', // indigo-700
-      primaryColorSuppl: '#818cf8',   // indigo-400
+      primaryColor,
+      primaryColorHover,
+      primaryColorPressed,
+      primaryColorSuppl: primaryColorHover,
       // 浅色主题需要调整背景色
       ...(isDark ? {} : {
         bodyColor: '#f8fafc',
@@ -369,33 +377,33 @@ const themeOverrides = computed(() => {
       })
     },
     Button: {
-      colorPrimary: '#6366f1',
-      colorHoverPrimary: '#818cf8',
-      colorPressedPrimary: '#4f46e5',
-      borderPrimary: '1px solid #6366f1',
+      colorPrimary: primaryColor,
+      colorHoverPrimary: primaryColorHover,
+      colorPressedPrimary: primaryColorPressed,
+      borderPrimary: `1px solid ${primaryColor}`,
       textColorPrimary: '#ffffff',
     },
     Switch: {
-      railColorActive: '#6366f1',
+      railColorActive: primaryColor,
     },
     Select: {
       peers: {
         InternalSelection: {
-          colorActive: '#6366f1'
+          colorActive: primaryColor
         }
       }
     },
     Menu: isDark ? {} : {
       color: 'transparent',
       itemColorHover: 'rgba(226, 232, 240, 0.6)',
-      itemColorActive: 'rgba(99, 102, 241, 0.1)',
-      itemColorActiveHover: 'rgba(99, 102, 241, 0.15)',
+      itemColorActive: `rgba(${isNord ? '136, 192, 208' : '99, 102, 241'}, 0.1)`,
+      itemColorActiveHover: `rgba(${isNord ? '136, 192, 208' : '99, 102, 241'}, 0.15)`,
       itemTextColor: '#334155',
       itemTextColorHover: '#0f172a',
-      itemTextColorActive: '#6366f1',
+      itemTextColorActive: primaryColor,
       itemIconColor: '#64748b',
       itemIconColorHover: '#0f172a',
-      itemIconColorActive: '#6366f1',
+      itemIconColorActive: primaryColor,
     }
   }
 })

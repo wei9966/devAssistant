@@ -3,7 +3,7 @@ import { ref, watch } from 'vue';
 
 export interface AppSettings {
   // 通用设置
-  theme: 'light' | 'dark' | 'auto';
+  theme: 'light' | 'dark' | 'nord' | 'auto';
   language: 'zh-CN' | 'en-US';
 
   // 窗口设置
