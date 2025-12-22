@@ -378,8 +378,8 @@ async function handleSave() {
 }
 
 .settings-card {
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 16px;
   overflow: hidden;
   backdrop-filter: blur(8px);
@@ -390,14 +390,14 @@ async function handleSave() {
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.6);
-  background: rgba(15, 23, 42, 0.3);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-overlay);
 }
 
 .card-title {
   font-size: 14px;
   font-weight: 500;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -406,15 +406,15 @@ async function handleSave() {
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 4px;
-  background: rgba(148, 163, 184, 0.1);
-  color: rgb(148, 163, 184);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
 }
 
 .status-active {
-  background: rgba(16, 185, 129, 0.1);
-  color: rgb(52, 211, 153);
-  border-color: rgba(16, 185, 129, 0.2);
+  background: var(--success-bg, rgba(16, 185, 129, 0.1));
+  color: var(--success);
+  border-color: var(--success-border, rgba(16, 185, 129, 0.2));
 }
 
 .card-content {
@@ -430,7 +430,7 @@ async function handleSave() {
   justify-content: center;
   gap: 12px;
   padding: 32px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 .setting-item {
@@ -453,13 +453,13 @@ async function handleSave() {
 .setting-label {
   font-size: 14px;
   font-weight: 500;
-  color: rgb(203, 213, 225);
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .setting-desc {
   font-size: 12px;
-  color: rgb(100, 116, 139);
+  color: var(--text-muted);
   line-height: 1.4;
 }
 
@@ -478,7 +478,7 @@ async function handleSave() {
 .slider-value {
   font-size: 13px;
   font-weight: 500;
-  color: rgb(203, 213, 225);
+  color: var(--text-primary);
   min-width: 40px;
   text-align: right;
 }
@@ -488,15 +488,15 @@ async function handleSave() {
   flex-direction: column;
   gap: 16px;
   padding: 16px;
-  background: rgba(30, 41, 59, 0.3);
+  background: var(--bg-surface);
   border-radius: 12px;
-  border: 1px solid rgba(51, 65, 85, 0.4);
+  border: 1px solid var(--border-default);
 }
 
 .section-title {
   font-size: 13px;
   font-weight: 600;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -514,7 +514,7 @@ async function handleSave() {
   gap: 12px;
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid rgba(51, 65, 85, 0.4);
+  border-top: 1px solid var(--border-default);
 }
 
 .test-result {
@@ -523,44 +523,45 @@ async function handleSave() {
 
 /* Naive UI 样式覆盖 */
 :deep(.n-switch) {
-  --n-rail-color: rgb(51, 65, 85);
-  --n-rail-color-active: rgb(99, 102, 241);
+  --n-rail-color: var(--border-default);
+  --n-rail-color-active: var(--accent-primary);
 }
 
 :deep(.n-select) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
-  --n-border-focus: 1px solid rgb(99, 102, 241);
-  --n-color: rgb(2, 6, 23);
-  --n-text-color: rgb(203, 213, 225);
+  --n-border: 1px solid var(--border-default);
+  --n-border-hover: 1px solid var(--accent-primary);
+  --n-border-focus: 1px solid var(--accent-primary);
+  --n-color: var(--input-bg);
+  --n-text-color: var(--text-primary);
 }
 
 :deep(.n-input) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
-  --n-border-focus: 1px solid rgb(99, 102, 241);
-  --n-color: rgb(2, 6, 23);
-  --n-text-color: rgb(203, 213, 225);
+  --n-border: 1px solid var(--border-default);
+  --n-border-hover: 1px solid var(--accent-primary);
+  --n-border-focus: 1px solid var(--accent-primary);
+  --n-color: var(--input-bg);
+  --n-text-color: var(--text-primary);
+  --n-placeholder-color: var(--text-muted);
 }
 
 :deep(.n-input-number) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
-  --n-border-focus: 1px solid rgb(99, 102, 241);
-  --n-color: rgb(2, 6, 23);
-  --n-text-color: rgb(203, 213, 225);
+  --n-border: 1px solid var(--border-default);
+  --n-border-hover: 1px solid var(--accent-primary);
+  --n-border-focus: 1px solid var(--accent-primary);
+  --n-color: var(--input-bg);
+  --n-text-color: var(--text-primary);
 }
 
 :deep(.n-slider) {
-  --n-fill-color: rgb(99, 102, 241);
-  --n-fill-color-hover: rgb(79, 70, 229);
-  --n-handle-color: rgb(255, 255, 255);
-  --n-rail-color: rgb(51, 65, 85);
+  --n-fill-color: var(--accent-primary);
+  --n-fill-color-hover: var(--accent-secondary);
+  --n-handle-color: #ffffff;
+  --n-rail-color: var(--border-default);
 }
 
 :deep(.n-collapse) {
-  --n-item-border-color: rgba(51, 65, 85, 0.4);
-  --n-title-text-color: rgb(203, 213, 225);
+  --n-item-border-color: var(--border-default);
+  --n-title-text-color: var(--text-primary);
 }
 
 :deep(.n-alert) {
@@ -568,9 +569,9 @@ async function handleSave() {
 }
 
 :deep(.n-button--primary-type) {
-  --n-color: rgb(99, 102, 241);
-  --n-color-hover: rgb(79, 70, 229);
-  --n-text-color: rgb(255, 255, 255);
-  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2);
+  --n-color: var(--accent-primary);
+  --n-color-hover: var(--accent-secondary);
+  --n-text-color: #ffffff;
+  box-shadow: 0 10px 15px -3px var(--accent-glow);
 }
 </style>

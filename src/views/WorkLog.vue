@@ -1563,7 +1563,7 @@ function truncate(text: string, length: number) {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(to bottom right, #020617, #0f172a);
+  background: var(--bg-base);
   overflow: hidden;
 }
 
@@ -1597,7 +1597,7 @@ function truncate(text: string, length: number) {
 .page-title {
   font-size: 20px;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--text-primary);
   letter-spacing: -0.01em;
   margin: 0;
 }
@@ -1613,30 +1613,30 @@ function truncate(text: string, length: number) {
 }
 
 .ai-button-primary {
-  --n-color: rgba(99, 102, 241, 0.1) !important;
-  --n-color-hover: rgba(99, 102, 241, 0.2) !important;
-  --n-text-color: #6366f1 !important;
-  --n-border: 1px solid rgba(99, 102, 241, 0.2) !important;
+  --n-color: color-mix(in srgb, var(--accent-primary) 10%, transparent) !important;
+  --n-color-hover: color-mix(in srgb, var(--accent-primary) 20%, transparent) !important;
+  --n-text-color: var(--accent-primary) !important;
+  --n-border: 1px solid color-mix(in srgb, var(--accent-primary) 20%, transparent) !important;
 }
 
 .ai-button-polish {
-  --n-color: rgba(251, 191, 36, 0.1) !important;
-  --n-color-hover: rgba(251, 191, 36, 0.2) !important;
-  --n-text-color: #fbbf24 !important;
-  --n-border: 1px solid rgba(251, 191, 36, 0.2) !important;
+  --n-color: color-mix(in srgb, var(--warning) 10%, transparent) !important;
+  --n-color-hover: color-mix(in srgb, var(--warning) 20%, transparent) !important;
+  --n-text-color: var(--warning) !important;
+  --n-border: 1px solid color-mix(in srgb, var(--warning) 20%, transparent) !important;
 }
 
 .ai-button-weekly {
-  --n-color: rgba(16, 185, 129, 0.1) !important;
-  --n-color-hover: rgba(16, 185, 129, 0.2) !important;
-  --n-text-color: #10b981 !important;
-  --n-border: 1px solid rgba(16, 185, 129, 0.2) !important;
+  --n-color: color-mix(in srgb, var(--success) 10%, transparent) !important;
+  --n-color-hover: color-mix(in srgb, var(--success) 20%, transparent) !important;
+  --n-text-color: var(--success) !important;
+  --n-border: 1px solid color-mix(in srgb, var(--success) 20%, transparent) !important;
 }
 
 .editor-card {
   flex: 1;
-  background: rgba(15, 23, 42, 0.4);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 20px;
   padding: 24px;
   backdrop-filter: blur(12px);
@@ -1650,8 +1650,8 @@ function truncate(text: string, length: number) {
 }
 
 .editor-card:focus-within {
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent-primary);
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.2), 0 0 0 1px var(--accent-primary);
 }
 
 /* n-spin 容器样式 - 让它填满剩余空间 */
@@ -1669,7 +1669,7 @@ function truncate(text: string, length: number) {
   align-items: center;
   justify-content: space-between;
   padding-bottom: 16px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  border-bottom: 1px solid var(--border-default);
   margin-bottom: 16px;
 }
 
@@ -1680,7 +1680,8 @@ function truncate(text: string, length: number) {
 }
 
 .icon-box {
-  background: rgba(167, 139, 250, 0.1);
+  background: var(--accent-primary);
+  opacity: 0.1;
   padding: 8px;
   border-radius: 8px;
   display: flex;
@@ -1689,7 +1690,8 @@ function truncate(text: string, length: number) {
 }
 
 .plan-icon-box {
-  background: rgba(59, 130, 246, 0.1);
+  background: var(--info);
+  opacity: 0.1;
 }
 
 .date-content {
@@ -1698,13 +1700,13 @@ function truncate(text: string, length: number) {
 }
 
 .current-date {
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-weight: 500;
   font-size: 15px;
 }
 
 .date-subtitle {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
   margin-top: 2px;
 }
@@ -1720,13 +1722,13 @@ function truncate(text: string, length: number) {
 }
 
 .preview-toggle-button {
-  color: #94a3b8;
+  color: var(--text-secondary);
   transition: color 0.2s;
   font-size: 13px;
 }
 
 .preview-toggle-button:hover {
-  color: #a78bfa;
+  color: var(--accent-primary);
 }
 
 .preview-toggle-button:disabled {
@@ -1735,22 +1737,23 @@ function truncate(text: string, length: number) {
 }
 
 .save-button {
-  color: #94a3b8;
+  color: var(--text-secondary);
   transition: color 0.2s;
 }
 
 .save-button:hover {
-  color: #10b981;
+  color: var(--accent-secondary);
 }
 
 .today-button {
-  color: #6366f1;
+  color: var(--accent-primary);
   font-size: 13px;
   transition: all 0.2s;
 }
 
 .today-button:hover {
-  color: #818cf8;
+  color: var(--accent-primary);
+  opacity: 0.8;
 }
 
 .editor-textarea {
@@ -1761,7 +1764,7 @@ function truncate(text: string, length: number) {
   border: none;
   outline: none;
   resize: none;
-  color: #cbd5e1;
+  color: var(--text-primary);
   font-size: 14px;
   line-height: 1.7;
   font-family: inherit;
@@ -1770,7 +1773,7 @@ function truncate(text: string, length: number) {
 }
 
 .editor-textarea::placeholder {
-  color: #64748b; /* slate-500 */
+  color: var(--text-muted);
 }
 
 .editor-textarea::-webkit-scrollbar {
@@ -1782,19 +1785,19 @@ function truncate(text: string, length: number) {
 }
 
 .editor-textarea::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--bg-elevated);
   border-radius: 3px;
 }
 
 .editor-textarea::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--border-hover);
 }
 
 .markdown-preview {
   flex: 1;
   width: 100%;
   box-sizing: border-box;
-  color: #cbd5e1;
+  color: var(--text-primary);
   font-size: 14px;
   line-height: 1.7;
   padding: 12px;
@@ -1810,12 +1813,12 @@ function truncate(text: string, length: number) {
 }
 
 .markdown-preview::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--bg-elevated);
   border-radius: 3px;
 }
 
 .markdown-preview::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--border-hover);
 }
 
 /* Markdown 内容样式 */
@@ -1825,7 +1828,7 @@ function truncate(text: string, length: number) {
 .markdown-preview :deep(h4),
 .markdown-preview :deep(h5),
 .markdown-preview :deep(h6) {
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-weight: 600;
   margin-top: 1.5em;
   margin-bottom: 0.5em;
@@ -1834,13 +1837,13 @@ function truncate(text: string, length: number) {
 
 .markdown-preview :deep(h1) {
   font-size: 1.8em;
-  border-bottom: 2px solid rgba(148, 163, 184, 0.2);
+  border-bottom: 2px solid var(--border-default);
   padding-bottom: 0.3em;
 }
 
 .markdown-preview :deep(h2) {
   font-size: 1.5em;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  border-bottom: 1px solid var(--border-default);
   padding-bottom: 0.3em;
 }
 
@@ -1870,8 +1873,8 @@ function truncate(text: string, length: number) {
 }
 
 .markdown-preview :deep(code) {
-  background: rgba(51, 65, 85, 0.5);
-  color: #fbbf24;
+  background: var(--bg-elevated);
+  color: var(--accent-secondary);
   padding: 0.2em 0.4em;
   border-radius: 4px;
   font-size: 0.9em;
@@ -1879,8 +1882,8 @@ function truncate(text: string, length: number) {
 }
 
 .markdown-preview :deep(pre) {
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 1em;
   overflow-x: auto;
@@ -1889,55 +1892,56 @@ function truncate(text: string, length: number) {
 
 .markdown-preview :deep(pre code) {
   background: transparent;
-  color: #cbd5e1;
+  color: var(--text-primary);
   padding: 0;
 }
 
 .markdown-preview :deep(blockquote) {
-  border-left: 4px solid #6366f1;
+  border-left: 4px solid var(--accent-primary);
   margin: 1em 0;
   padding-left: 1em;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-style: italic;
 }
 
 .markdown-preview :deep(a) {
-  color: #6366f1;
+  color: var(--accent-primary);
   text-decoration: none;
   transition: color 0.2s;
 }
 
 .markdown-preview :deep(a:hover) {
-  color: #818cf8;
+  color: var(--accent-primary);
+  opacity: 0.8;
   text-decoration: underline;
 }
 
 .markdown-preview :deep(strong) {
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .markdown-preview :deep(em) {
-  color: #cbd5e1;
+  color: var(--text-primary);
 }
 
 .markdown-preview :deep(hr) {
   border: none;
-  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  border-top: 1px solid var(--border-default);
   margin: 2em 0;
 }
 
 .editor-footer {
   margin-top: auto;
   padding-top: 12px;
-  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  border-top: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
 .footer-label {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
   font-weight: 500;
   text-transform: uppercase;
@@ -1954,8 +1958,8 @@ function truncate(text: string, length: number) {
 }
 
 .log-tag {
-  background: rgba(51, 65, 85, 0.5) !important;
-  color: #94a3b8 !important; /* slate-400 */
+  background: var(--bg-elevated) !important;
+  color: var(--text-secondary) !important;
   font-size: 12px;
   padding: 4px 8px;
   border-radius: 4px;
@@ -1964,25 +1968,25 @@ function truncate(text: string, length: number) {
 }
 
 .log-tag:hover {
-  color: #a78bfa !important;
+  color: var(--accent-primary) !important;
 }
 
 .add-tag-btn {
-  color: #94a3b8; /* slate-400 */
+  color: var(--text-secondary);
   font-size: 12px;
   padding: 4px 8px;
   transition: color 0.2s;
 }
 
 .add-tag-btn:hover {
-  color: #a78bfa;
+  color: var(--accent-primary);
 }
 
 /* 右侧时间轴 */
 .timeline-section {
   width: 280px;
-  background: rgba(15, 23, 42, 0.3);
-  border-left: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-default);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -2004,7 +2008,7 @@ function truncate(text: string, length: number) {
 .timeline-title {
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   padding: 0 4px;
@@ -2035,12 +2039,12 @@ function truncate(text: string, length: number) {
 }
 
 .timeline-container::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.5);
+  background: var(--bg-elevated);
   border-radius: 2px;
 }
 
 .timeline-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 0.7);
+  background: var(--border-hover);
 }
 
 .timeline-line {
@@ -2049,7 +2053,7 @@ function truncate(text: string, length: number) {
   top: 12px;
   bottom: 12px;
   width: 1px;
-  background: rgba(51, 65, 85, 0.8);
+  background: var(--border-default);
 }
 
 .timeline-item {
@@ -2064,8 +2068,8 @@ function truncate(text: string, length: number) {
 }
 
 .timeline-item:hover .timeline-content {
-  background: rgba(30, 41, 59, 0.6);
-  border-color: rgba(71, 85, 105, 0.5);
+  background: var(--bg-elevated);
+  border-color: var(--border-hover);
 }
 
 .timeline-dot {
@@ -2075,14 +2079,15 @@ function truncate(text: string, length: number) {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  border: 2px solid #0f172a;
+  border: 2px solid var(--bg-base);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 10;
 }
 
 .dot-active {
-  background: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+  background: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-primary);
+  opacity: 0.8;
   width: 11px;
   height: 11px;
   left: 0;
@@ -2090,13 +2095,14 @@ function truncate(text: string, length: number) {
 }
 
 .dot-default {
-  background: #1e293b;
+  background: var(--bg-surface);
 }
 
 .timeline-item:hover .dot-default {
-  background: #a78bfa;
-  border-color: #0f172a;
-  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2);
+  background: var(--accent-primary);
+  border-color: var(--bg-base);
+  box-shadow: 0 0 0 2px var(--accent-primary);
+  opacity: 0.6;
 }
 
 .timeline-content {
@@ -2105,25 +2111,25 @@ function truncate(text: string, length: number) {
   gap: 8px;
   padding: 12px;
   border-radius: 10px;
-  background: rgba(15, 23, 42, 0.4);
-  border: 1px solid rgba(51, 65, 85, 0.3);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .timeline-date {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
   font-family: 'Consolas', 'Monaco', monospace;
   font-weight: 500;
 }
 
 .timeline-item-active .timeline-date {
-  color: #a78bfa;
+  color: var(--accent-primary);
 }
 
 .timeline-text {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   line-height: 1.6;
   overflow: hidden;
   display: -webkit-box;
@@ -2132,7 +2138,7 @@ function truncate(text: string, length: number) {
 }
 
 .timeline-item-active .timeline-text {
-  color: #cbd5e1;
+  color: var(--text-primary);
   font-weight: 400;
 }
 
@@ -2145,21 +2151,22 @@ function truncate(text: string, length: number) {
 
 /* 主要按钮样式 */
 :deep(.primary-button) {
-  background-color: #6366f1 !important;
-  border-color: #6366f1 !important;
+  background-color: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
   color: #ffffff !important;
-  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2) !important;
+  box-shadow: var(--shadow-lg) !important;
   transition: all 0.2s !important;
 }
 
 :deep(.primary-button:hover) {
-  background-color: #4f46e5 !important;
-  border-color: #4f46e5 !important;
+  background-color: var(--accent-primary-hover) !important;
+  border-color: var(--accent-primary-hover) !important;
 }
 
 :deep(.primary-button:active) {
-  background-color: #4338ca !important;
-  border-color: #4338ca !important;
+  background-color: var(--accent-primary-hover) !important;
+  border-color: var(--accent-primary-hover) !important;
+  opacity: 0.9;
 }
 
 /* 周报模式样式 */
@@ -2198,8 +2205,8 @@ function truncate(text: string, length: number) {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  background: rgba(15, 23, 42, 0.4);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
 }
 
@@ -2212,21 +2219,21 @@ function truncate(text: string, length: number) {
 }
 
 .weekly-preview::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--bg-elevated);
   border-radius: 3px;
 }
 
 .weekly-preview::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--border-hover);
 }
 
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin: 0 0 16px 0;
   padding-bottom: 8px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .task-list {
@@ -2247,25 +2254,25 @@ function truncate(text: string, length: number) {
 }
 
 .task-list::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--bg-elevated);
   border-radius: 3px;
 }
 
 .task-list::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--border-hover);
 }
 
 .task-item {
-  background: rgba(30, 41, 59, 0.4);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   padding: 12px;
   transition: all 0.2s;
 }
 
 .task-item:hover {
-  background: rgba(30, 41, 59, 0.6);
-  border-color: rgba(148, 163, 184, 0.2);
+  background: var(--bg-elevated);
+  border-color: var(--border-hover);
 }
 
 .task-header {
@@ -2281,20 +2288,21 @@ function truncate(text: string, length: number) {
 
 .task-title {
   flex: 1;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-weight: 500;
   font-size: 14px;
 }
 
 .task-category {
   flex-shrink: 0;
-  background: rgba(99, 102, 241, 0.15) !important;
-  color: #a5b4fc !important;
+  background: var(--accent-primary) !important;
+  opacity: 0.3;
+  color: var(--accent-primary) !important;
   font-size: 11px;
 }
 
 .task-description {
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.6;
   margin-bottom: 8px;
@@ -2309,7 +2317,7 @@ function truncate(text: string, length: number) {
 }
 
 .task-time {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 11px;
   font-family: 'Consolas', 'Monaco', monospace;
 }
@@ -2320,22 +2328,22 @@ function truncate(text: string, length: number) {
 
 .empty-hint {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-top: 8px;
 }
 
 /* 简化的任务项样式 */
 .task-item-simple {
-  background: rgba(30, 41, 59, 0.3);
-  border: 1px solid rgba(148, 163, 184, 0.08);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   padding: 8px 12px;
   transition: all 0.2s;
 }
 
 .task-item-simple:hover {
-  background: rgba(30, 41, 59, 0.5);
-  border-color: rgba(148, 163, 184, 0.15);
+  background: var(--bg-elevated);
+  border-color: var(--border-hover);
 }
 
 .task-row {
@@ -2350,7 +2358,7 @@ function truncate(text: string, length: number) {
 
 .task-title-simple {
   flex: 1;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
@@ -2371,7 +2379,7 @@ function truncate(text: string, length: number) {
 }
 
 .task-time-simple {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 11px;
   font-family: 'Consolas', 'Monaco', monospace;
   flex-shrink: 0;
@@ -2397,12 +2405,12 @@ function truncate(text: string, length: number) {
 }
 
 .stat-label {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
 .stat-value {
-  color: #10b981;
+  color: var(--accent-secondary);
   font-size: 13px;
   font-weight: 600;
 }
@@ -2411,8 +2419,8 @@ function truncate(text: string, length: number) {
 .plan-progress {
   margin-bottom: 12px;
   padding: 10px 12px;
-  background: rgba(30, 41, 59, 0.4);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 8px;
 }
 
@@ -2422,23 +2430,25 @@ function truncate(text: string, length: number) {
   align-items: center;
   margin-bottom: 8px;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .progress-percent {
-  color: #10b981;
+  color: var(--accent-secondary);
   font-weight: 600;
 }
 
 /* 新增任务标记 */
 .task-new {
-  background: rgba(59, 130, 246, 0.1) !important;
-  border-color: rgba(59, 130, 246, 0.3) !important;
+  background: var(--info) !important;
+  opacity: 0.15;
+  border-color: var(--info) !important;
 }
 
 .new-badge {
-  background: rgba(59, 130, 246, 0.2) !important;
-  color: #60a5fa !important;
+  background: var(--info) !important;
+  opacity: 0.3;
+  color: var(--info) !important;
   font-size: 10px !important;
   padding: 0 6px !important;
   height: 16px !important;
@@ -2448,16 +2458,30 @@ function truncate(text: string, length: number) {
 }
 
 .new-tag {
-  background: rgba(59, 130, 246, 0.15) !important;
-  color: #60a5fa !important;
+  background: var(--info) !important;
+  opacity: 0.2;
+  color: var(--info) !important;
   margin-left: 8px;
 }
 
 /* 周计划按钮样式 */
 .ai-button-plan {
-  --n-color: rgba(59, 130, 246, 0.1) !important;
-  --n-color-hover: rgba(59, 130, 246, 0.2) !important;
-  --n-text-color: #3b82f6 !important;
-  --n-border: 1px solid rgba(59, 130, 246, 0.2) !important;
+  --n-color: color-mix(in srgb, var(--info) 10%, transparent) !important;
+  --n-color-hover: color-mix(in srgb, var(--info) 20%, transparent) !important;
+  --n-text-color: var(--info) !important;
+  --n-border: 1px solid color-mix(in srgb, var(--info) 20%, transparent) !important;
+}
+
+/* 图标颜色覆盖 - 使用CSS变量 */
+.date-info .icon-box :deep(.n-icon) {
+  color: var(--accent-primary) !important;
+}
+
+.plan-icon-box :deep(.n-icon) {
+  color: var(--info) !important;
+}
+
+.task-check-icon {
+  color: var(--success) !important;
 }
 </style>

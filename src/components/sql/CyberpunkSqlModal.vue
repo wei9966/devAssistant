@@ -401,7 +401,7 @@ watch(searchQuery, () => {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: rgba(2, 6, 23, 0.85);
+  background: var(--modal-backdrop, rgba(2, 6, 23, 0.85));
   backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
@@ -415,13 +415,13 @@ watch(searchQuery, () => {
 .sql-modal {
   width: 900px;
   height: 600px;
-  background: #0f172a;
+  background: var(--bg-elevated, #0f172a);
   border-radius: 16px;
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(51, 65, 85, 0.8);
+  border: 1px solid var(--border-default, rgba(51, 65, 85, 0.8));
   box-shadow:
     0 0 0 1px rgba(6, 182, 212, 0.1),
     0 0 20px rgba(6, 182, 212, 0.1),
@@ -456,8 +456,8 @@ watch(searchQuery, () => {
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
-  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
-  color: #0f172a;
+  background: var(--accent-primary, linear-gradient(135deg, #06b6d4 0%, #0891b2 100%));
+  color: var(--bg-elevated, #0f172a);
   padding: 10px 24px;
   border-radius: 9999px;
   font-weight: 600;
@@ -478,12 +478,12 @@ watch(searchQuery, () => {
 /* ============================================ */
 .modal-header {
   height: 64px;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--border-default, #1e293b);
   display: flex;
   align-items: center;
   padding: 0 24px;
   flex-shrink: 0;
-  background: rgba(15, 23, 42, 0.8);
+  background: var(--bg-surface, rgba(15, 23, 42, 0.8));
 }
 
 .search-icon-wrapper {
@@ -493,7 +493,7 @@ watch(searchQuery, () => {
 .search-icon {
   width: 24px;
   height: 24px;
-  color: #64748b;
+  color: var(--text-secondary, #64748b);
 }
 
 .search-input {
@@ -503,12 +503,12 @@ watch(searchQuery, () => {
   outline: none;
   font-size: 18px;
   font-weight: 400;
-  color: #e2e8f0;
+  color: var(--text-primary, #e2e8f0);
   height: 100%;
 }
 
 .search-input::placeholder {
-  color: #475569;
+  color: var(--text-muted, #475569);
 }
 
 .search-hints {
@@ -517,12 +517,12 @@ watch(searchQuery, () => {
 }
 
 .hint-badge {
-  background: #1e293b;
-  color: #64748b;
+  background: var(--bg-surface, #1e293b);
+  color: var(--text-secondary, #64748b);
   font-size: 11px;
   padding: 4px 10px;
   border-radius: 4px;
-  border: 1px solid #334155;
+  border: 1px solid var(--border-default, #334155);
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
@@ -538,9 +538,9 @@ watch(searchQuery, () => {
 /* 左侧列表 */
 .list-panel {
   width: 40%;
-  border-right: 1px solid #1e293b;
+  border-right: 1px solid var(--border-default, #1e293b);
   overflow-y: auto;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--bg-surface, rgba(15, 23, 42, 0.5));
 }
 
 .list-panel::-webkit-scrollbar {
@@ -552,12 +552,12 @@ watch(searchQuery, () => {
 }
 
 .list-panel::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--border-default, #334155);
   border-radius: 3px;
 }
 
 .list-panel::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--text-muted, #475569);
 }
 
 .empty-state {
@@ -566,7 +566,7 @@ watch(searchQuery, () => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #475569;
+  color: var(--text-muted, #475569);
   padding: 32px;
 }
 
@@ -583,15 +583,15 @@ watch(searchQuery, () => {
   padding: 12px 16px;
   cursor: pointer;
   transition: all 0.15s ease;
-  border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+  border-bottom: 1px solid var(--border-default, rgba(30, 41, 59, 0.5));
 }
 
 .list-item:hover {
-  background: rgba(30, 41, 59, 0.5);
+  background: var(--bg-surface, rgba(30, 41, 59, 0.5));
 }
 
 .list-item.selected {
-  background: rgba(30, 41, 59, 0.8);
+  background: var(--bg-elevated, rgba(30, 41, 59, 0.8));
 }
 
 .selection-indicator {
@@ -600,8 +600,8 @@ watch(searchQuery, () => {
   top: 0;
   bottom: 0;
   width: 3px;
-  background: #22d3ee;
-  box-shadow: 0 0 10px #22d3ee;
+  background: var(--accent-primary);
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .item-header {
@@ -614,7 +614,7 @@ watch(searchQuery, () => {
 .item-title {
   font-size: 14px;
   font-weight: 500;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -623,7 +623,7 @@ watch(searchQuery, () => {
 }
 
 .item-title.title-selected {
-  color: #e0f2fe;
+  color: var(--text-primary, #e0f2fe);
 }
 
 .status-icons {
@@ -638,21 +638,21 @@ watch(searchQuery, () => {
 }
 
 .status-icon.success {
-  color: #22c55e;
+  color: var(--success);
 }
 
 .status-icon.warning {
-  color: #f97316;
+  color: var(--warning);
 }
 
 .status-icon.danger {
-  color: #ef4444;
+  color: var(--error);
 }
 
 .item-preview {
   font-size: 11px;
   font-family: 'Consolas', 'Monaco', monospace;
-  color: #475569;
+  color: var(--text-muted, #475569);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -707,7 +707,7 @@ watch(searchQuery, () => {
 
 .time-badge {
   font-size: 10px;
-  color: #475569;
+  color: var(--text-muted, #475569);
   margin-left: auto;
 }
 
@@ -716,19 +716,19 @@ watch(searchQuery, () => {
 /* ============================================ */
 .preview-panel {
   width: 60%;
-  background: #0b1120;
+  background: var(--bg-base, #0b1120);
   display: flex;
   flex-direction: column;
 }
 
 .preview-header {
   height: 48px;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--border-default, #1e293b);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: #0f172a;
+  background: var(--bg-elevated, #0f172a);
   flex-shrink: 0;
 }
 
@@ -738,7 +738,7 @@ watch(searchQuery, () => {
   gap: 8px;
   font-size: 11px;
   font-family: 'Consolas', 'Monaco', monospace;
-  color: #64748b;
+  color: var(--text-secondary, #64748b);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -782,14 +782,14 @@ watch(searchQuery, () => {
 }
 
 .edit-btn {
-  background: #1e293b;
-  border-color: #334155;
-  color: #94a3b8;
+  background: var(--bg-surface, #1e293b);
+  border-color: var(--border-default, #334155);
+  color: var(--text-secondary, #94a3b8);
 }
 
 .edit-btn:hover {
-  background: #334155;
-  color: #e2e8f0;
+  background: var(--border-default, #334155);
+  color: var(--text-primary, #e2e8f0);
 }
 
 /* 预览内容 */
@@ -808,7 +808,7 @@ watch(searchQuery, () => {
 }
 
 .preview-content::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--border-default, #334155);
   border-radius: 3px;
 }
 
@@ -819,7 +819,7 @@ watch(searchQuery, () => {
 .sql-title {
   font-size: 18px;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--text-primary, #f1f5f9);
   margin-bottom: 8px;
 }
 
@@ -828,18 +828,18 @@ watch(searchQuery, () => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-secondary, #64748b);
 }
 
 .meta-separator {
-  color: #475569;
+  color: var(--text-muted, #475569);
 }
 
 /* 代码块 */
 .code-block {
   position: relative;
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  background: var(--input-bg, rgba(30, 41, 59, 0.5));
+  border: 1px solid var(--border-default, rgba(51, 65, 85, 0.5));
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 20px;
@@ -850,7 +850,7 @@ watch(searchQuery, () => {
   top: 8px;
   right: 12px;
   font-size: 10px;
-  color: #475569;
+  color: var(--text-muted, #475569);
   font-family: 'Consolas', 'Monaco', monospace;
   text-transform: uppercase;
 }
@@ -859,7 +859,7 @@ watch(searchQuery, () => {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;
-  color: #cbd5e1;
+  color: var(--text-primary, #cbd5e1);
   white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
@@ -881,7 +881,7 @@ watch(searchQuery, () => {
 
 /* 收藏按钮 */
 .favorite-section {
-  border-top: 1px solid #1e293b;
+  border-top: 1px solid var(--border-default, #1e293b);
   padding-top: 16px;
 }
 
@@ -894,14 +894,14 @@ watch(searchQuery, () => {
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #94a3b8;
+  background: var(--bg-surface, #1e293b);
+  border: 1px solid var(--border-default, #334155);
+  color: var(--text-secondary, #94a3b8);
 }
 
 .favorite-btn:hover {
-  background: #334155;
-  color: #e2e8f0;
+  background: var(--border-default, #334155);
+  color: var(--text-primary, #e2e8f0);
 }
 
 .favorite-btn.active {
@@ -926,7 +926,7 @@ watch(searchQuery, () => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #475569;
+  color: var(--text-muted, #475569);
 }
 
 .empty-preview-icon {
@@ -941,8 +941,8 @@ watch(searchQuery, () => {
 /* ============================================ */
 .modal-footer {
   height: 40px;
-  border-top: 1px solid #1e293b;
-  background: rgba(15, 23, 42, 0.8);
+  border-top: 1px solid var(--border-default, #1e293b);
+  background: var(--bg-surface, rgba(15, 23, 42, 0.8));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -960,23 +960,23 @@ watch(searchQuery, () => {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-secondary, #64748b);
 }
 
 .shortcut kbd {
   display: inline-block;
   padding: 2px 6px;
-  background: #1e293b;
+  background: var(--bg-surface, #1e293b);
   border-radius: 3px;
   font-size: 10px;
   font-family: 'Consolas', 'Monaco', monospace;
-  color: #94a3b8;
-  border: 1px solid #334155;
+  color: var(--text-secondary, #94a3b8);
+  border: 1px solid var(--border-default, #334155);
 }
 
 .record-count {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-secondary, #64748b);
 }
 
 /* ============================================ */
@@ -1073,7 +1073,7 @@ watch(searchQuery, () => {
     width: 100%;
     height: 40%;
     border-right: none;
-    border-bottom: 1px solid #1e293b;
+    border-bottom: 1px solid var(--border-default, #1e293b);
   }
 
   .preview-panel {

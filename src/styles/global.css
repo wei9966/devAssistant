@@ -5,16 +5,16 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track, transparent);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(71, 85, 105, 0.5);
+  background-color: var(--scrollbar-thumb, rgba(71, 85, 105, 0.5));
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(71, 85, 105, 0.7);
+  background-color: var(--scrollbar-thumb-hover, rgba(71, 85, 105, 0.7));
 }
 
 /* 全局颜色变量 */

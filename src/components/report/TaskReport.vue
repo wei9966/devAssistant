@@ -439,8 +439,8 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
 
 /* 卡片样式 */
 .settings-card {
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 16px;
   overflow: hidden;
   backdrop-filter: blur(8px);
@@ -451,14 +451,14 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.6);
-  background: rgba(15, 23, 42, 0.3);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-overlay);
 }
 
 .card-title {
   font-size: 14px;
   font-weight: 500;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -493,7 +493,7 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
 .filter-label {
   font-size: 13px;
   font-weight: 500;
-  color: rgb(148, 163, 184);
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
@@ -508,8 +508,8 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
   align-items: center;
   gap: 8px;
   padding: 20px;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   text-align: center;
 }
@@ -524,34 +524,34 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
 }
 
 .stat-icon.completed {
-  background: rgba(52, 211, 153, 0.1);
-  color: rgb(52, 211, 153);
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--success);
 }
 
 .stat-icon.in-progress {
-  background: rgba(251, 191, 36, 0.1);
-  color: rgb(251, 191, 36);
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warning);
 }
 
 .stat-icon.pending {
-  background: rgba(96, 165, 250, 0.1);
-  color: rgb(96, 165, 250);
+  background: rgba(96, 165, 250, 0.15);
+  color: var(--info);
 }
 
 .stat-icon.total {
-  background: rgba(99, 102, 241, 0.1);
-  color: rgb(99, 102, 241);
+  background: var(--accent-glow);
+  color: var(--accent-primary);
 }
 
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
 }
 
 .stat-label {
   font-size: 12px;
-  color: rgb(148, 163, 184);
+  color: var(--text-secondary);
 }
 
 /* 加载状态 */
@@ -562,7 +562,7 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
   justify-content: center;
   gap: 16px;
   padding: 64px;
-  color: rgb(148, 163, 184);
+  color: var(--text-secondary);
 }
 
 /* 任务表格 */
@@ -577,30 +577,30 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
 }
 
 .task-table thead {
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--bg-overlay);
 }
 
 .task-table th {
   padding: 12px 16px;
   text-align: left;
   font-weight: 500;
-  color: rgb(148, 163, 184);
-  border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .task-table td {
   padding: 16px;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.3);
-  color: rgb(203, 213, 225);
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-secondary);
 }
 
 .task-table tbody tr:hover {
-  background: rgba(30, 41, 59, 0.3);
+  background: var(--bg-hover);
 }
 
 .task-name {
   font-weight: 500;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
 }
 
 .task-desc-wrapper {
@@ -609,7 +609,7 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
 
 .task-desc {
   font-size: 12px;
-  color: rgb(100, 116, 139);
+  color: var(--text-muted);
   max-height: 40px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -627,7 +627,7 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
 
 .expand-btn {
   font-size: 11px;
-  color: rgb(99, 102, 241);
+  color: var(--accent-primary);
   cursor: pointer;
   margin-left: 4px;
 }
@@ -643,7 +643,7 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
 }
 
 .no-tag {
-  color: rgb(100, 116, 139);
+  color: var(--text-muted);
 }
 
 .quadrant-badge {
@@ -655,50 +655,50 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
 }
 
 .quadrant-1 {
-  background: rgba(239, 68, 68, 0.1);
-  color: rgb(248, 113, 113);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error);
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .quadrant-2 {
-  background: rgba(251, 191, 36, 0.1);
-  color: rgb(251, 191, 36);
-  border: 1px solid rgba(251, 191, 36, 0.2);
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warning);
+  border: 1px solid rgba(251, 191, 36, 0.3);
 }
 
 .quadrant-3 {
-  background: rgba(96, 165, 250, 0.1);
-  color: rgb(96, 165, 250);
-  border: 1px solid rgba(96, 165, 250, 0.2);
+  background: rgba(96, 165, 250, 0.15);
+  color: var(--info);
+  border: 1px solid rgba(96, 165, 250, 0.3);
 }
 
 .quadrant-4 {
-  background: rgba(148, 163, 184, 0.1);
-  color: rgb(148, 163, 184);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: var(--bg-overlay);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
 }
 
 /* Naive UI 样式覆盖 */
 :deep(.n-date-picker) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
-  --n-border-focus: 1px solid rgb(99, 102, 241);
-  --n-color: rgb(2, 6, 23);
-  --n-text-color: rgb(203, 213, 225);
+  --n-border: 1px solid var(--input-border);
+  --n-border-hover: 1px solid var(--accent-primary);
+  --n-border-focus: 1px solid var(--accent-primary);
+  --n-color: var(--input-bg);
+  --n-text-color: var(--text-primary);
 }
 
 :deep(.n-select) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
-  --n-border-focus: 1px solid rgb(99, 102, 241);
-  --n-color: rgb(2, 6, 23);
-  --n-text-color: rgb(203, 213, 225);
+  --n-border: 1px solid var(--input-border);
+  --n-border-hover: 1px solid var(--accent-primary);
+  --n-border-focus: 1px solid var(--accent-primary);
+  --n-color: var(--input-bg);
+  --n-text-color: var(--text-primary);
 }
 
 :deep(.n-button--primary-type) {
-  --n-color: rgb(99, 102, 241);
-  --n-color-hover: rgb(79, 70, 229);
-  --n-text-color: rgb(255, 255, 255);
+  --n-color: var(--accent-primary);
+  --n-color-hover: var(--accent-secondary);
+  --n-text-color: #ffffff;
   box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2);
 }
 
@@ -708,11 +708,15 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
 }
 
 .task-table-wrapper::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
 
 .task-table-wrapper::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.5);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
+}
+
+.task-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
 }
 </style>

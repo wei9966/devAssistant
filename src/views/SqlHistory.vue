@@ -969,7 +969,7 @@ function handleCopySql(sql: string) {
   display: flex;
   flex-direction: column;
   padding: 32px;
-  background: linear-gradient(to bottom right, #0f172a, #1e293b);
+  background: linear-gradient(to bottom right, var(--bg-base), var(--bg-surface));
 }
 
 /* Header */
@@ -984,7 +984,7 @@ function handleCopySql(sql: string) {
 .history-title {
   font-size: 20px;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--text-primary);
   white-space: nowrap;
   flex-shrink: 0;
   letter-spacing: -0.025em;
@@ -1011,15 +1011,15 @@ function handleCopySql(sql: string) {
 .search-icon {
   position: absolute;
   left: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 16px;
   pointer-events: none;
 }
 
 .search-input {
-  background: #0f172a;
-  border: 1px solid #334155;
-  color: #cbd5e1;
+  background: var(--input-bg);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
   padding: 8px 16px 8px 36px;
   border-radius: 8px;
   font-size: 14px;
@@ -1029,20 +1029,20 @@ function handleCopySql(sql: string) {
 }
 
 .search-input::placeholder {
-  color: #64748b; /* slate-500 */
+  color: var(--text-muted);
 }
 
 .search-input:focus {
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 /* Table Container */
 .table-container {
   flex: 1;
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--card-bg);
   border-radius: 20px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--card-border);
   overflow: hidden;
   backdrop-filter: blur(12px);
   display: flex;
@@ -1066,12 +1066,12 @@ function handleCopySql(sql: string) {
 }
 
 .table-wrapper::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--border-default);
   border-radius: 4px;
 }
 
 .table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--border-hover);
 }
 
 /* Table */
@@ -1082,14 +1082,14 @@ function handleCopySql(sql: string) {
 }
 
 .table-head {
-  background: rgba(15, 23, 42, 0.8);
-  color: #94a3b8;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
   font-weight: 500;
   position: sticky;
   top: 0;
   z-index: 10;
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .table-head th {
@@ -1101,17 +1101,17 @@ function handleCopySql(sql: string) {
 }
 
 .table-body {
-  color: #cbd5e1;
+  color: var(--text-secondary);
 }
 
 .table-row {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+  border-bottom: 1px solid var(--border-default);
   position: relative;
 }
 
 .table-row:hover {
-  background: rgba(30, 41, 59, 0.5);
+  background: var(--bg-surface);
 }
 
 .table-row:hover td {
@@ -1151,7 +1151,7 @@ function handleCopySql(sql: string) {
 
 /* SQL Name */
 .sql-name {
-  color: #cbd5e1;
+  color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
   transition: color 0.2s;
@@ -1163,18 +1163,18 @@ function handleCopySql(sql: string) {
 }
 
 .sql-name:hover {
-  color: #a78bfa;
+  color: var(--accent-secondary);
 }
 
 .sql-name-empty {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
   cursor: pointer;
   font-style: italic;
 }
 
 .sql-name-empty:hover {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 /* Category Tag */
@@ -1189,14 +1189,14 @@ function handleCopySql(sql: string) {
 }
 
 .category-empty {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
   cursor: pointer;
   font-style: italic;
 }
 
 .category-empty:hover {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 /* Category Tags Container */
@@ -1211,7 +1211,7 @@ function handleCopySql(sql: string) {
 
 .more-tags {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-left: 2px;
 }
 
@@ -1226,7 +1226,7 @@ function handleCopySql(sql: string) {
   align-items: center;
   margin-bottom: 16px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .category-list {
@@ -1241,17 +1241,17 @@ function handleCopySql(sql: string) {
   padding: 8px 12px;
   border-radius: 8px;
   margin-bottom: 4px;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--bg-base);
 }
 
 .category-item:hover {
-  background: rgba(30, 41, 59, 0.5);
+  background: var(--bg-surface);
 }
 
 .category-desc {
   flex: 0 0 120px;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1260,7 +1260,7 @@ function handleCopySql(sql: string) {
 .category-prompt {
   flex: 1;
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1283,11 +1283,11 @@ function handleCopySql(sql: string) {
 .sql-code {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 12px;
-  color: #cbd5e1;
-  background: rgba(15, 23, 42, 0.5);
+  color: var(--text-secondary);
+  background: var(--bg-base);
   padding: 8px 12px;
   border-radius: 6px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--border-default);
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1301,38 +1301,38 @@ function handleCopySql(sql: string) {
   flex-shrink: 0;
   opacity: 0.6;
   transition: opacity 0.2s;
-  color: #6366f1 !important;
+  color: var(--accent-primary) !important;
 }
 
 .expand-btn:hover {
   opacity: 1;
-  background: rgba(99, 102, 241, 0.1) !important;
+  background: var(--accent-glow) !important;
 }
 
 :deep(.expand-btn .n-icon) {
-  color: #6366f1;
+  color: var(--accent-primary);
 }
 
 .sql-keyword {
-  color: #a78bfa;
+  color: var(--accent-secondary);
   font-weight: 600;
 }
 
 .sql-rest {
-  color: #cbd5e1;
+  color: var(--text-secondary);
 }
 
 /* Duration Text */
 .duration-text {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 /* Time Text */
 .time-text {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 /* Action Buttons */
@@ -1355,20 +1355,20 @@ function handleCopySql(sql: string) {
   padding: 8px;
   border-radius: 8px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  color: #64748b !important;
+  color: var(--text-muted) !important;
 }
 
 .action-btn:hover {
   background: rgba(99, 102, 241, 0.1) !important;
-  color: #a78bfa !important;
+  color: var(--accent-secondary) !important;
 }
 
 :deep(.action-btn .n-icon) {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 :deep(.action-btn:hover .n-icon) {
-  color: #cbd5e1;
+  color: var(--text-secondary);
 }
 
 /* Empty Row */
@@ -1380,14 +1380,14 @@ function handleCopySql(sql: string) {
 /* Table Footer */
 .table-footer {
   padding: 12px;
-  border-top: 1px solid #1e293b;
-  background: rgba(15, 23, 42, 0.3);
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-base);
   text-align: center;
 }
 
 .footer-text {
   font-size: 12px;
-  color: #94a3b8; /* slate-400 */
+  color: var(--text-secondary);
 }
 
 /* Button Overrides for Dark Theme */
@@ -1397,71 +1397,71 @@ function handleCopySql(sql: string) {
 
 /* 主要按钮样式 */
 :deep(.primary-button) {
-  background-color: #6366f1 !important;
-  border-color: #6366f1 !important;
+  background-color: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
   color: #ffffff !important;
-  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2) !important;
+  box-shadow: 0 10px 15px -3px var(--accent-glow) !important;
   transition: all 0.2s !important;
 }
 
 :deep(.primary-button:hover) {
-  background-color: #4f46e5 !important;
-  border-color: #4f46e5 !important;
+  background-color: var(--accent-secondary) !important;
+  border-color: var(--accent-secondary) !important;
 }
 
 :deep(.primary-button:active) {
-  background-color: #4338ca !important;
-  border-color: #4338ca !important;
+  background-color: var(--accent-secondary) !important;
+  border-color: var(--accent-secondary) !important;
 }
 
 :deep(.n-button--default-type) {
-  background-color: #1e293b;
-  border-color: #334155;
-  color: #cbd5e1;
+  background-color: var(--bg-surface);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
 }
 
 :deep(.n-button--default-type:hover) {
-  background-color: #334155;
-  border-color: #475569;
+  background-color: var(--bg-elevated);
+  border-color: var(--border-hover);
 }
 
 /* Modal Overrides */
 :deep(.n-dialog) {
-  background-color: #1e293b;
-  color: #cbd5e1;
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
 }
 
 :deep(.n-dialog__title) {
-  color: #f1f5f9;
+  color: var(--text-primary);
 }
 
 :deep(.n-input) {
-  background-color: #0f172a;
-  border-color: #334155;
-  color: #cbd5e1;
+  background-color: var(--input-bg);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
 }
 
 :deep(.n-input:hover) {
-  border-color: #475569;
+  border-color: var(--border-hover);
 }
 
 :deep(.n-input:focus) {
-  border-color: #6366f1;
+  border-color: var(--accent-primary);
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
 }
 
 :deep(.n-input::placeholder) {
-  color: #64748b; /* slate-500 */
+  color: var(--text-muted);
 }
 
 :deep(.n-form-item-label) {
-  color: #cbd5e1;
+  color: var(--text-secondary);
 }
 
 /* 完整SQL容器 */
 .full-sql-container {
-  background: #0f172a;
-  border: 1px solid #334155;
+  background: var(--input-bg);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 16px;
   max-height: 500px;
@@ -1471,7 +1471,7 @@ function handleCopySql(sql: string) {
 .full-sql-code {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-all;
   line-height: 1.6;
@@ -1487,12 +1487,12 @@ function handleCopySql(sql: string) {
 }
 
 .full-sql-container::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--border-default);
   border-radius: 4px;
 }
 
 .full-sql-container::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--border-hover);
 }
 
 /* 整合视图容器 */
@@ -1501,9 +1501,9 @@ function handleCopySql(sql: string) {
   display: flex;
   min-height: 0;
   overflow: hidden;
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--card-bg);
   border-radius: 20px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--card-border);
   backdrop-filter: blur(12px);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }

@@ -233,15 +233,15 @@ function formatTime(timestamp: string): string {
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
   border-radius: 12px;
   transition: all 0.3s ease;
 }
 
 .activity-timeline-item:hover {
-  border-color: rgba(99, 102, 241, 0.4);
-  background: rgba(15, 23, 42, 0.7);
+  border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  background: var(--card-hover-bg);
 }
 
 .activity-header {
@@ -297,22 +297,22 @@ function formatTime(timestamp: string): string {
 
 .screenshot-count {
   font-size: 12px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   padding: 2px 8px;
-  background: rgba(30, 41, 59, 0.5);
+  background: var(--bg-surface);
   border-radius: 4px;
 }
 
 .activity-description {
   font-size: 14px;
-  color: rgb(203, 213, 225);
+  color: var(--text-secondary);
   line-height: 1.6;
   cursor: pointer;
   transition: color 0.2s;
 }
 
 .activity-description:hover {
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
 }
 
 .description-full {
@@ -320,7 +320,7 @@ function formatTime(timestamp: string): string {
   line-height: 1.6;
   max-height: 300px;
   overflow-y: auto;
-  color: rgb(203, 213, 225);
+  color: var(--text-secondary);
 }
 
 .description-full::-webkit-scrollbar {
@@ -332,12 +332,12 @@ function formatTime(timestamp: string): string {
 }
 
 .description-full::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.5);
+  background: var(--border-default);
   border-radius: 2px;
 }
 
 .description-full::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 0.7);
+  background: var(--border-hover);
 }
 
 .screenshots-grid {
@@ -353,15 +353,15 @@ function formatTime(timestamp: string): string {
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
   transition: all 0.2s ease;
 }
 
 .screenshot-thumb:hover {
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 4px 12px var(--accent-glow);
+  border-color: color-mix(in srgb, var(--accent-primary) 60%, transparent);
   z-index: 1;
 }
 
@@ -372,7 +372,7 @@ function formatTime(timestamp: string): string {
   justify-content: center;
   width: 100%;
   height: 100%;
-  color: rgb(100, 116, 139);
+  color: var(--text-dim);
 }
 
 .thumb-image {

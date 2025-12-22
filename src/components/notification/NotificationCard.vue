@@ -113,8 +113,8 @@ const handleViewDetail = () => {
 <style scoped>
 .notification-card {
   position: relative;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg, rgba(15, 23, 42, 0.4));
+  border: 1px solid var(--card-border, rgba(51, 65, 85, 0.5));
   border-radius: 12px;
   padding: 16px;
   cursor: pointer;
@@ -123,13 +123,13 @@ const handleViewDetail = () => {
 }
 
 .notification-card:hover {
-  background: rgba(15, 23, 42, 0.7);
-  border-color: rgba(99, 102, 241, 0.4);
+  background: var(--card-hover-bg, rgba(15, 23, 42, 0.7));
+  border-color: color-mix(in srgb, var(--accent-primary, #6366f1) 40%, transparent);
   transform: translateX(4px);
 }
 
 .notification-card.unread {
-  border-left: 3px solid #60a5fa;
+  border-left: 3px solid var(--info, #60a5fa);
 }
 
 .unread-indicator {
@@ -138,7 +138,7 @@ const handleViewDetail = () => {
   top: 0;
   bottom: 0;
   width: 3px;
-  background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+  background: linear-gradient(180deg, var(--info, #60a5fa) 0%, var(--info, #3b82f6) 100%);
   border-radius: 12px 0 0 12px;
 }
 
@@ -193,7 +193,7 @@ const handleViewDetail = () => {
 .title {
   font-size: 14px;
   font-weight: 600;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary, #e2e8f0);
   margin: 0 0 4px 0;
   display: -webkit-box;
   -webkit-line-clamp: 1;
@@ -204,12 +204,12 @@ const handleViewDetail = () => {
 
 .time {
   font-size: 12px;
-  color: rgb(100, 116, 139);
+  color: var(--text-dim, #64748b);
 }
 
 .content-preview {
   font-size: 13px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted, #94a3b8);
   line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -227,19 +227,19 @@ const handleViewDetail = () => {
 
 .action-btn {
   font-size: 12px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted, #94a3b8);
   padding: 4px 8px;
 }
 
 .action-btn:hover {
-  color: rgb(226, 232, 240);
+  color: var(--text-primary, #e2e8f0);
 }
 
 :deep(.n-button--primary-type) {
-  color: #818cf8 !important;
+  color: var(--accent-primary, #818cf8) !important;
 }
 
 :deep(.n-button--primary-type:hover) {
-  color: #a78bfa !important;
+  color: var(--accent-secondary, #a78bfa) !important;
 }
 </style>

@@ -743,10 +743,10 @@ watch(searchQuery, () => {
   position: relative;
   width: 450px;
   max-height: 640px;
-  background: linear-gradient(145deg, rgba(26, 26, 46, 0.98), rgba(22, 22, 38, 0.98));
+  background: var(--bg-base);
   border-radius: 16px;
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -760,9 +760,10 @@ watch(searchQuery, () => {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+    linear-gradient(var(--accent-glow) 1px, transparent 1px),
+    linear-gradient(90deg, var(--accent-glow) 1px, transparent 1px);
   background-size: 20px 20px;
+  opacity: 0.3;
   pointer-events: none;
 }
 
@@ -777,22 +778,22 @@ watch(searchQuery, () => {
 /* Header */
 .modal-header {
   padding: 16px 16px 12px;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .search-container {
   display: flex;
   align-items: center;
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 12px;
   padding: 0 12px;
   transition: all 0.2s;
 }
 
 .search-container:focus-within {
-  border-color: rgba(99, 102, 241, 0.5);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .search-icon-wrapper {
@@ -807,7 +808,7 @@ watch(searchQuery, () => {
 .search-icon {
   width: 16px;
   height: 16px;
-  color: rgba(148, 163, 184, 0.7);
+  color: var(--text-muted);
 }
 
 .search-input {
@@ -816,18 +817,18 @@ watch(searchQuery, () => {
   border: none;
   outline: none;
   font-size: 14px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   padding: 10px 0;
 }
 
 .search-input::placeholder {
-  color: rgba(148, 163, 184, 0.5);
+  color: var(--text-dim);
 }
 
 .search-hint span {
   font-size: 10px;
-  color: rgba(148, 163, 184, 0.5);
-  background: rgba(99, 102, 241, 0.1);
+  color: var(--text-dim);
+  background: var(--bg-overlay);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -845,24 +846,24 @@ watch(searchQuery, () => {
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--bg-overlay);
   border: 1px solid transparent;
   border-radius: 20px;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--text-muted);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .tag-btn:hover {
-  background: rgba(99, 102, 241, 0.2);
-  color: #e2e8f0;
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .tag-btn.active {
-  background: rgba(99, 102, 241, 0.3);
-  border-color: rgba(99, 102, 241, 0.5);
-  color: #e2e8f0;
+  background: var(--accent-glow);
+  border-color: var(--accent-primary);
+  color: var(--accent-secondary);
 }
 
 /* Body */
@@ -879,12 +880,16 @@ watch(searchQuery, () => {
 }
 
 .modal-body::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
 
 .modal-body::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* History sections */
@@ -898,7 +903,7 @@ watch(searchQuery, () => {
   gap: 6px;
   padding: 4px 8px;
   font-size: 11px;
-  color: rgba(148, 163, 184, 0.6);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -910,7 +915,7 @@ watch(searchQuery, () => {
   gap: 10px;
   padding: 10px 12px;
   margin: 4px 0;
-  background: rgba(99, 102, 241, 0.05);
+  background: var(--bg-overlay);
   border: 1px solid transparent;
   border-radius: 10px;
   cursor: pointer;
@@ -918,13 +923,13 @@ watch(searchQuery, () => {
 }
 
 .history-item:hover {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.2);
+  background: var(--bg-hover);
+  border-color: var(--border-default);
 }
 
 .history-item.selected {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: rgba(99, 102, 241, 0.4);
+  background: var(--accent-glow);
+  border-color: var(--accent-primary);
 }
 
 .item-icon {
@@ -933,7 +938,7 @@ watch(searchQuery, () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--accent-glow);
   border-radius: 8px;
   font-size: 14px;
   flex-shrink: 0;
@@ -948,7 +953,7 @@ watch(searchQuery, () => {
   height: 48px;
   border-radius: 6px;
   overflow: hidden;
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--bg-overlay);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -973,7 +978,7 @@ watch(searchQuery, () => {
 
 .item-preview {
   font-size: 13px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -982,7 +987,7 @@ watch(searchQuery, () => {
 
 .item-time {
   font-size: 11px;
-  color: rgba(148, 163, 184, 0.5);
+  color: var(--text-dim);
   margin-top: 2px;
 }
 
@@ -1008,8 +1013,8 @@ watch(searchQuery, () => {
   justify-content: space-between;
   align-items: center;
   padding: 10px 16px;
-  border-top: 1px solid rgba(99, 102, 241, 0.1);
-  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-overlay);
 }
 
 .footer-stats {
@@ -1025,11 +1030,11 @@ watch(searchQuery, () => {
 }
 
 .stat-label {
-  color: rgba(148, 163, 184, 0.5);
+  color: var(--text-dim);
 }
 
 .stat-value {
-  color: rgba(99, 102, 241, 0.9);
+  color: var(--accent-primary);
   font-weight: 600;
 }
 
@@ -1039,7 +1044,7 @@ watch(searchQuery, () => {
 }
 
 .footer-btn {
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--bg-overlay);
   border: 1px solid transparent;
   border-radius: 6px;
   padding: 6px 10px;
@@ -1049,13 +1054,13 @@ watch(searchQuery, () => {
 }
 
 .footer-btn:hover {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.3);
+  background: var(--bg-hover);
+  border-color: var(--border-default);
 }
 
 .footer-btn.danger:hover {
   background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: var(--error);
 }
 
 /* Empty & Loading */
@@ -1065,19 +1070,19 @@ watch(searchQuery, () => {
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
-  color: rgba(148, 163, 184, 0.5);
+  color: var(--text-dim);
   font-size: 13px;
 }
 
 /* Context Menu */
 .context-menu {
   position: fixed;
-  background: rgba(26, 26, 46, 0.98);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-active);
   border-radius: 10px;
   padding: 6px;
   min-width: 140px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
   z-index: 1000;
 }
 
@@ -1087,14 +1092,14 @@ watch(searchQuery, () => {
   gap: 8px;
   padding: 8px 12px;
   font-size: 13px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .context-item:hover {
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--accent-glow);
 }
 
 .context-item.danger:hover {
@@ -1113,28 +1118,28 @@ watch(searchQuery, () => {
   align-items: center;
   gap: 12px;
   padding: 16px;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .back-btn {
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--bg-overlay);
   border: none;
   border-radius: 8px;
   padding: 8px 12px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .back-btn:hover {
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--bg-hover);
 }
 
 .settings-title {
   font-size: 16px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .settings-body {
@@ -1150,7 +1155,7 @@ watch(searchQuery, () => {
 .section-title {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(99, 102, 241, 0.8);
+  color: var(--accent-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
@@ -1161,7 +1166,7 @@ watch(searchQuery, () => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 0;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.05);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .setting-item.column {
@@ -1172,20 +1177,20 @@ watch(searchQuery, () => {
 
 .setting-label {
   font-size: 13px;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .setting-hint {
   font-size: 11px;
-  color: rgba(148, 163, 184, 0.5);
+  color: var(--text-dim);
 }
 
 .setting-input {
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 6px;
   padding: 8px 12px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 13px;
   width: 80px;
   text-align: center;
@@ -1193,7 +1198,7 @@ watch(searchQuery, () => {
 
 .setting-input:focus {
   outline: none;
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: var(--accent-primary);
 }
 
 .path-input-wrapper {
@@ -1209,11 +1214,11 @@ watch(searchQuery, () => {
 }
 
 .browse-btn {
-  background: rgba(99, 102, 241, 0.2);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   padding: 8px 12px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
@@ -1221,35 +1226,36 @@ watch(searchQuery, () => {
 }
 
 .browse-btn:hover {
-  background: rgba(99, 102, 241, 0.3);
+  background: var(--accent-glow);
+  border-color: var(--accent-primary);
 }
 
 .shortcut-input {
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 6px;
   padding: 8px 16px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .shortcut-input:hover {
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: var(--accent-primary);
 }
 
 .shortcut-input .recording {
-  color: rgba(236, 72, 153, 0.8);
+  color: var(--error);
   animation: pulse 1s infinite;
 }
 
 .shortcut-display {
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 6px;
   padding: 8px 16px;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--text-muted);
   font-size: 13px;
 }
 
@@ -1279,7 +1285,7 @@ watch(searchQuery, () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(99, 102, 241, 0.2);
+  background-color: var(--bg-hover);
   transition: 0.3s;
   border-radius: 24px;
 }
@@ -1291,13 +1297,13 @@ watch(searchQuery, () => {
   width: 18px;
   left: 3px;
   bottom: 3px;
-  background-color: #e2e8f0;
+  background-color: var(--text-primary);
   transition: 0.3s;
   border-radius: 50%;
 }
 
 input:checked + .slider {
-  background-color: rgba(99, 102, 241, 0.6);
+  background-color: var(--accent-primary);
 }
 
 input:checked + .slider:before {
@@ -1316,24 +1322,24 @@ input:checked + .slider:before {
 }
 
 .confirm-dialog {
-  background: rgba(26, 26, 46, 0.98);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-active);
   border-radius: 12px;
   padding: 20px;
   min-width: 280px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
 }
 
 .confirm-title {
   font-size: 16px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .confirm-message {
   font-size: 13px;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--text-secondary);
   margin-bottom: 20px;
 }
 
@@ -1352,19 +1358,19 @@ input:checked + .slider:before {
 }
 
 .confirm-btn.cancel {
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  color: #e2e8f0;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
 }
 
 .confirm-btn.cancel:hover {
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--bg-hover);
 }
 
 .confirm-btn.danger {
   background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #ef4444;
+  border: 1px solid var(--error);
+  color: var(--error);
 }
 
 .confirm-btn.danger:hover {

@@ -233,7 +233,7 @@ function formatFullTime(timestamp: string): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(30, 41, 59, 0.3);
+  background: var(--bg-surface);
   border-radius: 12px;
   overflow: hidden;
   position: relative;
@@ -245,7 +245,7 @@ function formatFullTime(timestamp: string): string {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 .preview-image {
@@ -259,7 +259,7 @@ function formatFullTime(timestamp: string): string {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: rgb(100, 116, 139);
+  color: var(--text-dim);
 }
 
 .info-section {
@@ -279,27 +279,27 @@ function formatFullTime(timestamp: string): string {
 .info-label {
   font-size: 12px;
   font-weight: 600;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .info-value {
   font-size: 14px;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
   line-height: 1.5;
 }
 
 .app-value {
   font-weight: 600;
-  color: rgb(99, 102, 241);
+  color: var(--accent-primary);
 }
 
 .description-value {
   padding: 12px;
-  background: rgba(30, 41, 59, 0.5);
+  background: var(--bg-surface);
   border-radius: 8px;
-  border: 1px solid rgba(51, 65, 85, 0.4);
+  border: 1px solid var(--border-default);
 }
 
 .activity-badge {
@@ -375,9 +375,9 @@ function formatFullTime(timestamp: string): string {
 }
 
 :deep(.n-button--secondary-type) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
+  --n-border: 1px solid var(--border-default);
+  --n-border-hover: 1px solid var(--accent-primary);
   --n-color: transparent;
-  --n-color-hover: rgba(99, 102, 241, 0.1);
+  --n-color-hover: var(--accent-glow);
 }
 </style>

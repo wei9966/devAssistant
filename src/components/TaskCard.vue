@@ -43,7 +43,7 @@
         :show-indicator="false"
         :height="4"
         :border-radius="2"
-        :rail-color="'rgba(51, 65, 85, 0.5)'"
+        rail-color="var(--border-default)"
         :color="getProgressColor(task.progress || 0)"
       />
       <span class="progress-text">{{ task.progress }}%</span>
@@ -280,8 +280,8 @@ const getProgressColor = (progress: number) => {
 <style scoped>
 .task-card {
   margin-bottom: 0;
-  background: rgba(30, 41, 59, 0.4);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 14px !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
@@ -299,8 +299,8 @@ const getProgressColor = (progress: number) => {
 }
 
 .task-card:hover {
-  background: rgba(30, 41, 59, 0.8);
-  border-color: rgba(71, 85, 105, 0.6);
+  background: var(--bg-elevated);
+  border-color: var(--border-hover);
   box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
   transform: translateY(-2px);
 }
@@ -320,8 +320,8 @@ const getProgressColor = (progress: number) => {
 }
 
 .task-card.status-active {
-  border-left: 3px solid #6366f1;
-  background: rgba(30, 41, 59, 0.5);
+  border-left: 3px solid var(--accent-primary);
+  background: var(--bg-surface);
 }
 
 .task-card.status-done {
@@ -333,7 +333,7 @@ const getProgressColor = (progress: number) => {
 }
 
 .task-card.status-deferred {
-  border-left: 3px solid #f59e0b;
+  border-left: 3px solid var(--accent-secondary);
   opacity: 0.75;
 }
 
@@ -377,18 +377,18 @@ const getProgressColor = (progress: number) => {
 }
 
 .more-btn {
-  color: #94a3b8; /* slate-400 */
+  color: var(--text-secondary);
   transition: color 0.2s;
 }
 
 .more-btn:hover {
-  color: #e2e8f0; /* slate-200 */
+  color: var(--text-primary);
 }
 
 .task-title {
   font-size: 14px;
   font-weight: 500;
-  color: #e2e8f0;
+  color: var(--text-primary);
   line-height: 1.6;
   margin: 0 0 8px 0;
   flex-shrink: 0;
@@ -414,7 +414,7 @@ const getProgressColor = (progress: number) => {
 .progress-text {
   font-size: 11px;
   font-weight: 600;
-  color: #6366f1;
+  color: var(--accent-primary);
   min-width: 32px;
   text-align: right;
 }
@@ -455,9 +455,9 @@ const getProgressColor = (progress: number) => {
   border-radius: 4px;
   font-size: 10px;
   font-weight: 600;
-  background: rgba(100, 116, 139, 0.2);
-  color: #94a3b8;
-  border: 1px solid rgba(100, 116, 139, 0.4);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
   cursor: help;
 }
 
@@ -469,7 +469,7 @@ const getProgressColor = (progress: number) => {
   gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid rgba(51, 65, 85, 0.3);
+  border-top: 1px solid var(--border-default);
   flex-shrink: 0;
 }
 
@@ -503,7 +503,7 @@ const getProgressColor = (progress: number) => {
 
 .priority-label {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
   text-transform: uppercase;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -540,8 +540,8 @@ const getProgressColor = (progress: number) => {
 
 /* 主要按钮样式 */
 :deep(.primary-button) {
-  background-color: #6366f1;
-  border-color: #6366f1;
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
   color: #ffffff;
   box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2);
   transition: all 0.2s;

@@ -1,0 +1,225 @@
+/* ========================================
+   DevAssistant 主题变量系统
+   使用 CSS 自定义属性实现主题切换
+   ======================================== */
+
+/* 深色主题 (默认) - Catppuccin Mocha 赛博朋克风格 */
+/* 注意：:root 设置默认值，[data-theme] 设置具体主题 */
+:root {
+  /* 默认使用深色主题变量 */
+  /* 背景色 */
+  --bg-base: #020617;           /* slate-950 */
+  --bg-surface: #0f172a;        /* slate-900 */
+  --bg-elevated: #1e293b;       /* slate-800 */
+  --bg-overlay: rgba(15, 23, 42, 0.4);
+  --bg-hover: rgba(30, 41, 59, 0.6);
+  --bg-active: rgba(30, 41, 59, 0.8);
+
+  /* 侧边栏 */
+  --sidebar-bg: linear-gradient(180deg, #0f172a 0%, #020617 100%);
+  --sidebar-border: rgba(51, 65, 85, 0.5);
+
+  /* 卡片和面板 */
+  --card-bg: rgba(15, 23, 42, 0.4);
+  --card-border: rgba(51, 65, 85, 0.5);
+  --card-hover-bg: rgba(30, 41, 59, 1);
+  --card-hover-border: rgba(71, 85, 105, 1);
+
+  /* 文字颜色 */
+  --text-primary: #f1f5f9;      /* slate-100 */
+  --text-secondary: #cbd5e1;    /* slate-300 */
+  --text-muted: #94a3b8;        /* slate-400 */
+  --text-dim: #64748b;          /* slate-500 */
+
+  /* 品牌色 */
+  --brand-title: linear-gradient(135deg, #a78bfa 0%, #c084fc 100%);
+  --brand-subtitle: #64748b;
+
+  /* 强调色 */
+  --accent-primary: #6366f1;    /* indigo-500 */
+  --accent-primary-hover: #4f46e5;
+  --accent-secondary: #8b5cf6;  /* violet-500 */
+  --accent-glow: rgba(99, 102, 241, 0.3);
+
+  /* 状态色 */
+  --success: #10b981;           /* green-500 */
+  --warning: #f59e0b;           /* amber-500 */
+  --error: #ef4444;             /* red-500 */
+  --info: #3b82f6;              /* blue-500 */
+
+  /* 边框 */
+  --border-default: rgba(51, 65, 85, 0.5);
+  --border-hover: rgba(71, 85, 105, 0.7);
+  --border-active: rgba(99, 102, 241, 0.5);
+
+  /* 滚动条 */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(148, 163, 184, 0.2);
+  --scrollbar-thumb-hover: rgba(148, 163, 184, 0.3);
+
+  /* 输入框 */
+  --input-bg: rgba(15, 23, 42, 0.6);
+  --input-border: rgba(51, 65, 85, 0.5);
+  --input-focus-border: rgba(99, 102, 241, 0.5);
+
+  /* 按钮 */
+  --button-default-bg: rgba(30, 41, 59, 0.6);
+  --button-default-border: rgba(51, 65, 85, 0.5);
+  --button-default-text: #cbd5e1;
+
+  /* 进度条 */
+  --progress-bg: rgba(30, 41, 59, 0.5);
+  --progress-fill: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.2);
+}
+
+/* 深色主题 - 明确设置，确保优先级高于 :root */
+[data-theme="dark"] {
+  /* 背景色 */
+  --bg-base: #020617;           /* slate-950 */
+  --bg-surface: #0f172a;        /* slate-900 */
+  --bg-elevated: #1e293b;       /* slate-800 */
+  --bg-overlay: rgba(15, 23, 42, 0.4);
+  --bg-hover: rgba(30, 41, 59, 0.6);
+  --bg-active: rgba(30, 41, 59, 0.8);
+
+  /* 侧边栏 */
+  --sidebar-bg: linear-gradient(180deg, #0f172a 0%, #020617 100%);
+  --sidebar-border: rgba(51, 65, 85, 0.5);
+
+  /* 卡片和面板 */
+  --card-bg: rgba(15, 23, 42, 0.4);
+  --card-border: rgba(51, 65, 85, 0.5);
+  --card-hover-bg: rgba(30, 41, 59, 1);
+  --card-hover-border: rgba(71, 85, 105, 1);
+
+  /* 文字颜色 */
+  --text-primary: #f1f5f9;      /* slate-100 */
+  --text-secondary: #cbd5e1;    /* slate-300 */
+  --text-muted: #94a3b8;        /* slate-400 */
+  --text-dim: #64748b;          /* slate-500 */
+
+  /* 品牌色 */
+  --brand-title: linear-gradient(135deg, #a78bfa 0%, #c084fc 100%);
+  --brand-subtitle: #64748b;
+
+  /* 强调色 */
+  --accent-primary: #6366f1;    /* indigo-500 */
+  --accent-primary-hover: #4f46e5;
+  --accent-secondary: #8b5cf6;  /* violet-500 */
+  --accent-glow: rgba(99, 102, 241, 0.3);
+
+  /* 状态色 */
+  --success: #10b981;           /* green-500 */
+  --warning: #f59e0b;           /* amber-500 */
+  --error: #ef4444;             /* red-500 */
+  --info: #3b82f6;              /* blue-500 */
+
+  /* 边框 */
+  --border-default: rgba(51, 65, 85, 0.5);
+  --border-hover: rgba(71, 85, 105, 0.7);
+  --border-active: rgba(99, 102, 241, 0.5);
+
+  /* 滚动条 */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(148, 163, 184, 0.2);
+  --scrollbar-thumb-hover: rgba(148, 163, 184, 0.3);
+
+  /* 输入框 */
+  --input-bg: rgba(15, 23, 42, 0.6);
+  --input-border: rgba(51, 65, 85, 0.5);
+  --input-focus-border: rgba(99, 102, 241, 0.5);
+
+  /* 按钮 */
+  --button-default-bg: rgba(30, 41, 59, 0.6);
+  --button-default-border: rgba(51, 65, 85, 0.5);
+  --button-default-text: #cbd5e1;
+
+  /* 进度条 */
+  --progress-bg: rgba(30, 41, 59, 0.5);
+  --progress-fill: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.2);
+}
+
+/* 浅色主题 */
+[data-theme="light"] {
+  /* 背景色 */
+  --bg-base: #f8fafc;           /* slate-50 */
+  --bg-surface: #ffffff;        /* white */
+  --bg-elevated: #f1f5f9;       /* slate-100 */
+  --bg-overlay: rgba(241, 245, 249, 0.9);
+  --bg-hover: rgba(226, 232, 240, 0.6);
+  --bg-active: rgba(226, 232, 240, 0.8);
+
+  /* 侧边栏 */
+  --sidebar-bg: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+  --sidebar-border: rgba(203, 213, 225, 0.8);
+
+  /* 卡片和面板 */
+  --card-bg: #ffffff;
+  --card-border: rgba(203, 213, 225, 0.8);
+  --card-hover-bg: #f8fafc;
+  --card-hover-border: rgba(148, 163, 184, 0.8);
+
+  /* 文字颜色 */
+  --text-primary: #0f172a;      /* slate-900 */
+  --text-secondary: #334155;    /* slate-700 */
+  --text-muted: #64748b;        /* slate-500 */
+  --text-dim: #94a3b8;          /* slate-400 */
+
+  /* 品牌色 */
+  --brand-title: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --brand-subtitle: #64748b;
+
+  /* 强调色 */
+  --accent-primary: #6366f1;    /* indigo-500 */
+  --accent-primary-hover: #4f46e5;
+  --accent-secondary: #8b5cf6;  /* violet-500 */
+  --accent-glow: rgba(99, 102, 241, 0.15);
+
+  /* 状态色 */
+  --success: #10b981;           /* green-500 */
+  --warning: #f59e0b;           /* amber-500 */
+  --error: #ef4444;             /* red-500 */
+  --info: #3b82f6;              /* blue-500 */
+
+  /* 边框 */
+  --border-default: rgba(203, 213, 225, 0.8);
+  --border-hover: rgba(148, 163, 184, 0.8);
+  --border-active: rgba(99, 102, 241, 0.5);
+
+  /* 滚动条 */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(148, 163, 184, 0.4);
+  --scrollbar-thumb-hover: rgba(148, 163, 184, 0.6);
+
+  /* 输入框 */
+  --input-bg: #ffffff;
+  --input-border: rgba(203, 213, 225, 0.8);
+  --input-focus-border: rgba(99, 102, 241, 0.5);
+
+  /* 按钮 */
+  --button-default-bg: #ffffff;
+  --button-default-border: rgba(203, 213, 225, 0.8);
+  --button-default-text: #334155;
+
+  /* 进度条 */
+  --progress-bg: rgba(226, 232, 240, 0.8);
+  --progress-fill: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.1);
+}

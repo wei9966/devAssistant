@@ -362,7 +362,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .header-left {
@@ -378,7 +378,7 @@ onMounted(() => {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
 }
 
 .header-actions {
@@ -396,7 +396,7 @@ onMounted(() => {
   justify-content: center;
   gap: 12px;
   padding: 40px 20px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 .prediction-items {
@@ -410,20 +410,20 @@ onMounted(() => {
   align-items: flex-start;
   gap: 12px;
   padding: 16px;
-  background: rgba(30, 41, 59, 0.4);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   transition: all 0.2s;
 }
 
 .prediction-card:hover {
-  background: rgba(30, 41, 59, 0.6);
-  border-color: rgba(71, 85, 105, 0.6);
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
 }
 
 .prediction-card.selected {
-  border-color: rgba(99, 102, 241, 0.5);
-  background: rgba(99, 102, 241, 0.1);
+  border-color: var(--accent-glow);
+  background: var(--accent-glow);
 }
 
 .card-checkbox {
@@ -450,14 +450,14 @@ onMounted(() => {
 
 .prediction-time {
   font-size: 12px;
-  color: rgb(100, 116, 139);
+  color: var(--text-dim);
 }
 
 .prediction-title {
   margin: 0 0 8px 0;
   font-size: 14px;
   font-weight: 500;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
   line-height: 1.5;
 }
 
@@ -467,7 +467,7 @@ onMounted(() => {
   gap: 6px;
   margin: 0;
   font-size: 12px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   line-height: 1.5;
 }
 

@@ -4,6 +4,11 @@ import ClipboardHistoryApp from './ClipboardHistoryApp.vue'
 
 // 样式导入
 import '../styles/index.css'
+// 主题系统
+import { initThemeSync } from '../themes'
+
+// 初始化主题
+initThemeSync()
 
 // 全局错误捕获 - 调试用
 window.onerror = (msg, url, line, col, error) => {

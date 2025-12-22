@@ -26,22 +26,22 @@ import VlmSettings from './VlmSettings.vue';
 :deep(.n-tabs-nav) {
   position: sticky;
   top: 100px;
-  background: rgb(2, 6, 23);
+  background: var(--bg-base);
   z-index: 90;
   padding-bottom: 8px;
 }
 
 :deep(.n-tabs-nav-scroll-content) {
-  border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+  border-bottom: 1px solid var(--border-default);
 }
 
 :deep(.n-tabs-tab) {
-  --n-tab-text-color: rgb(148, 163, 184);
-  --n-tab-text-color-active: rgb(99, 102, 241);
-  --n-tab-text-color-hover: rgb(203, 213, 225);
+  --n-tab-text-color: var(--text-muted);
+  --n-tab-text-color-active: var(--accent-primary);
+  --n-tab-text-color-hover: var(--text-secondary);
 }
 
 :deep(.n-tabs-bar) {
-  --n-bar-color: rgb(99, 102, 241);
+  --n-bar-color: var(--accent-primary);
 }
 </style>

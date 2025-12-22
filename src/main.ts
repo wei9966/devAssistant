@@ -4,7 +4,8 @@ import { pinia } from './store'
 import { router } from './router'
 import { listen } from '@tauri-apps/api/event'
 
-// 样式导入
+// 样式导入 - 主题变量必须先加载
+import './themes/variables.css'
 import './styles/index.css'
 import './styles/global.css'
 import './assets/styles/main.css'

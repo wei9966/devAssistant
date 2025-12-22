@@ -273,8 +273,8 @@ const handleMouseDown = (e: MouseEvent) => {
 <style scoped>
 .app-card {
   position: relative;
-  background: rgba(30, 41, 59, 0.4);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 16px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
@@ -292,14 +292,14 @@ const handleMouseDown = (e: MouseEvent) => {
 }
 
 .app-card:hover:not(.dragging) {
-  background: rgba(30, 41, 59, 0.8);
-  border-color: rgba(99, 102, 241, 0.6);
-  box-shadow: 0 10px 30px -5px rgba(99, 102, 241, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  background: var(--card-hover-bg);
+  border-color: var(--border-active);
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
   transform: translateY(-4px);
 }
 
 .app-card.pinned {
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid var(--accent-primary);
 }
 
 .app-card.hidden {
@@ -314,7 +314,7 @@ const handleMouseDown = (e: MouseEvent) => {
 .hover-glow {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(99, 102, 241, 0.1) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, var(--accent-glow) 50%, transparent 100%);
   transform: translateX(-100%);
   transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
@@ -346,13 +346,13 @@ const handleMouseDown = (e: MouseEvent) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--accent-glow);
   border-radius: 12px;
   transition: all 0.3s;
 }
 
 .app-card:hover .app-icon {
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--bg-hover);
   transform: scale(1.1);
 }
 
@@ -363,7 +363,7 @@ const handleMouseDown = (e: MouseEvent) => {
 }
 
 .icon-placeholder {
-  color: #6366f1;
+  color: var(--accent-primary);
 }
 
 .pin-badge {
@@ -372,20 +372,20 @@ const handleMouseDown = (e: MouseEvent) => {
   right: -4px;
   width: 18px;
   height: 18px;
-  background: #6366f1;
+  background: var(--accent-primary);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-sm);
 }
 
 /* 应用名称 */
 .app-name {
   font-size: 14px;
   font-weight: 500;
-  color: #e2e8f0;
+  color: var(--text-primary);
   text-align: center;
   line-height: 1.4;
   margin: 0;
@@ -400,7 +400,7 @@ const handleMouseDown = (e: MouseEvent) => {
 /* 启动次数 */
 .app-stats {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -408,9 +408,9 @@ const handleMouseDown = (e: MouseEvent) => {
 
 .launch-count {
   padding: 2px 8px;
-  background: rgba(99, 102, 241, 0.15);
+  background: var(--accent-glow);
   border-radius: 10px;
-  color: #a5b4fc;
+  color: var(--accent-secondary);
 }
 
 /* 来源标签样式 */
@@ -423,22 +423,22 @@ const handleMouseDown = (e: MouseEvent) => {
 
 .source-start_menu {
   background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
+  color: var(--success);
 }
 
 .source-registry {
   background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
+  color: var(--info);
 }
 
 .source-shell_apps {
   background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  color: var(--warning);
 }
 
 .source-uwp {
   background: rgba(139, 92, 246, 0.15);
-  color: #a78bfa;
+  color: var(--accent-secondary);
 }
 
 /* 操作按钮 */
@@ -459,8 +459,8 @@ const handleMouseDown = (e: MouseEvent) => {
 }
 
 .action-btn {
-  color: #94a3b8;
-  background: rgba(15, 23, 42, 0.8);
+  color: var(--text-muted);
+  background: var(--bg-overlay);
   backdrop-filter: blur(8px);
   border-radius: 8px;
   padding: 6px;
@@ -468,16 +468,16 @@ const handleMouseDown = (e: MouseEvent) => {
 }
 
 .action-btn:hover {
-  color: #e2e8f0;
-  background: rgba(51, 65, 85, 0.9);
+  color: var(--text-primary);
+  background: var(--bg-elevated);
 }
 
 .pin-btn.active {
-  color: #6366f1;
+  color: var(--accent-primary);
 }
 
 .pin-btn.active:hover {
-  color: #818cf8;
+  color: var(--accent-secondary);
 }
 
 /* 批量选择模式样式 */
@@ -486,17 +486,17 @@ const handleMouseDown = (e: MouseEvent) => {
 }
 
 .app-card.batch-mode:hover {
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: var(--border-hover);
 }
 
 .app-card.selected {
-  border-color: #6366f1;
-  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent-primary);
+  background: var(--accent-glow);
 }
 
 .app-card.selected:hover {
-  border-color: #818cf8;
-  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--accent-secondary);
+  background: var(--bg-hover);
 }
 
 .select-checkbox {
@@ -509,17 +509,17 @@ const handleMouseDown = (e: MouseEvent) => {
   justify-content: center;
   width: 24px;
   height: 24px;
-  background: rgba(15, 23, 42, 0.9);
+  background: var(--bg-overlay);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .select-checkbox:hover {
-  background: rgba(99, 102, 241, 0.3);
+  background: var(--accent-glow);
 }
 
 .app-card.selected .select-checkbox {
-  background: rgba(99, 102, 241, 0.4);
+  background: var(--accent-glow);
 }
 </style>

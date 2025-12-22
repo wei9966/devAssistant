@@ -141,14 +141,14 @@ const clearAll = () => {
 }
 
 .manage-tags-btn {
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 12px;
   padding: 4px 8px;
   transition: color 0.2s;
 }
 
 .manage-tags-btn:hover {
-  color: #6366f1;
+  color: var(--accent-primary);
 }
 
 /* 标签列表 */
@@ -213,7 +213,7 @@ const clearAll = () => {
   flex-direction: column;
   gap: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(51, 65, 85, 0.5);
+  border-top: 1px solid var(--border-default);
 }
 
 .selected-tags-header {
@@ -224,7 +224,7 @@ const clearAll = () => {
 
 .selected-count {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-dim);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -269,7 +269,7 @@ const clearAll = () => {
 }
 
 .empty-state:deep(.n-empty__description) {
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 12px;
 }
 </style>

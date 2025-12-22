@@ -238,7 +238,7 @@ onMounted(() => {
 .input-label {
   font-size: 13px;
   font-weight: 500;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -250,31 +250,31 @@ onMounted(() => {
 
 .port-input {
   flex: 1;
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--input-bg);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 10px 14px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 14px;
   transition: all 0.2s;
 }
 
 .port-input:focus {
   outline: none;
-  border-color: rgba(99, 102, 241, 0.5);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .port-input::placeholder {
-  color: rgba(148, 163, 184, 0.5);
+  color: var(--text-dim);
 }
 
 .check-btn {
-  background: rgba(99, 102, 241, 0.2);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: var(--accent-glow);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);
   border-radius: 8px;
   padding: 10px 24px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -286,8 +286,8 @@ onMounted(() => {
 }
 
 .check-btn:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.3);
-  border-color: rgba(99, 102, 241, 0.5);
+  background: color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary) 50%, transparent);
 }
 
 .check-btn:disabled {
@@ -321,10 +321,10 @@ onMounted(() => {
   padding: 8px 0;
   font-size: 13px;
   font-weight: 600;
-  color: rgba(99, 102, 241, 0.8);
+  color: var(--accent-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+  border-bottom: 1px solid var(--border-default);
   margin-bottom: 12px;
 }
 
@@ -336,7 +336,7 @@ onMounted(() => {
   flex: 1;
   overflow: auto;
   border-radius: 8px;
-  border: 1px solid rgba(99, 102, 241, 0.1);
+  border: 1px solid var(--border-default);
   min-height: 0;
 }
 
@@ -347,29 +347,29 @@ onMounted(() => {
 }
 
 .result-table thead {
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--bg-surface);
 }
 
 .result-table th {
   padding: 10px 12px;
   text-align: left;
   font-weight: 600;
-  color: rgba(148, 163, 184, 0.8);
-  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .result-table tbody tr {
-  border-bottom: 1px solid rgba(99, 102, 241, 0.05);
+  border-bottom: 1px solid var(--border-default);
   transition: background 0.15s;
 }
 
 .result-table tbody tr:hover {
-  background: rgba(99, 102, 241, 0.05);
+  background: var(--bg-hover);
 }
 
 .result-table td {
   padding: 10px 12px;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .process-name {
@@ -379,7 +379,7 @@ onMounted(() => {
 .address {
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 12px;
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--text-secondary);
 }
 
 .status-badge {
@@ -393,35 +393,35 @@ onMounted(() => {
 }
 
 .status-listening {
-  background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
 }
 
 .status-established {
-  background: rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: color-mix(in srgb, var(--info) 20%, transparent);
+  color: var(--info);
+  border: 1px solid color-mix(in srgb, var(--info) 30%, transparent);
 }
 
 .status-time-wait {
-  background: rgba(234, 179, 8, 0.2);
-  color: #eab308;
-  border: 1px solid rgba(234, 179, 8, 0.3);
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  color: var(--warning);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
 }
 
 .status-other {
-  background: rgba(148, 163, 184, 0.2);
-  color: #94a3b8;
-  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
 }
 
 .kill-btn {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error) 20%, transparent);
   border-radius: 6px;
   padding: 5px 10px;
-  color: #ef4444;
+  color: var(--error);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
@@ -431,8 +431,8 @@ onMounted(() => {
 }
 
 .kill-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
+  background: color-mix(in srgb, var(--error) 20%, transparent);
+  border-color: color-mix(in srgb, var(--error) 40%, transparent);
 }
 
 /* Empty & Loading */
@@ -443,7 +443,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: rgba(148, 163, 184, 0.6);
+  color: var(--text-muted);
   font-size: 14px;
   gap: 12px;
 }
@@ -456,7 +456,7 @@ onMounted(() => {
 .confirm-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--modal-backdrop, rgba(0, 0, 0, 0.5));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -464,8 +464,8 @@ onMounted(() => {
 }
 
 .confirm-dialog {
-  background: rgba(26, 26, 46, 0.98);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
   border-radius: 12px;
   padding: 24px;
   min-width: 360px;
@@ -475,13 +475,13 @@ onMounted(() => {
 .confirm-title {
   font-size: 18px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 12px;
 }
 
 .confirm-message {
   font-size: 14px;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--text-secondary);
   margin-bottom: 20px;
   line-height: 1.6;
 }
@@ -489,7 +489,7 @@ onMounted(() => {
 .confirm-details {
   margin: 12px 0;
   padding: 12px;
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--bg-surface);
   border-radius: 6px;
   font-size: 13px;
   display: flex;
@@ -498,12 +498,12 @@ onMounted(() => {
 }
 
 .confirm-details strong {
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .confirm-warning {
   margin-top: 12px;
-  color: rgba(234, 179, 8, 0.9);
+  color: var(--warning);
   font-size: 12px;
 }
 
@@ -523,22 +523,22 @@ onMounted(() => {
 }
 
 .confirm-btn.cancel {
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  color: #e2e8f0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
 }
 
 .confirm-btn.cancel:hover {
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--bg-hover);
 }
 
 .confirm-btn.danger {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #ef4444;
+  background: color-mix(in srgb, var(--error) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error) 30%, transparent);
+  color: var(--error);
 }
 
 .confirm-btn.danger:hover {
-  background: rgba(239, 68, 68, 0.3);
+  background: color-mix(in srgb, var(--error) 30%, transparent);
 }
 </style>

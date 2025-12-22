@@ -146,7 +146,7 @@
       <template #pinned>
         <div v-if="pinnedApps.length > 0" class="apps-section">
           <div class="section-header">
-            <n-icon size="16" color="#6366f1"><Pin /></n-icon>
+            <n-icon size="16" :color="'var(--accent-primary)'"><Pin /></n-icon>
             <span>置顶应用</span>
           </div>
           <div :class="['apps-grid', viewMode]">
@@ -172,7 +172,7 @@
       <!-- 所有应用区域标题 -->
       <template #header>
         <div class="section-header">
-          <n-icon size="16" color="#94a3b8"><AppsOutline /></n-icon>
+          <n-icon size="16" :color="'var(--text-secondary)'"><AppsOutline /></n-icon>
           <span>{{ selectedCategory === 'all' ? '所有应用' : currentCategoryName }}</span>
         </div>
       </template>
@@ -202,7 +202,7 @@
           class="empty-state"
         >
           <template #icon>
-            <n-icon size="64" color="#64748b"><AppsOutline /></n-icon>
+            <n-icon size="64" :color="'var(--text-muted)'"><AppsOutline /></n-icon>
           </template>
         </n-empty>
       </template>
@@ -1336,27 +1336,27 @@ const handleCancelCategoryManager = () => {
 .page-title {
   font-size: 24px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin: 0;
 }
 
 /* 主要按钮样式 */
 :deep(.primary-button) {
-  background-color: #6366f1;
-  border-color: #6366f1;
-  color: #ffffff;
-  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2);
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+  box-shadow: 0 10px 15px -3px var(--shadow-color, rgba(99, 102, 241, 0.2));
   transition: all 0.2s;
 }
 
 :deep(.primary-button:hover) {
-  background-color: #4f46e5;
-  border-color: #4f46e5;
+  background-color: var(--accent-primary-hover, #4f46e5);
+  border-color: var(--accent-primary-hover, #4f46e5);
 }
 
 :deep(.primary-button:active) {
-  background-color: #4338ca;
-  border-color: #4338ca;
+  background-color: var(--accent-primary-active, #4338ca);
+  border-color: var(--accent-primary-active, #4338ca);
 }
 
 /* Toolbar */
@@ -1375,7 +1375,7 @@ const handleCancelCategoryManager = () => {
 
 .app-count {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .toolbar-right {
@@ -1401,7 +1401,7 @@ const handleCancelCategoryManager = () => {
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -1447,18 +1447,18 @@ const handleCancelCategoryManager = () => {
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(30, 41, 59, 0.3);
+  background: var(--scrollbar-track, rgba(30, 41, 59, 0.3));
   border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
+  background: var(--scrollbar-thumb, rgba(99, 102, 241, 0.3));
   border-radius: 4px;
   transition: background 0.2s;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.5);
+  background: var(--scrollbar-thumb-hover, rgba(99, 102, 241, 0.5));
 }
 
 /* 拖拽状态样式 */
@@ -1470,20 +1470,20 @@ const handleCancelCategoryManager = () => {
 .filter-section.drop-zone-active {
   padding: 8px;
   margin: -8px;
-  background: rgba(99, 102, 241, 0.05);
+  background: var(--drop-zone-bg, rgba(99, 102, 241, 0.05));
   border-radius: 16px;
-  border: 2px dashed rgba(99, 102, 241, 0.3);
+  border: 2px dashed var(--drop-zone-border, rgba(99, 102, 241, 0.3));
   animation: dropZonePulse 1.5s ease-in-out infinite;
 }
 
 @keyframes dropZonePulse {
   0%, 100% {
-    border-color: rgba(99, 102, 241, 0.3);
-    background: rgba(99, 102, 241, 0.05);
+    border-color: var(--drop-zone-border, rgba(99, 102, 241, 0.3));
+    background: var(--drop-zone-bg, rgba(99, 102, 241, 0.05));
   }
   50% {
-    border-color: rgba(99, 102, 241, 0.6);
-    background: rgba(99, 102, 241, 0.1);
+    border-color: var(--drop-zone-border-active, rgba(99, 102, 241, 0.6));
+    background: var(--drop-zone-bg-active, rgba(99, 102, 241, 0.1));
   }
 }
 

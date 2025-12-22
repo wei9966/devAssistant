@@ -308,7 +308,7 @@ watch(() => props.show, (newVal) => {
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #cbd5e1;
+  color: var(--text-primary);
   margin: 0 0 16px 0;
   display: flex;
   align-items: center;
@@ -317,21 +317,21 @@ watch(() => props.show, (newVal) => {
 
 .tag-count {
   font-size: 11px;
-  color: #64748b;
-  background: rgba(30, 41, 59, 0.8);
+  color: var(--text-dim);
+  background: var(--bg-overlay);
   padding: 3px 10px;
   border-radius: 9999px;
   font-weight: 600;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--border-default);
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
 /* 创建区域 */
 .create-section {
   padding: 20px;
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--bg-surface);
   border-radius: 12px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--border-default);
 }
 
 .color-picker-wrapper {
@@ -400,18 +400,18 @@ watch(() => props.show, (newVal) => {
 }
 
 .tags-list::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
   border-radius: 3px;
 }
 
 .tags-list::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.5);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
   transition: background 0.2s;
 }
 
 .tags-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 0.7);
+  background: var(--scrollbar-thumb-hover);
 }
 
 .tag-item {
@@ -425,7 +425,7 @@ watch(() => props.show, (newVal) => {
 }
 
 .tag-item:hover {
-  background: rgba(30, 41, 59, 0.3) !important;
+  background: var(--bg-hover) !important;
   transform: translateX(4px);
 }
 
@@ -466,7 +466,7 @@ watch(() => props.show, (newVal) => {
 }
 
 .empty-state:deep(.n-empty__description) {
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 13px;
 }
 </style>

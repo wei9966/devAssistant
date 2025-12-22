@@ -774,13 +774,13 @@ const getProgressColor = (progress: number) => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 /* 任务头部 */
 .task-header-section {
   padding-bottom: 16px;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -929,7 +929,7 @@ const getProgressColor = (progress: number) => {
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   letter-spacing: -0.01em;
 }
 
@@ -941,7 +941,7 @@ const getProgressColor = (progress: number) => {
 .markdown-content {
   font-size: 14px;
   line-height: 1.7;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   word-break: break-word;
 }
 
@@ -951,7 +951,7 @@ const getProgressColor = (progress: number) => {
 .markdown-content :deep(h4),
 .markdown-content :deep(h5),
 .markdown-content :deep(h6) {
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-weight: 600;
   margin-top: 1em;
   margin-bottom: 0.5em;
@@ -960,7 +960,7 @@ const getProgressColor = (progress: number) => {
 
 .markdown-content :deep(h1) {
   font-size: 1.5em;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  border-bottom: 1px solid var(--border-default);
   padding-bottom: 0.3em;
 }
 
@@ -994,7 +994,7 @@ const getProgressColor = (progress: number) => {
 }
 
 .markdown-content :deep(code) {
-  background: rgba(51, 65, 85, 0.5);
+  background: var(--bg-elevated);
   color: #fbbf24;
   padding: 0.15em 0.4em;
   border-radius: 4px;
@@ -1003,8 +1003,8 @@ const getProgressColor = (progress: number) => {
 }
 
 .markdown-content :deep(pre) {
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 0.8em;
   overflow-x: auto;
@@ -1013,41 +1013,41 @@ const getProgressColor = (progress: number) => {
 
 .markdown-content :deep(pre code) {
   background: transparent;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   padding: 0;
 }
 
 .markdown-content :deep(blockquote) {
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid var(--accent-primary);
   margin: 0.8em 0;
   padding-left: 1em;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-style: italic;
 }
 
 .markdown-content :deep(a) {
-  color: #6366f1;
+  color: var(--accent-primary);
   text-decoration: none;
   transition: color 0.2s;
 }
 
 .markdown-content :deep(a:hover) {
-  color: #818cf8;
+  color: var(--accent-secondary);
   text-decoration: underline;
 }
 
 .markdown-content :deep(strong) {
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .markdown-content :deep(em) {
-  color: #cbd5e1;
+  color: var(--text-secondary);
 }
 
 .markdown-content :deep(hr) {
   border: none;
-  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  border-top: 1px solid var(--border-default);
   margin: 1em 0;
 }
 
@@ -1059,27 +1059,27 @@ const getProgressColor = (progress: number) => {
 
 .markdown-content :deep(th),
 .markdown-content :deep(td) {
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid var(--border-default);
   padding: 0.5em 0.8em;
   text-align: left;
 }
 
 .markdown-content :deep(th) {
-  background: rgba(51, 65, 85, 0.3);
+  background: var(--bg-elevated);
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .markdown-content :deep(tr:nth-child(even)) {
-  background: rgba(51, 65, 85, 0.1);
+  background: var(--bg-surface);
 }
 
 /* 备注区块特殊样式 */
 .notes-content {
   padding: 12px;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--bg-surface);
   border-radius: 8px;
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid var(--accent-primary);
 }
 
 .notes-content :deep(p:first-child) {
@@ -1106,7 +1106,7 @@ const getProgressColor = (progress: number) => {
 
 .info-label {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-dim);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1114,16 +1114,16 @@ const getProgressColor = (progress: number) => {
 
 .info-value {
   font-size: 14px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .monospace {
   font-family: 'Consolas', 'Monaco', monospace;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--bg-surface);
   padding: 4px 8px;
   border-radius: 4px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--border-default);
 }
 
 /* 时间轴 */
@@ -1148,15 +1148,15 @@ const getProgressColor = (progress: number) => {
   top: 16px;
   width: 1px;
   height: calc(100% + 16px);
-  background: rgba(51, 65, 85, 0.5);
+  background: var(--border-default);
 }
 
 .timeline-dot {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #64748b;
-  border: 2px solid rgba(15, 23, 42, 1);
+  background: var(--text-dim);
+  border: 2px solid var(--bg-base);
   flex-shrink: 0;
   margin-top: 4px;
   position: relative;
@@ -1187,19 +1187,19 @@ const getProgressColor = (progress: number) => {
 
 .timeline-label {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-dim);
   font-weight: 500;
 }
 
 .timeline-value {
   font-size: 14px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
 .timeline-relative {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -1207,22 +1207,22 @@ const getProgressColor = (progress: number) => {
 .notes-text {
   font-size: 13px;
   line-height: 1.7;
-  color: #94a3b8;
+  color: var(--text-muted);
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
   font-style: italic;
   padding: 12px;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--bg-surface);
   border-radius: 8px;
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid var(--accent-primary);
 }
 
 /* 日期提示 */
 .date-hint {
   margin-top: 8px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-dim);
   line-height: 1.5;
 }
 
@@ -1241,12 +1241,12 @@ const getProgressColor = (progress: number) => {
   text-align: center;
   font-size: 24px;
   font-weight: 600;
-  color: #6366f1;
+  color: var(--accent-primary);
 }
 
 .progress-edit-hint {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-dim);
   text-align: center;
   margin-top: -8px;
 }
@@ -1263,10 +1263,10 @@ const getProgressColor = (progress: number) => {
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--bg-surface);
   border-radius: 8px;
   margin-bottom: 16px;
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  border: 1px solid var(--border-hover);
 }
 
 .milestone-form-footer {
@@ -1288,18 +1288,18 @@ const getProgressColor = (progress: number) => {
   justify-content: space-between;
   align-items: center;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .milestone-progress-value {
   font-size: 18px;
   font-weight: 600;
-  color: #6366f1;
+  color: var(--accent-primary);
 }
 
 .milestone-progress-hint {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-dim);
   margin-top: -4px;
 }
 
@@ -1345,7 +1345,7 @@ const getProgressColor = (progress: number) => {
 
 .milestone-desc {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-muted);
   margin-top: 4px;
 }
 

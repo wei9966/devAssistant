@@ -43,8 +43,8 @@ body {
     'Noto Color Emoji';
   font-size: 14px;
   line-height: 1.5715;
-  color: var(--text-color);
-  background-color: var(--bg-color);
+  color: var(--text-primary, var(--text-color));
+  background-color: var(--bg-base, var(--bg-color));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -62,17 +62,17 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--scrollbar-track, #f1f1f1);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: var(--scrollbar-thumb, #c1c1c1);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: var(--scrollbar-thumb-hover, #a8a8a8);
 }
 
 /* 通用工具类 */
@@ -445,30 +445,5 @@ body {
   color: #cf1322;
 }
 
-/* 深色主题支持（预留） */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text-color: #e8e8e8;
-    --text-secondary: #b8b8b8;
-    --text-tertiary: #8c8c8c;
-    --border-color: #434343;
-    --bg-color: #141414;
-    --bg-white: #1f1f1f;
-  }
-
-  .code-block {
-    background: #262626;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: #262626;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: #434343;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #595959;
-  }
-}
+/* 深色主题支持已通过 themes/variables.css 实现
+   使用 data-theme="dark" 或 data-theme="light" 属性控制 */

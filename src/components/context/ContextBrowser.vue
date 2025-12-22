@@ -374,8 +374,8 @@ function getActivityColor(activity: string): 'success' | 'info' | 'warning' | 'e
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
 }
 
@@ -391,8 +391,8 @@ function getActivityColor(activity: string): 'success' | 'info' | 'warning' | 'e
   align-items: center;
   gap: 8px;
   padding: 20px;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   text-align: center;
 }
@@ -403,26 +403,26 @@ function getActivityColor(activity: string): 'success' | 'info' | 'warning' | 'e
   justify-content: center;
   width: 48px;
   height: 48px;
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--accent-glow);
   border-radius: 12px;
-  color: rgb(99, 102, 241);
+  color: var(--accent-primary);
 }
 
 .stat-value {
   font-size: 24px;
   font-weight: 600;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
 }
 
 .stat-label {
   font-size: 12px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 .chart-card {
   padding: 20px;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
 }
 
@@ -430,7 +430,7 @@ function getActivityColor(activity: string): 'success' | 'info' | 'warning' | 'e
   margin: 0 0 16px 0;
   font-size: 14px;
   font-weight: 600;
-  color: rgb(203, 213, 225);
+  color: var(--text-secondary);
 }
 
 .distribution-list {
@@ -446,26 +446,26 @@ function getActivityColor(activity: string): 'success' | 'info' | 'warning' | 'e
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: rgba(30, 41, 59, 0.5);
+  background: var(--bg-overlay);
   border-radius: 8px;
 }
 
 .app-name,
 .activity-name {
   font-size: 13px;
-  color: rgb(203, 213, 225);
+  color: var(--text-secondary);
 }
 
 .app-count,
 .activity-count {
   font-size: 13px;
   font-weight: 600;
-  color: rgb(99, 102, 241);
+  color: var(--accent-primary);
 }
 
 .timeline-section {
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   padding: 24px;
 }
@@ -481,7 +481,7 @@ function getActivityColor(activity: string): 'success' | 'info' | 'warning' | 'e
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: rgb(203, 213, 225);
+  color: var(--text-secondary);
 }
 
 .loading-state {
@@ -490,7 +490,7 @@ function getActivityColor(activity: string): 'success' | 'info' | 'warning' | 'e
   justify-content: center;
   gap: 12px;
   padding: 32px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 .context-item {
@@ -498,9 +498,9 @@ function getActivityColor(activity: string): 'success' | 'info' | 'warning' | 'e
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  background: rgba(30, 41, 59, 0.3);
+  background: var(--bg-overlay);
   border-radius: 8px;
-  border: 1px solid rgba(51, 65, 85, 0.4);
+  border: 1px solid var(--border-default);
 }
 
 .context-header {
@@ -558,32 +558,32 @@ function getActivityColor(activity: string): 'success' | 'info' | 'warning' | 'e
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 11px;
-  background: rgba(99, 102, 241, 0.1);
-  color: rgb(99, 102, 241);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--accent-glow);
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-glow);
 }
 
 .context-description {
   font-size: 13px;
-  color: rgb(203, 213, 225);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
 .context-meta {
   font-size: 12px;
-  color: rgb(100, 116, 139);
+  color: var(--text-dim);
 }
 
 .context-content {
   font-size: 12px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   padding: 8px;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--bg-surface);
   border-radius: 6px;
 }
 
 .context-content strong {
-  color: rgb(203, 213, 225);
+  color: var(--text-secondary);
 }
 
 .summary-content {
@@ -596,19 +596,21 @@ function getActivityColor(activity: string): 'success' | 'info' | 'warning' | 'e
 }
 
 .distribution-list::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
 
 .distribution-list::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.5);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
 /* Naive UI 样式覆盖 */
 :deep(.n-date-picker) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
-  --n-border-focus: 1px solid rgb(99, 102, 241);
+  --n-border: 1px solid var(--input-border);
+  --n-border-hover: 1px solid var(--accent-primary);
+  --n-border-focus: 1px solid var(--accent-primary);
+  --n-color: var(--input-bg);
+  --n-text-color: var(--text-primary);
 }
 
 :deep(.n-timeline) {
@@ -616,9 +618,9 @@ function getActivityColor(activity: string): 'success' | 'info' | 'warning' | 'e
 }
 
 :deep(.n-button--primary-type) {
-  --n-color: rgb(99, 102, 241);
-  --n-color-hover: rgb(79, 70, 229);
-  --n-text-color: rgb(255, 255, 255);
+  --n-color: var(--accent-primary);
+  --n-color-hover: var(--accent-secondary);
+  --n-text-color: white;
   box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2);
 }
 </style>

@@ -124,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, h, onMounted, onUnmounted } from 'vue'
+import { ref, shallowRef, h, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { MenuOption } from 'naive-ui'
 import {
@@ -134,7 +134,8 @@ import {
   NNotificationProvider,
   NDialogProvider,
   NMenu,
-  darkTheme
+  darkTheme,
+  type GlobalTheme
 } from 'naive-ui'
 import {
   CheckboxOutline as TaskIcon,
@@ -161,6 +162,27 @@ import {
   type UpdateInfo
 } from '@/services/updater'
 import { relaunch } from '@tauri-apps/plugin-process'
+// 主题系统
+import { useTheme } from '@/themes'
+import { useSettingsStore } from '@/stores/settingsStore'
+
+// 初始化主题系统
+const { currentTheme } = useTheme()
+
+// 获取全局设置 store
+const settingsStore = useSettingsStore()
+
+// 从后端加载主题设置并同步到 store
+const loadThemeFromBackend = async () => {
+  try {
+    const appSettings = await invoke<any>('get_app_settings')
+    if (appSettings && appSettings.theme) {
+      settingsStore.updateSettings({ theme: appSettings.theme as 'light' | 'dark' | 'auto' })
+    }
+  } catch (error) {
+    console.error('加载主题设置失败:', error)
+  }
+}
 
 interface SystemInfo {
   cpu_usage: number
@@ -321,35 +343,62 @@ const handleUpdateSkip = () => {
   updateProgress.value = 0
 }
 
-// 主题配置 - 使用深色主题
-const theme = darkTheme
+// 主题配置 - 根据当前主题动态切换
+const theme = computed<GlobalTheme | null>(() => {
+  return currentTheme.value === 'dark' ? darkTheme : null
+})
 
-// Naive UI 主题覆盖配置 - 统一使用 indigo 主色调
-const themeOverrides = {
-  common: {
-    primaryColor: '#6366f1',        // indigo-600
-    primaryColorHover: '#818cf8',   // indigo-500
-    primaryColorPressed: '#4f46e5', // indigo-700
-    primaryColorSuppl: '#818cf8',   // indigo-400
-  },
-  Button: {
-    colorPrimary: '#6366f1',
-    colorHoverPrimary: '#818cf8',
-    colorPressedPrimary: '#4f46e5',
-    borderPrimary: '1px solid #6366f1',
-    textColorPrimary: '#ffffff',
-  },
-  Switch: {
-    railColorActive: '#6366f1',
-  },
-  Select: {
-    peers: {
-      InternalSelection: {
-        colorActive: '#6366f1'
+// Naive UI 主题覆盖配置 - 根据当前主题动态调整
+const themeOverrides = computed(() => {
+  const isDark = currentTheme.value === 'dark'
+
+  return {
+    common: {
+      primaryColor: '#6366f1',        // indigo-600
+      primaryColorHover: '#818cf8',   // indigo-500
+      primaryColorPressed: '#4f46e5', // indigo-700
+      primaryColorSuppl: '#818cf8',   // indigo-400
+      // 浅色主题需要调整背景色
+      ...(isDark ? {} : {
+        bodyColor: '#f8fafc',
+        cardColor: '#ffffff',
+        modalColor: '#ffffff',
+        popoverColor: '#ffffff',
+        tableColor: '#ffffff',
+        inputColor: '#ffffff',
+      })
+    },
+    Button: {
+      colorPrimary: '#6366f1',
+      colorHoverPrimary: '#818cf8',
+      colorPressedPrimary: '#4f46e5',
+      borderPrimary: '1px solid #6366f1',
+      textColorPrimary: '#ffffff',
+    },
+    Switch: {
+      railColorActive: '#6366f1',
+    },
+    Select: {
+      peers: {
+        InternalSelection: {
+          colorActive: '#6366f1'
+        }
       }
+    },
+    Menu: isDark ? {} : {
+      color: 'transparent',
+      itemColorHover: 'rgba(226, 232, 240, 0.6)',
+      itemColorActive: 'rgba(99, 102, 241, 0.1)',
+      itemColorActiveHover: 'rgba(99, 102, 241, 0.15)',
+      itemTextColor: '#334155',
+      itemTextColorHover: '#0f172a',
+      itemTextColorActive: '#6366f1',
+      itemIconColor: '#64748b',
+      itemIconColorHover: '#0f172a',
+      itemIconColorActive: '#6366f1',
     }
   }
-}
+})
 
 // 菜单选项
 const menuOptions: MenuOption[] = [
@@ -450,6 +499,9 @@ const handleOpenSqlModal = () => {
 }
 
 onMounted(() => {
+  // 从后端加载主题设置
+  loadThemeFromBackend()
+
   getSystemInfo() // 立即获取一次
   systemInterval = window.setInterval(() => {
     getSystemInfo()
@@ -490,7 +542,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  background: #020617; /* slate-950 */
+  background: var(--bg-base);
 }
 
 .app-container {
@@ -503,8 +555,8 @@ onUnmounted(() => {
 .sidebar {
   width: 256px;
   height: 100%;
-  background-color: #020617; /* slate-950 */
-  border-right: 1px solid rgba(148, 163, 184, 0.1); /* slate-800/60 */
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -546,7 +598,7 @@ onUnmounted(() => {
 .brand-title {
   font-size: 18px;
   font-weight: 700;
-  color: #f1f5f9; /* slate-100 */
+  color: var(--text-primary);
   letter-spacing: -0.025em;
   line-height: 1.2;
   margin: 0;
@@ -554,7 +606,7 @@ onUnmounted(() => {
 
 .brand-subtitle {
   font-size: 10px;
-  color: #64748b; /* slate-500 */
+  color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   font-weight: 600;
@@ -572,7 +624,7 @@ onUnmounted(() => {
 /* 自定义Naive UI Menu样式 */
 .nav-menu :deep(.n-menu) {
   background-color: transparent;
-  color: #cbd5e1; /* slate-300 */
+  color: var(--text-secondary);
 }
 
 .nav-menu :deep(.n-menu-item) {
@@ -584,14 +636,14 @@ onUnmounted(() => {
 }
 
 .nav-menu :deep(.n-menu-item:not(.n-menu-item--selected):hover) {
-  background-color: rgba(30, 41, 59, 0.5); /* slate-800/50 */
-  color: #e2e8f0; /* slate-200 */
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .nav-menu :deep(.n-menu-item.n-menu-item--selected) {
-  background-color: rgba(99, 102, 241, 0.1); /* indigo-500/10 */
-  color: #a78bfa; /* indigo-400 */
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
+  background-color: var(--accent-glow);
+  color: var(--accent-secondary);
+  box-shadow: 0 0 20px var(--accent-glow);
 }
 
 .nav-menu :deep(.n-menu-item.n-menu-item--selected::after) {
@@ -603,21 +655,21 @@ onUnmounted(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #a78bfa; /* indigo-400 */
-  box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+  background-color: var(--accent-secondary);
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .nav-menu :deep(.n-menu-item-content__icon) {
-  color: #94a3b8; /* slate-400 */
+  color: var(--text-muted);
   transition: color 0.2s ease;
 }
 
 .nav-menu :deep(.n-menu-item:hover .n-menu-item-content__icon) {
-  color: #e2e8f0; /* slate-200 */
+  color: var(--text-primary);
 }
 
 .nav-menu :deep(.n-menu-item.n-menu-item--selected .n-menu-item-content__icon) {
-  color: #a78bfa; /* indigo-400 */
+  color: var(--accent-secondary);
 }
 
 .nav-menu :deep(.n-menu-item-content) {
@@ -637,10 +689,10 @@ onUnmounted(() => {
 }
 
 .info-card {
-  background-color: rgba(15, 23, 42, 0.5); /* slate-900/50 */
+  background-color: var(--card-bg);
   border-radius: 12px;
   padding: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.08); /* slate-800/50 */
+  border: 1px solid var(--card-border);
 }
 
 .info-header {
@@ -653,12 +705,12 @@ onUnmounted(() => {
 .info-label {
   font-size: 12px;
   font-weight: 500;
-  color: #94a3b8; /* slate-400 */
+  color: var(--text-muted);
 }
 
 .info-value {
   font-size: 12px;
-  color: #818cf8; /* indigo-400 */
+  color: var(--accent-primary);
   font-family: 'Courier New', monospace;
   font-weight: 600;
 }
@@ -666,7 +718,7 @@ onUnmounted(() => {
 .progress-bar {
   width: 100%;
   height: 6px;
-  background-color: #1e293b; /* slate-800 */
+  background-color: var(--progress-bg);
   border-radius: 9999px;
   overflow: hidden;
 }
@@ -693,7 +745,7 @@ onUnmounted(() => {
 
 .memory-text {
   font-size: 10px;
-  color: #64748b; /* slate-500 */
+  color: var(--text-dim);
   font-family: 'Courier New', monospace;
   font-weight: 500;
 }
@@ -701,7 +753,7 @@ onUnmounted(() => {
 .shortcut-hint {
   margin-top: 12px;
   font-size: 10px;
-  color: #475569; /* slate-600 */
+  color: var(--text-dim);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -710,7 +762,7 @@ onUnmounted(() => {
 .shortcut-icon {
   width: 10px;
   height: 10px;
-  color: #475569; /* slate-600 */
+  color: var(--text-dim);
 }
 
 /* ==================== 主内容区样式 ==================== */
@@ -719,7 +771,7 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #020617 0%, #0f172a 100%); /* slate-950 to slate-900 */
+  background: var(--bg-surface);
   position: relative;
   min-width: 0;
 }
@@ -756,16 +808,16 @@ onUnmounted(() => {
 }
 
 .content-wrapper::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
 
 .content-wrapper::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.2);
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 .content-wrapper::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.3);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* ==================== 路由切换动画 ==================== */

@@ -139,8 +139,8 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 10px 16px;
-  background: rgba(30, 41, 59, 0.4);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -156,7 +156,7 @@ onMounted(() => {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.1), transparent);
+  background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
   transform: translateX(-100%);
   transition: transform 0.6s;
 }
@@ -166,20 +166,20 @@ onMounted(() => {
 }
 
 .category-tab:hover {
-  background: rgba(30, 41, 59, 0.7);
-  border-color: rgba(99, 102, 241, 0.4);
+  background: var(--card-hover-bg);
+  border-color: var(--border-hover);
   transform: translateY(-2px);
 }
 
 .category-tab.active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.1));
-  border-color: #6366f1;
-  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2), 0 4px 12px rgba(99, 102, 241, 0.15);
+  background: var(--accent-glow);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px var(--accent-glow), var(--shadow-md);
 }
 
 .category-tab.drag-over {
   background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1));
-  border-color: #22c55e;
+  border-color: var(--success);
   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3), 0 4px 16px rgba(34, 197, 94, 0.2);
   transform: scale(1.05);
   animation: pulse 1s ease-in-out infinite;
@@ -196,14 +196,14 @@ onMounted(() => {
 
 .category-tab.drag-disabled {
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1));
-  border-color: #ef4444;
+  border-color: var(--error);
   cursor: not-allowed;
   opacity: 0.7;
 }
 
 .category-tab.drop-target {
   border-style: dashed;
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: var(--border-active);
 }
 
 .category-icon {
@@ -215,14 +215,14 @@ onMounted(() => {
 .category-name {
   font-size: 13px;
   font-weight: 500;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   transition: color 0.3s;
   pointer-events: none;  /* 让事件穿透到父元素 */
 }
 
 .category-tab:hover .category-name,
 .category-tab.active .category-name {
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .category-count {
@@ -233,27 +233,27 @@ onMounted(() => {
   height: 20px;
   pointer-events: none;  /* 让事件穿透到父元素 */
   padding: 0 6px;
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--accent-glow);
   border-radius: 10px;
   font-size: 11px;
   font-weight: 600;
-  color: #a5b4fc;
+  color: var(--accent-secondary);
 }
 
 .category-tab.active .category-count {
-  background: rgba(99, 102, 241, 0.3);
-  color: #c7d2fe;
+  background: var(--bg-hover);
+  color: var(--accent-primary);
 }
 
 .manage-btn {
   border-style: dashed;
-  border-color: rgba(99, 102, 241, 0.3);
-  color: #94a3b8;
+  border-color: var(--border-hover);
+  color: var(--text-muted);
 }
 
 .manage-btn:hover {
-  border-color: #6366f1;
-  color: #c7d2fe;
+  border-color: var(--accent-primary);
+  color: var(--accent-secondary);
 }
 
 /* 滚动指示器 */
@@ -276,10 +276,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
   border-radius: 50%;
-  color: #94a3b8;
+  color: var(--text-muted);
   cursor: pointer;
   pointer-events: auto;
   transition: all 0.2s;
@@ -288,17 +288,17 @@ onMounted(() => {
 
 .scroll-left:hover,
 .scroll-right:hover {
-  background: rgba(30, 41, 59, 0.9);
-  border-color: #6366f1;
-  color: #c7d2fe;
+  background: var(--bg-elevated);
+  border-color: var(--accent-primary);
+  color: var(--accent-secondary);
 }
 
 .scroll-left {
-  box-shadow: 4px 0 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .scroll-right {
-  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 /* 响应式设计 */

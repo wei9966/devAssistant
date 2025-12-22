@@ -46,7 +46,7 @@
         class="empty-state"
       >
         <template #icon>
-          <n-icon size="64" color="#64748b"><BuildOutline /></n-icon>
+          <n-icon size="64" :color="'var(--text-muted)'"><BuildOutline /></n-icon>
         </template>
       </n-empty>
     </div>
@@ -139,7 +139,7 @@ const handleOpenTool = async (toolId: string) => {
 .page-title {
   font-size: 24px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -173,14 +173,14 @@ const handleOpenTool = async (toolId: string) => {
 .tool-card {
   cursor: pointer;
   transition: all 0.3s ease;
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
 }
 
 .tool-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--accent-primary) 20%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
 }
 
 .tool-content {
@@ -199,12 +199,12 @@ const handleOpenTool = async (toolId: string) => {
   width: 80px;
   height: 80px;
   border-radius: 16px;
-  background: rgba(99, 102, 241, 0.1);
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
   transition: all 0.3s ease;
 }
 
 .tool-card:hover .tool-icon {
-  background: rgba(99, 102, 241, 0.2);
+  background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
   transform: scale(1.05);
 }
 
@@ -218,13 +218,13 @@ const handleOpenTool = async (toolId: string) => {
 .tool-name {
   font-size: 18px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .tool-description {
   font-size: 14px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   margin: 0;
   line-height: 1.5;
 }
@@ -243,18 +243,18 @@ const handleOpenTool = async (toolId: string) => {
 }
 
 .tools-container::-webkit-scrollbar-track {
-  background: rgba(30, 41, 59, 0.3);
+  background: color-mix(in srgb, var(--bg-surface) 30%, transparent);
   border-radius: 4px;
 }
 
 .tools-container::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
+  background: color-mix(in srgb, var(--accent-primary) 30%, transparent);
   border-radius: 4px;
   transition: background 0.2s;
 }
 
 .tools-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.5);
+  background: color-mix(in srgb, var(--accent-primary) 50%, transparent);
 }
 
 /* Responsive Design */

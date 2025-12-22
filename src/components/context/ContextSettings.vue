@@ -333,8 +333,8 @@ function formatIdleTimeout(secs: number): string {
 }
 
 .settings-card {
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: color-mix(in srgb, var(--card-bg, rgba(15, 23, 42, 0.5)) 100%, transparent);
+  border: 1px solid var(--card-border, rgba(51, 65, 85, 0.6));
   border-radius: 16px;
   overflow: hidden;
   backdrop-filter: blur(8px);
@@ -345,14 +345,14 @@ function formatIdleTimeout(secs: number): string {
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.6);
-  background: rgba(15, 23, 42, 0.3);
+  border-bottom: 1px solid var(--border-default, rgba(51, 65, 85, 0.6));
+  background: color-mix(in srgb, var(--bg-surface, rgba(15, 23, 42, 0.3)) 30%, transparent);
 }
 
 .card-title {
   font-size: 14px;
   font-weight: 500;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -361,15 +361,15 @@ function formatIdleTimeout(secs: number): string {
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 4px;
-  background: rgba(148, 163, 184, 0.1);
-  color: rgb(148, 163, 184);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: color-mix(in srgb, var(--text-muted, rgb(148, 163, 184)) 10%, transparent);
+  color: var(--text-muted, rgb(148, 163, 184));
+  border: 1px solid color-mix(in srgb, var(--text-muted, rgb(148, 163, 184)) 20%, transparent);
 }
 
 .status-active {
-  background: rgba(16, 185, 129, 0.1);
-  color: rgb(52, 211, 153);
-  border-color: rgba(16, 185, 129, 0.2);
+  background: color-mix(in srgb, var(--success, rgb(16, 185, 129)) 10%, transparent);
+  color: color-mix(in srgb, var(--success, rgb(52, 211, 153)) 100%, rgb(52, 211, 153) 0%);
+  border-color: color-mix(in srgb, var(--success, rgb(16, 185, 129)) 20%, transparent);
 }
 
 .card-content {
@@ -385,7 +385,7 @@ function formatIdleTimeout(secs: number): string {
   justify-content: center;
   gap: 12px;
   padding: 32px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted, rgb(148, 163, 184));
 }
 
 .setting-item {
@@ -408,13 +408,13 @@ function formatIdleTimeout(secs: number): string {
 .setting-label {
   font-size: 14px;
   font-weight: 500;
-  color: rgb(203, 213, 225);
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .setting-desc {
   font-size: 12px;
-  color: rgb(100, 116, 139);
+  color: var(--text-muted);
   line-height: 1.4;
 }
 
@@ -433,7 +433,7 @@ function formatIdleTimeout(secs: number): string {
 .slider-value {
   font-size: 13px;
   font-weight: 500;
-  color: rgb(203, 213, 225);
+  color: var(--text-primary);
   min-width: 50px;
   text-align: right;
 }
@@ -451,23 +451,23 @@ function formatIdleTimeout(secs: number): string {
 .status-details p {
   margin: 0;
   font-size: 13px;
-  color: rgb(148, 163, 184);
+  color: var(--text-secondary);
 }
 
 .status-details strong {
-  color: rgb(203, 213, 225);
+  color: var(--text-primary);
 }
 
 .paused-warning {
-  color: rgb(251, 191, 36);
+  color: var(--warning);
 }
 
 .paused-warning strong {
-  color: rgb(251, 191, 36);
+  color: var(--warning);
 }
 
 .default-dir-hint {
-  color: rgb(100, 116, 139);
+  color: var(--text-muted);
   font-size: 11px;
   display: block;
   margin-top: 4px;
@@ -490,44 +490,59 @@ function formatIdleTimeout(secs: number): string {
   gap: 12px;
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid rgba(51, 65, 85, 0.4);
+  border-top: 1px solid var(--border-default, rgba(51, 65, 85, 0.4));
 }
 
 /* Naive UI 样式覆盖 */
 :deep(.n-switch) {
-  --n-rail-color: rgb(51, 65, 85);
-  --n-rail-color-active: rgb(99, 102, 241);
+  --n-rail-color: color-mix(in srgb, var(--bg-elevated, rgb(51, 65, 85)) 100%, transparent);
+  --n-rail-color-active: var(--accent-primary, rgb(99, 102, 241));
 }
 
 :deep(.n-slider) {
-  --n-fill-color: rgb(99, 102, 241);
-  --n-fill-color-hover: rgb(79, 70, 229);
-  --n-handle-color: rgb(255, 255, 255);
-  --n-rail-color: rgb(51, 65, 85);
+  --n-fill-color: var(--accent-primary, rgb(99, 102, 241));
+  --n-fill-color-hover: var(--accent-primary-hover, rgb(79, 70, 229));
+  --n-handle-color: var(--text-primary, rgb(255, 255, 255));
+  --n-rail-color: var(--bg-elevated, rgb(51, 65, 85));
 }
 
 :deep(.n-input-number) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
-  --n-border-focus: 1px solid rgb(99, 102, 241);
-  --n-color: rgb(2, 6, 23);
-  --n-text-color: rgb(203, 213, 225);
+  --n-border: 1px solid var(--border-default);
+  --n-border-hover: 1px solid var(--accent-primary);
+  --n-border-focus: 1px solid var(--accent-primary);
+  --n-color: var(--input-bg);
+  --n-text-color: var(--text-primary);
 }
 
 :deep(.n-dynamic-tags) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
+  --n-border: 1px solid var(--border-default);
+  --n-border-hover: 1px solid var(--accent-primary);
 }
 
 :deep(.n-alert) {
-  --n-color: rgba(99, 102, 241, 0.1);
-  --n-border: 1px solid rgba(99, 102, 241, 0.2);
+  --n-color: var(--accent-glow);
+  --n-border: 1px solid var(--border-active);
+}
+
+:deep(.n-input) {
+  --n-border: 1px solid var(--input-border);
+  --n-border-hover: 1px solid var(--accent-primary);
+  --n-border-focus: 1px solid var(--accent-primary);
+  --n-color: var(--input-bg);
+  --n-text-color: var(--text-primary);
+  --n-placeholder-color: var(--text-muted);
+}
+
+:deep(.n-button) {
+  --n-color: var(--button-default-bg);
+  --n-border: 1px solid var(--button-default-border);
+  --n-text-color: var(--button-default-text);
 }
 
 :deep(.n-button--primary-type) {
-  --n-color: rgb(99, 102, 241);
-  --n-color-hover: rgb(79, 70, 229);
-  --n-text-color: rgb(255, 255, 255);
-  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2);
+  --n-color: var(--accent-primary);
+  --n-color-hover: var(--accent-primary-hover);
+  --n-text-color: #ffffff;
+  box-shadow: 0 10px 15px -3px var(--accent-glow);
 }
 </style>

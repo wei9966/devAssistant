@@ -581,7 +581,7 @@ function getRemainingCount(group: TimelineGroup): number {
 .filter-label {
   font-size: 13px;
   font-weight: 500;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   white-space: nowrap;
 }
 
@@ -593,7 +593,7 @@ function getRemainingCount(group: TimelineGroup): number {
   justify-content: center;
   gap: 16px;
   padding: 64px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 .empty-state {
@@ -625,9 +625,9 @@ function getRemainingCount(group: TimelineGroup): number {
 
 .item-count {
   font-size: 12px;
-  color: rgb(100, 116, 139);
+  color: var(--text-dim);
   padding: 4px 8px;
-  background: rgba(30, 41, 59, 0.5);
+  background: var(--bg-overlay);
   border-radius: 4px;
 }
 
@@ -648,7 +648,7 @@ function getRemainingCount(group: TimelineGroup): number {
 .item-title {
   font-size: 15px;
   font-weight: 500;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
   margin: 0;
   flex: 1;
 }
@@ -662,9 +662,9 @@ function getRemainingCount(group: TimelineGroup): number {
 
 .app-name {
   font-size: 12px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   padding: 2px 8px;
-  background: rgba(30, 41, 59, 0.5);
+  background: var(--bg-overlay);
   border-radius: 4px;
 }
 
@@ -674,7 +674,7 @@ function getRemainingCount(group: TimelineGroup): number {
 
 .item-summary {
   font-size: 13px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   line-height: 1.6;
   margin: 0;
 }
@@ -696,7 +696,7 @@ function getRemainingCount(group: TimelineGroup): number {
   justify-content: center;
   padding: 16px 0 8px;
   margin-top: 8px;
-  border-top: 1px solid rgba(51, 65, 85, 0.3);
+  border-top: 1px solid var(--border-default);
 }
 
 .load-more-container .n-button {
@@ -708,9 +708,9 @@ function getRemainingCount(group: TimelineGroup): number {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  background: rgba(30, 41, 59, 0.3);
+  background: var(--bg-overlay);
   border-radius: 8px;
-  border: 1px solid rgba(51, 65, 85, 0.4);
+  border: 1px solid var(--border-default);
   margin-top: 4px;
 }
 
@@ -721,22 +721,22 @@ function getRemainingCount(group: TimelineGroup): number {
 }
 
 .detail-label {
-  color: rgb(100, 116, 139);
+  color: var(--text-dim);
   font-weight: 500;
   min-width: 80px;
 }
 
 .detail-value {
-  color: rgb(203, 213, 225);
+  color: var(--text-secondary);
 }
 
 /* 弹窗内容 */
 .report-content {
   padding: 16px;
-  background: rgba(30, 41, 59, 0.3);
+  background: var(--bg-overlay);
   border-radius: 8px;
-  border: 1px solid rgba(51, 65, 85, 0.4);
-  color: rgb(203, 213, 225);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
   line-height: 1.8;
   max-height: 60vh;
   overflow-y: auto;
@@ -745,7 +745,7 @@ function getRemainingCount(group: TimelineGroup): number {
 
 .summary-content {
   padding: 16px;
-  color: rgb(203, 213, 225);
+  color: var(--text-secondary);
   line-height: 1.8;
   white-space: pre-wrap;
 }
@@ -754,7 +754,7 @@ function getRemainingCount(group: TimelineGroup): number {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg-base);
   border-radius: 8px;
   padding: 16px;
 }
@@ -767,8 +767,8 @@ function getRemainingCount(group: TimelineGroup): number {
 
 /* 卡片样式（复用VlmSettings样式） */
 .settings-card {
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 16px;
   overflow: hidden;
   backdrop-filter: blur(8px);
@@ -779,14 +779,14 @@ function getRemainingCount(group: TimelineGroup): number {
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.6);
-  background: rgba(15, 23, 42, 0.3);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-overlay);
 }
 
 .card-title {
   font-size: 14px;
   font-weight: 500;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -796,26 +796,26 @@ function getRemainingCount(group: TimelineGroup): number {
 
 /* Naive UI 样式覆盖 */
 :deep(.n-date-picker) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
-  --n-border-focus: 1px solid rgb(99, 102, 241);
-  --n-color: rgb(2, 6, 23);
-  --n-text-color: rgb(203, 213, 225);
+  --n-border: 1px solid var(--input-border);
+  --n-border-hover: 1px solid var(--accent-primary);
+  --n-border-focus: 1px solid var(--accent-primary);
+  --n-color: var(--input-bg);
+  --n-text-color: var(--text-primary);
 }
 
 :deep(.n-select) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
-  --n-border-focus: 1px solid rgb(99, 102, 241);
-  --n-color: rgb(2, 6, 23);
-  --n-text-color: rgb(203, 213, 225);
+  --n-border: 1px solid var(--input-border);
+  --n-border-hover: 1px solid var(--accent-primary);
+  --n-border-focus: 1px solid var(--accent-primary);
+  --n-color: var(--input-bg);
+  --n-text-color: var(--text-primary);
 }
 
 :deep(.n-slider) {
-  --n-fill-color: rgb(99, 102, 241);
-  --n-fill-color-hover: rgb(79, 70, 229);
-  --n-handle-color: rgb(255, 255, 255);
-  --n-rail-color: rgb(51, 65, 85);
+  --n-fill-color: var(--accent-primary);
+  --n-fill-color-hover: var(--accent-secondary);
+  --n-handle-color: var(--text-primary);
+  --n-rail-color: var(--border-default);
 }
 
 :deep(.n-timeline) {
@@ -831,14 +831,14 @@ function getRemainingCount(group: TimelineGroup): number {
 }
 
 :deep(.n-timeline-item__header) {
-  color: rgb(100, 116, 139);
+  color: var(--text-dim);
   font-size: 12px;
   font-weight: 500;
 }
 
 :deep(.n-rate) {
-  --n-item-color: rgb(51, 65, 85);
-  --n-item-color-active: rgb(251, 191, 36);
+  --n-item-color: var(--border-default);
+  --n-item-color-active: var(--warning);
 }
 
 :deep(.n-tag) {
@@ -846,16 +846,16 @@ function getRemainingCount(group: TimelineGroup): number {
 }
 
 :deep(.n-button--primary-type) {
-  --n-color: rgb(99, 102, 241);
-  --n-color-hover: rgb(79, 70, 229);
-  --n-text-color: rgb(255, 255, 255);
+  --n-color: var(--accent-primary);
+  --n-color-hover: var(--accent-secondary);
+  --n-text-color: white;
   box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2);
 }
 
 :deep(.n-modal) {
-  --n-color: rgb(15, 23, 42);
-  --n-title-text-color: rgb(226, 232, 240);
-  --n-border-color: rgba(51, 65, 85, 0.6);
+  --n-color: var(--bg-surface);
+  --n-title-text-color: var(--text-primary);
+  --n-border-color: var(--border-default);
 }
 
 /* 滚动条样式 */
@@ -864,15 +864,15 @@ function getRemainingCount(group: TimelineGroup): number {
 }
 
 .report-content::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
 
 .report-content::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.5);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
 .report-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 0.7);
+  background: var(--scrollbar-thumb-hover);
 }
 </style>

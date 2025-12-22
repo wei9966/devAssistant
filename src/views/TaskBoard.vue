@@ -1302,7 +1302,7 @@ async function handleAiGenerateSubtasks() {
 .board-title {
   font-size: 20px;
   font-weight: 600;
-  color: #f1f5f9; /* slate-100 */
+  color: var(--text-primary);
   margin: 0;
   letter-spacing: -0.025em;
 }
@@ -1311,9 +1311,9 @@ async function handleAiGenerateSubtasks() {
 .filters-section {
   margin-bottom: 20px;
   padding: 16px;
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--card-bg);
   border-radius: 12px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--card-border);
   backdrop-filter: blur(12px);
 }
 
@@ -1328,19 +1328,19 @@ async function handleAiGenerateSubtasks() {
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-weight: 600;
   white-space: nowrap;
 }
 
 .filter-stats {
   font-size: 12px;
-  color: #6366f1;
+  color: var(--accent-primary);
   font-weight: 600;
   padding: 4px 10px;
-  background: rgba(99, 102, 241, 0.15);
+  background: var(--accent-glow);
   border-radius: 6px;
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  border: 1px solid var(--border-active);
 }
 
 /* Board Columns */
@@ -1356,9 +1356,9 @@ async function handleAiGenerateSubtasks() {
 .board-column {
   display: flex;
   flex-direction: column;
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--card-bg);
   border-radius: 20px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--card-border);
   padding: 8px;
   backdrop-filter: blur(12px);
   min-height: 0;
@@ -1366,7 +1366,7 @@ async function handleAiGenerateSubtasks() {
 }
 
 .board-column:hover {
-  border-color: rgba(71, 85, 105, 0.6);
+  border-color: var(--border-hover);
 }
 
 /* Column Header */
@@ -1392,33 +1392,33 @@ async function handleAiGenerateSubtasks() {
 }
 
 .status-dot.status-todo {
-  background-color: #64748b;
+  background-color: var(--text-secondary);
 }
 
 .status-dot.status-doing {
-  background-color: #6366f1;
-  box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+  background-color: var(--accent-primary);
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .status-dot.status-done {
-  background-color: #10b981;
+  background-color: var(--success-color);
 }
 
 .title-text {
   font-size: 14px;
   font-weight: 700;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   letter-spacing: -0.01em;
 }
 
 .task-count {
   font-size: 11px;
-  color: #64748b;
-  background: rgba(30, 41, 59, 0.8);
+  color: var(--text-dim);
+  background: var(--bg-elevated);
   padding: 3px 10px;
   border-radius: 9999px;
   font-weight: 600;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--border-default);
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
@@ -1439,18 +1439,18 @@ async function handleAiGenerateSubtasks() {
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.5);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
   transition: background 0.2s;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 0.7);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Task Card Styling */
@@ -1459,26 +1459,26 @@ async function handleAiGenerateSubtasks() {
 }
 
 .task-card-item:deep(.n-card) {
-  background: rgba(30, 41, 59, 0.4);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   transition: all 0.2s;
 }
 
 .task-card-item:deep(.n-card):hover {
-  background: rgba(30, 41, 59, 1);
-  border-color: rgba(71, 85, 105, 1);
+  background: var(--card-hover-bg);
+  border-color: var(--card-hover-border);
   transform: translateY(-2px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 /* Add Card Button */
 .add-card-button {
   width: 100%;
   padding: 12px;
-  border: 1px dashed rgba(51, 65, 85, 0.5);
+  border: 1px dashed var(--border-default);
   border-radius: 14px;
   background: transparent;
-  color: #64748b;
+  color: var(--text-dim);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -1491,9 +1491,9 @@ async function handleAiGenerateSubtasks() {
 }
 
 .add-card-button:hover {
-  background: rgba(30, 41, 59, 0.4);
-  color: #a78bfa;
-  border-color: rgba(99, 102, 241, 0.3);
+  background: var(--bg-hover);
+  color: var(--accent-secondary);
+  border-color: var(--border-active);
   border-style: solid;
 }
 
@@ -1515,7 +1515,7 @@ async function handleAiGenerateSubtasks() {
 }
 
 .empty-placeholder:deep(.n-empty__description) {
-  color: #94a3b8; /* slate-400 */
+  color: var(--text-muted);
   font-size: 13px;
 }
 
@@ -1523,7 +1523,7 @@ async function handleAiGenerateSubtasks() {
 .deferred-section {
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px dashed rgba(51, 65, 85, 0.5);
+  border-top: 1px dashed var(--border-default);
 }
 
 .deferred-header {
@@ -1537,29 +1537,29 @@ async function handleAiGenerateSubtasks() {
 .deferred-title {
   font-size: 12px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .deferred-count {
   font-size: 11px;
-  color: #64748b;
-  background: rgba(30, 41, 59, 0.6);
+  color: var(--text-dim);
+  background: var(--bg-hover);
   padding: 2px 8px;
   border-radius: 9999px;
   font-weight: 600;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--border-default);
 }
 
 .deferred-task:deep(.n-card) {
   opacity: 0.7;
-  background: rgba(30, 41, 59, 0.3);
+  background: var(--bg-overlay);
 }
 
 .deferred-task:deep(.n-card):hover {
   opacity: 1;
-  background: rgba(30, 41, 59, 0.7);
+  background: var(--bg-hover);
 }
 
 /* Responsive */
@@ -1589,21 +1589,21 @@ async function handleAiGenerateSubtasks() {
 
 /* 主要按钮样式 */
 :deep(.primary-button) {
-  background-color: #6366f1 !important;
-  border-color: #6366f1 !important;
-  color: #ffffff !important;
-  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2) !important;
+  background-color: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  color: var(--button-text) !important;
+  box-shadow: 0 10px 15px -3px var(--shadow-accent) !important;
   transition: all 0.2s !important;
 }
 
 :deep(.primary-button:hover) {
-  background-color: #4f46e5 !important;
-  border-color: #4f46e5 !important;
+  background-color: var(--accent-hover) !important;
+  border-color: var(--accent-hover) !important;
 }
 
 :deep(.primary-button:active) {
-  background-color: #4338ca !important;
-  border-color: #4338ca !important;
+  background-color: var(--accent-active) !important;
+  border-color: var(--accent-active) !important;
 }
 
 /* AI 按钮样式优化 */
@@ -1613,7 +1613,7 @@ async function handleAiGenerateSubtasks() {
 
 :deep(.n-button.n-button--ghost-type.n-button--primary-type:hover:not(:disabled)) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 12px var(--shadow-accent);
 }
 
 :deep(.n-button.n-button--ghost-type.n-button--primary-type:active:not(:disabled)) {
@@ -1647,19 +1647,19 @@ async function handleAiGenerateSubtasks() {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #a78bfa;
+  color: var(--accent-secondary);
   padding: 6px 12px;
-  background: rgba(139, 92, 246, 0.1);
+  background: var(--accent-glow);
   border-radius: 6px;
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  border: 1px solid var(--border-active);
 }
 
 .ai-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #a78bfa;
-  box-shadow: 0 0 8px rgba(167, 139, 250, 0.6);
+  background: var(--accent-secondary);
+  box-shadow: 0 0 8px var(--accent-glow);
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
@@ -1682,11 +1682,11 @@ async function handleAiGenerateSubtasks() {
 .progress-task-title {
   font-size: 14px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   padding: 12px;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--card-bg);
   border-radius: 8px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--card-border);
 }
 
 .progress-slider-section {
@@ -1694,7 +1694,7 @@ async function handleAiGenerateSubtasks() {
   flex-direction: column;
   gap: 16px;
   padding: 16px;
-  background: rgba(15, 23, 42, 0.3);
+  background: var(--bg-overlay);
   border-radius: 8px;
 }
 
@@ -1702,7 +1702,7 @@ async function handleAiGenerateSubtasks() {
   text-align: center;
   font-size: 32px;
   font-weight: 700;
-  color: #6366f1;
+  color: var(--accent-primary);
 }
 
 /* 里程碑弹窗样式 */
@@ -1715,20 +1715,20 @@ async function handleAiGenerateSubtasks() {
 .milestone-task-title {
   font-size: 14px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   padding: 12px;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--card-bg);
   border-radius: 8px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--card-border);
 }
 
 .milestone-progress-hint {
   font-size: 12px;
-  color: #ec4899;
-  background: rgba(236, 72, 153, 0.1);
+  color: var(--warning-color);
+  background: var(--warning-bg);
   padding: 8px 12px;
   border-radius: 6px;
-  border: 1px solid rgba(236, 72, 153, 0.2);
+  border: 1px solid var(--warning-border);
 }
 
 .milestone-progress-setting {
@@ -1742,6 +1742,6 @@ async function handleAiGenerateSubtasks() {
   text-align: center;
   font-size: 24px;
   font-weight: 600;
-  color: #6366f1;
+  color: var(--accent-primary);
 }
 </style>

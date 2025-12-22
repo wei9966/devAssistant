@@ -510,7 +510,7 @@ onMounted(() => {
   justify-content: center;
   gap: 12px;
   padding: 48px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 /* 提示词列表 */
@@ -535,7 +535,7 @@ onMounted(() => {
 .group-title {
   font-size: 16px;
   font-weight: 600;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -547,8 +547,8 @@ onMounted(() => {
 }
 
 .prompt-card {
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -558,8 +558,8 @@ onMounted(() => {
 }
 
 .prompt-card:hover {
-  border-color: rgba(99, 102, 241, 0.5);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-color: color-mix(in srgb, var(--accent-primary) 50%, transparent);
+  box-shadow: 0 4px 12px var(--shadow-color);
 }
 
 .prompt-card.prompt-disabled {
@@ -582,7 +582,7 @@ onMounted(() => {
 .card-title {
   font-size: 14px;
   font-weight: 600;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
 }
 
 .card-actions {
@@ -592,7 +592,7 @@ onMounted(() => {
 
 .card-description {
   font-size: 13px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   line-height: 1.5;
 }
 
@@ -602,10 +602,10 @@ onMounted(() => {
 
 .card-key code {
   font-size: 11px;
-  background: rgba(2, 6, 23, 0.8);
+  background: var(--bg-surface);
   padding: 4px 8px;
   border-radius: 4px;
-  color: rgb(99, 102, 241);
+  color: var(--accent-primary);
   font-family: 'Monaco', 'Menlo', monospace;
 }
 
@@ -618,7 +618,7 @@ onMounted(() => {
 
 .variables-label {
   font-size: 12px;
-  color: rgb(100, 116, 139);
+  color: var(--text-dim);
 }
 
 .variable-tag {
@@ -653,7 +653,7 @@ onMounted(() => {
   gap: 8px;
   font-size: 14px;
   font-weight: 500;
-  color: rgb(203, 213, 225);
+  color: var(--text-primary);
 }
 
 .variables-list {
@@ -664,7 +664,7 @@ onMounted(() => {
 
 .variables-hint {
   font-size: 12px;
-  color: rgb(100, 116, 139);
+  color: var(--text-dim);
   margin-top: 4px;
 }
 
@@ -690,18 +690,18 @@ onMounted(() => {
 .preview-label {
   font-size: 13px;
   font-weight: 500;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 .preview-text {
-  background: rgba(2, 6, 23, 0.8);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 12px;
   margin: 0;
   font-size: 13px;
   line-height: 1.6;
-  color: rgb(203, 213, 225);
+  color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 200px;
@@ -709,8 +709,8 @@ onMounted(() => {
 }
 
 .preview-text.rendered {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.3);
+  background: var(--accent-glow);
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
 }
 
 .preview-variables {
@@ -718,7 +718,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--bg-surface);
   border-radius: 8px;
 }
 
@@ -736,7 +736,7 @@ onMounted(() => {
 
 .test-var-name {
   font-size: 13px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   min-width: 120px;
   font-family: 'Monaco', 'Menlo', monospace;
 }
@@ -751,11 +751,11 @@ onMounted(() => {
 }
 
 .preview-text::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.5);
+  background: var(--border-default);
   border-radius: 3px;
 }
 
 .preview-text::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 0.7);
+  background: var(--border-hover);
 }
 </style>

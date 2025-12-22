@@ -85,15 +85,15 @@ const badgeClass = computed(() => {
 }
 
 .badge-docs {
-  background: rgb(51, 65, 85);
-  color: rgb(203, 213, 225);
-  border-color: rgb(71, 85, 105);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-color: var(--border-default);
 }
 
 /* 默认 */
 .badge-default {
-  background: rgb(30, 41, 59);
-  color: rgb(148, 163, 184);
-  border-color: rgb(51, 65, 85);
+  background: var(--bg-overlay);
+  color: var(--text-muted);
+  border-color: var(--border-default);
 }
 </style>

@@ -173,9 +173,11 @@ onUnmounted(() => {
 .tool-modal {
   width: 100%;
   height: 100%;
-  background: linear-gradient(145deg, rgba(26, 26, 46, 0.98), rgba(22, 22, 38, 0.98));
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--bg-base, #1a1a2e) 98%, transparent),
+    color-mix(in srgb, var(--bg-surface, #161626) 98%, transparent));
   border-radius: 12px;
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #6366f1) 20%, transparent);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -185,8 +187,8 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--accent-primary, #6366f1) 3%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent-primary, #6366f1) 3%, transparent) 1px, transparent 1px);
   background-size: 20px 20px;
   pointer-events: none;
 }
@@ -197,8 +199,8 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.1);
-  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-default, rgba(99, 102, 241, 0.1)) 100%, transparent);
+  background: color-mix(in srgb, var(--bg-elevated, rgba(0, 0, 0, 0.2)) 100%, transparent);
   user-select: none;
   flex-shrink: 0;
 }
@@ -216,7 +218,7 @@ onUnmounted(() => {
 .title-text {
   font-size: 16px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary, #e2e8f0);
 }
 
 .header-actions {
@@ -226,49 +228,49 @@ onUnmounted(() => {
 }
 
 .action-btn {
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #6366f1) 20%, transparent);
   border-radius: 6px;
   padding: 4px 10px;
   font-size: 16px;
   cursor: pointer;
   transition: all 0.2s;
   line-height: 1;
-  color: #e2e8f0;
+  color: var(--text-primary, #e2e8f0);
 }
 
 .action-btn:hover {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.4);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 20%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary, #6366f1) 40%, transparent);
 }
 
 .pin-btn {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.2);
-  color: rgba(148, 163, 184, 0.8);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary, #6366f1) 20%, transparent);
+  color: color-mix(in srgb, var(--text-muted, #94a3b8) 80%, transparent);
 }
 
 .pin-btn:hover {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: rgba(99, 102, 241, 0.3);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 15%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary, #6366f1) 30%, transparent);
 }
 
 .pin-btn.pinned {
-  background: rgba(99, 102, 241, 0.25);
-  border-color: rgba(99, 102, 241, 0.5);
-  color: #6366f1;
-  box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 25%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary, #6366f1) 50%, transparent);
+  color: var(--accent-primary, #6366f1);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent-primary, #6366f1) 30%, transparent);
 }
 
 .close-btn {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.2);
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+  border-color: color-mix(in srgb, #ef4444 20%, transparent);
   color: #ef4444;
 }
 
 .close-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
+  background: color-mix(in srgb, #ef4444 20%, transparent);
+  border-color: color-mix(in srgb, #ef4444 40%, transparent);
 }
 
 /* Body */
@@ -290,7 +292,7 @@ onUnmounted(() => {
 }
 
 .modal-body::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 30%, transparent);
   border-radius: 3px;
 }
 
@@ -301,7 +303,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: rgba(148, 163, 184, 0.6);
+  color: color-mix(in srgb, var(--text-muted, #94a3b8) 60%, transparent);
   font-size: 14px;
   gap: 12px;
   flex: 1;

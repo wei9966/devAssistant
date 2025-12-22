@@ -401,15 +401,15 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(135deg, var(--bg-base, #0f172a) 0%, var(--bg-surface, #1e293b) 100%);
 }
 
 /* 工具栏 */
 .toolbar {
   padding: 12px 16px;
-  background: rgba(15, 23, 42, 0.6);
+  background: color-mix(in srgb, var(--bg-base, #0f172a) 60%, transparent);
   border-radius: 10px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid color-mix(in srgb, var(--border-default, #334155) 50%, transparent);
 }
 
 /* 统计栏 */
@@ -417,14 +417,14 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
   display: flex;
   gap: 24px;
   padding: 10px 16px;
-  background: rgba(15, 23, 42, 0.4);
+  background: color-mix(in srgb, var(--bg-base, #0f172a) 40%, transparent);
   border-radius: 8px;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
 }
 
 .stat-item strong {
-  color: #a78bfa;
+  color: var(--accent-primary, #a78bfa);
   margin-left: 4px;
 }
 
@@ -436,7 +436,7 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
   align-items: center;
   justify-content: center;
   padding: 48px;
-  background: rgba(15, 23, 42, 0.4);
+  background: color-mix(in srgb, var(--bg-base, #0f172a) 40%, transparent);
   border-radius: 12px;
 }
 
@@ -447,10 +447,10 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
   justify-content: center;
   gap: 8px;
   padding: 16px 20px;
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #6366f1) 20%, transparent);
   border-radius: 10px;
-  color: #a5b4fc;
+  color: var(--accent-secondary, #a5b4fc);
   font-size: 13px;
   margin-bottom: 12px;
 }
@@ -468,14 +468,14 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
   width: 6px;
 }
 .group-list::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--border-default, #334155);
   border-radius: 3px;
 }
 
 /* 表分组 */
 .table-group {
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  background: color-mix(in srgb, var(--card-bg, #0f172a) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-border, #334155) 50%, transparent);
   border-radius: 10px;
   overflow: hidden;
   flex-shrink: 0;
@@ -493,12 +493,12 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
 }
 
 .table-header:hover {
-  background: rgba(30, 41, 59, 0.5);
+  background: color-mix(in srgb, var(--bg-surface, #1e293b) 50%, transparent);
 }
 
 .expand-icon {
   font-size: 14px;
-  color: #64748b;
+  color: var(--text-dim, #64748b);
   transition: transform 0.2s;
 }
 
@@ -517,7 +517,7 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
 .table-name {
   flex: 1;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary, #e2e8f0);
   font-size: 14px;
 }
 
@@ -528,7 +528,7 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
 
 .type-group {
   margin-top: 4px;
-  background: rgba(15, 23, 42, 0.3);
+  background: color-mix(in srgb, var(--bg-base, #0f172a) 30%, transparent);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -545,7 +545,7 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
 }
 
 .type-header:hover {
-  background: rgba(30, 41, 59, 0.4);
+  background: color-mix(in srgb, var(--bg-surface, #1e293b) 40%, transparent);
 }
 
 .type-icon {
@@ -555,7 +555,7 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
 .type-name {
   flex: 1;
   font-weight: 500;
-  color: #cbd5e1;
+  color: var(--text-secondary, #cbd5e1);
   font-size: 13px;
 }
 
@@ -566,8 +566,8 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
 
 .template-item {
   margin-top: 4px;
-  background: rgba(15, 23, 42, 0.4);
-  border: 1px solid rgba(51, 65, 85, 0.3);
+  background: color-mix(in srgb, var(--card-bg, #0f172a) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-border, #334155) 30%, transparent);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -582,14 +582,14 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
 }
 
 .template-row:hover {
-  background: rgba(99, 102, 241, 0.1);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 10%, transparent);
 }
 
 .template-sql {
   flex: 1;
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -607,24 +607,24 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 4px;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
 }
 
 .variant-badge {
-  background: rgba(99, 102, 241, 0.2);
-  color: #a5b4fc;
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 20%, transparent);
+  color: var(--accent-secondary, #a5b4fc);
 }
 
 .usage-badge {
-  background: rgba(34, 197, 94, 0.2);
+  background: color-mix(in srgb, #22c55e 20%, transparent);
   color: #86efac;
 }
 
 /* 变体列表 */
 .variants-list {
   padding: 8px 10px;
-  background: rgba(15, 23, 42, 0.5);
-  border-top: 1px solid rgba(51, 65, 85, 0.3);
+  background: color-mix(in srgb, var(--bg-base, #0f172a) 50%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--border-default, #334155) 30%, transparent);
 }
 
 .loading-variants {
@@ -639,13 +639,13 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
   gap: 8px;
   padding: 6px 8px;
   margin-top: 4px;
-  background: rgba(30, 41, 59, 0.4);
+  background: color-mix(in srgb, var(--bg-surface, #1e293b) 40%, transparent);
   border-radius: 4px;
   transition: background 0.2s;
 }
 
 .variant-row:hover {
-  background: rgba(51, 65, 85, 0.5);
+  background: color-mix(in srgb, var(--border-hover, #334155) 50%, transparent);
 }
 
 .variant-row:first-child {
@@ -653,7 +653,7 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
 }
 
 .variant-index {
-  color: #64748b;
+  color: var(--text-dim, #64748b);
   font-size: 11px;
   min-width: 20px;
 }
@@ -662,7 +662,7 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
   flex: 1;
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 11px;
-  color: #cbd5e1;
+  color: var(--text-secondary, #cbd5e1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -670,30 +670,30 @@ function getTypeTagType(sqlType: string): 'success' | 'warning' | 'error' | 'inf
 
 .no-variants {
   text-align: center;
-  color: #64748b;
+  color: var(--text-dim, #64748b);
   font-size: 12px;
   padding: 12px;
 }
 
 /* Naive UI 样式 */
 :deep(.n-button--default-type) {
-  background: #1e293b;
-  border-color: #334155;
-  color: #cbd5e1;
+  background: var(--bg-surface, #1e293b);
+  border-color: var(--border-default, #334155);
+  color: var(--text-secondary, #cbd5e1);
 }
 
 :deep(.n-button--default-type:hover) {
-  background: #334155;
+  background: var(--border-default, #334155);
 }
 
 :deep(.n-input) {
-  --n-color: rgba(15, 23, 42, 0.8);
-  --n-border: 1px solid #334155;
-  --n-text-color: #cbd5e1;
+  --n-color: color-mix(in srgb, var(--bg-base, #0f172a) 80%, transparent);
+  --n-border: 1px solid var(--border-default, #334155);
+  --n-text-color: var(--text-secondary, #cbd5e1);
 }
 
 :deep(.n-tag) {
-  background: rgba(51, 65, 85, 0.5);
+  background: color-mix(in srgb, var(--border-default, #334155) 50%, transparent);
   border-color: transparent;
 }
 </style>

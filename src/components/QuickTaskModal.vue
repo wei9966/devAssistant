@@ -476,14 +476,14 @@ watch(modalVisible, (visible) => {
 
 .modal-content {
   width: 100%;
-  background: rgba(15, 23, 42, 0.98);
+  background: color-mix(in srgb, var(--bg-base, #0f172a) 98%, transparent);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #8b5cf6) 30%, transparent);
   border-radius: 20px;
   box-shadow:
     0 25px 50px -12px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(139, 92, 246, 0.2),
-    0 0 60px rgba(139, 92, 246, 0.1);
+    0 0 0 1px color-mix(in srgb, var(--accent-primary, #8b5cf6) 20%, transparent),
+    0 0 60px color-mix(in srgb, var(--accent-primary, #8b5cf6) 10%, transparent);
   overflow: hidden;
   transition: all 0.3s ease;
 }
@@ -503,7 +503,7 @@ watch(modalVisible, (visible) => {
 }
 
 .input-section.has-border {
-  border-bottom-color: rgba(51, 65, 85, 0.5);
+  border-bottom-color: color-mix(in srgb, var(--border-default, #334155) 50%, transparent);
 }
 
 .input-icon {
@@ -512,9 +512,9 @@ watch(modalVisible, (visible) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  background: linear-gradient(135deg, var(--accent-primary, #8b5cf6) 0%, var(--accent-secondary, #6366f1) 100%);
   border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent-primary, #8b5cf6) 30%, transparent);
   flex-shrink: 0;
 }
 
@@ -531,14 +531,14 @@ watch(modalVisible, (visible) => {
   border: none;
   outline: none;
   font-size: 20px;
-  color: #e2e8f0;
+  color: var(--text-primary, #e2e8f0);
   font-weight: 400;
   height: 48px;
   font-family: inherit;
 }
 
 .task-input::placeholder {
-  color: #64748b;
+  color: var(--text-muted, #64748b);
 }
 
 .task-input.is-loading {
@@ -567,15 +567,15 @@ watch(modalVisible, (visible) => {
 }
 
 .parsed-tag.tag-normal {
-  background: rgba(139, 92, 246, 0.2);
-  color: #c4b5fd;
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: color-mix(in srgb, var(--accent-primary, #8b5cf6) 20%, transparent);
+  color: var(--text-primary, #c4b5fd);
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #8b5cf6) 30%, transparent);
 }
 
 .parsed-tag.tag-priority {
-  background: rgba(239, 68, 68, 0.2);
+  background: color-mix(in srgb, #ef4444 20%, transparent);
   color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1px solid color-mix(in srgb, #ef4444 30%, transparent);
 }
 
 .input-actions {
@@ -589,10 +589,10 @@ watch(modalVisible, (visible) => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted, #64748b);
   padding: 6px 12px;
-  background: rgba(51, 65, 85, 0.5);
-  border: 1px solid rgba(71, 85, 105, 0.6);
+  background: color-mix(in srgb, var(--bg-surface, #334155) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-default, #475569) 60%, transparent);
   border-radius: 8px;
 }
 
@@ -607,10 +607,10 @@ watch(modalVisible, (visible) => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #a78bfa;
+  color: var(--text-secondary, #a78bfa);
   padding: 6px 14px;
-  background: rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: color-mix(in srgb, var(--accent-primary, #8b5cf6) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #8b5cf6) 30%, transparent);
   border-radius: 8px;
   animation: pulse-bg 1.5s ease-in-out infinite;
 }
@@ -630,17 +630,17 @@ watch(modalVisible, (visible) => {
 
 @keyframes pulse-bg {
   0%, 100% {
-    background: rgba(139, 92, 246, 0.15);
+    background: color-mix(in srgb, var(--accent-primary, #8b5cf6) 15%, transparent);
   }
   50% {
-    background: rgba(139, 92, 246, 0.25);
+    background: color-mix(in srgb, var(--accent-primary, #8b5cf6) 25%, transparent);
   }
 }
 
 .divider {
   width: 1px;
   height: 24px;
-  background: rgba(51, 65, 85, 0.8);
+  background: color-mix(in srgb, var(--border-default, #334155) 80%, transparent);
   margin: 0 4px;
 }
 
@@ -653,7 +653,7 @@ watch(modalVisible, (visible) => {
   height: 36px;
   border: none;
   background: transparent;
-  color: #64748b;
+  color: var(--text-muted, #64748b);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -661,13 +661,13 @@ watch(modalVisible, (visible) => {
 
 .expand-btn:hover,
 .close-btn:hover {
-  background: rgba(51, 65, 85, 0.5);
-  color: #e2e8f0;
+  background: color-mix(in srgb, var(--bg-surface, #334155) 50%, transparent);
+  color: var(--text-primary, #e2e8f0);
 }
 
 .expand-btn.active {
-  background: rgba(139, 92, 246, 0.2);
-  color: #a78bfa;
+  background: color-mix(in srgb, var(--accent-primary, #8b5cf6) 20%, transparent);
+  color: var(--text-secondary, #a78bfa);
 }
 
 /* 展开区域样式 */
@@ -706,7 +706,7 @@ watch(modalVisible, (visible) => {
 .form-label {
   font-size: 11px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-muted, #64748b);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   display: flex;
@@ -716,7 +716,7 @@ watch(modalVisible, (visible) => {
 
 .form-label-hint {
   font-size: 10px;
-  color: #a78bfa;
+  color: var(--text-secondary, #a78bfa);
   cursor: pointer;
   text-transform: none;
   letter-spacing: normal;
@@ -728,11 +728,11 @@ watch(modalVisible, (visible) => {
 
 .form-textarea {
   width: 100%;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.8);
+  background: color-mix(in srgb, var(--input-bg, #0f172a) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-default, #334155) 80%, transparent);
   border-radius: 12px;
   padding: 14px;
-  color: #cbd5e1;
+  color: var(--text-secondary, #cbd5e1);
   font-size: 14px;
   font-family: inherit;
   resize: none;
@@ -741,12 +741,12 @@ watch(modalVisible, (visible) => {
 }
 
 .form-textarea::placeholder {
-  color: #475569;
+  color: var(--text-dim, #475569);
 }
 
 .form-textarea:focus {
-  border-color: rgba(139, 92, 246, 0.5);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  border-color: color-mix(in srgb, var(--accent-primary, #8b5cf6) 50%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary, #8b5cf6) 10%, transparent);
 }
 
 /* 分类按钮 */
@@ -761,25 +761,25 @@ watch(modalVisible, (visible) => {
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
-  background: rgba(51, 65, 85, 0.3);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: color-mix(in srgb, var(--bg-surface, #334155) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-default, #334155) 60%, transparent);
   border-radius: 10px;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .category-pill:hover {
-  background: rgba(51, 65, 85, 0.5);
-  border-color: rgba(139, 92, 246, 0.4);
-  color: #e2e8f0;
+  background: color-mix(in srgb, var(--bg-surface, #334155) 50%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary, #8b5cf6) 40%, transparent);
+  color: var(--text-primary, #e2e8f0);
 }
 
 .category-pill.active {
-  background: rgba(139, 92, 246, 0.15);
-  border-color: rgba(139, 92, 246, 0.5);
-  color: #c4b5fd;
+  background: color-mix(in srgb, var(--accent-primary, #8b5cf6) 15%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary, #8b5cf6) 50%, transparent);
+  color: var(--text-primary, #c4b5fd);
 }
 
 /* 四象限选择器 */
@@ -796,8 +796,8 @@ watch(modalVisible, (visible) => {
   justify-content: space-between;
   padding: 14px;
   border-radius: 12px;
-  border: 1px solid rgba(51, 65, 85, 0.6);
-  background: rgba(51, 65, 85, 0.2);
+  border: 1px solid color-mix(in srgb, var(--border-default, #334155) 60%, transparent);
+  background: color-mix(in srgb, var(--bg-surface, #334155) 20%, transparent);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -819,17 +819,17 @@ watch(modalVisible, (visible) => {
 
 /* Q1: 紧急且重要 - 红色 */
 .quadrant-btn.q1 {
-  color: #64748b;
+  color: var(--text-muted, #64748b);
 }
 .quadrant-btn.q1:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.4);
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+  border-color: color-mix(in srgb, #ef4444 40%, transparent);
 }
 .quadrant-btn.q1.active {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.5);
+  background: color-mix(in srgb, #ef4444 15%, transparent);
+  border-color: color-mix(in srgb, #ef4444 50%, transparent);
   color: #fca5a5;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, #ef4444 10%, transparent);
 }
 .quadrant-btn.q1.active .check-icon {
   color: #ef4444;
@@ -837,17 +837,17 @@ watch(modalVisible, (visible) => {
 
 /* Q2: 重要不紧急 - 橙色 */
 .quadrant-btn.q2 {
-  color: #64748b;
+  color: var(--text-muted, #64748b);
 }
 .quadrant-btn.q2:hover {
-  background: rgba(249, 115, 22, 0.1);
-  border-color: rgba(249, 115, 22, 0.4);
+  background: color-mix(in srgb, #f97316 10%, transparent);
+  border-color: color-mix(in srgb, #f97316 40%, transparent);
 }
 .quadrant-btn.q2.active {
-  background: rgba(249, 115, 22, 0.15);
-  border-color: rgba(249, 115, 22, 0.5);
+  background: color-mix(in srgb, #f97316 15%, transparent);
+  border-color: color-mix(in srgb, #f97316 50%, transparent);
   color: #fdba74;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, #f97316 10%, transparent);
 }
 .quadrant-btn.q2.active .check-icon {
   color: #f97316;
@@ -855,17 +855,17 @@ watch(modalVisible, (visible) => {
 
 /* Q3: 紧急不重要 - 蓝色 */
 .quadrant-btn.q3 {
-  color: #64748b;
+  color: var(--text-muted, #64748b);
 }
 .quadrant-btn.q3:hover {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.4);
+  background: color-mix(in srgb, #3b82f6 10%, transparent);
+  border-color: color-mix(in srgb, #3b82f6 40%, transparent);
 }
 .quadrant-btn.q3.active {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.5);
+  background: color-mix(in srgb, #3b82f6 15%, transparent);
+  border-color: color-mix(in srgb, #3b82f6 50%, transparent);
   color: #93c5fd;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, #3b82f6 10%, transparent);
 }
 .quadrant-btn.q3.active .check-icon {
   color: #3b82f6;
@@ -873,20 +873,20 @@ watch(modalVisible, (visible) => {
 
 /* Q4: 不紧急不重要 - 灰色 */
 .quadrant-btn.q4 {
-  color: #64748b;
+  color: var(--text-muted, #64748b);
 }
 .quadrant-btn.q4:hover {
-  background: rgba(100, 116, 139, 0.2);
-  border-color: rgba(100, 116, 139, 0.5);
+  background: color-mix(in srgb, var(--text-muted, #64748b) 20%, transparent);
+  border-color: color-mix(in srgb, var(--text-muted, #64748b) 50%, transparent);
 }
 .quadrant-btn.q4.active {
-  background: rgba(100, 116, 139, 0.25);
-  border-color: rgba(100, 116, 139, 0.6);
-  color: #cbd5e1;
-  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.1);
+  background: color-mix(in srgb, var(--text-muted, #64748b) 25%, transparent);
+  border-color: color-mix(in srgb, var(--text-muted, #64748b) 60%, transparent);
+  color: var(--text-secondary, #cbd5e1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-muted, #64748b) 10%, transparent);
 }
 .quadrant-btn.q4.active .check-icon {
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
 }
 
 /* 底部操作栏 */
@@ -895,8 +895,8 @@ watch(modalVisible, (visible) => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: rgba(15, 23, 42, 0.5);
-  border-top: 1px solid rgba(51, 65, 85, 0.5);
+  background: color-mix(in srgb, var(--bg-base, #0f172a) 50%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--border-default, #334155) 50%, transparent);
 }
 
 .footer-info {
@@ -904,7 +904,7 @@ watch(modalVisible, (visible) => {
   align-items: center;
   gap: 16px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted, #64748b);
 }
 
 .ai-status,
@@ -936,7 +936,7 @@ watch(modalVisible, (visible) => {
   padding: 10px 20px;
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
   font-size: 14px;
   border-radius: 10px;
   cursor: pointer;
@@ -944,8 +944,8 @@ watch(modalVisible, (visible) => {
 }
 
 .btn-secondary:hover {
-  background: rgba(51, 65, 85, 0.5);
-  color: #e2e8f0;
+  background: color-mix(in srgb, var(--bg-surface, #334155) 50%, transparent);
+  color: var(--text-primary, #e2e8f0);
 }
 
 .btn-primary {
@@ -953,7 +953,7 @@ watch(modalVisible, (visible) => {
   align-items: center;
   gap: 8px;
   padding: 10px 24px;
-  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  background: linear-gradient(135deg, var(--accent-primary, #8b5cf6) 0%, var(--accent-secondary, #6366f1) 100%);
   border: none;
   color: #fff;
   font-size: 14px;
@@ -961,13 +961,13 @@ watch(modalVisible, (visible) => {
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.25);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent-primary, #8b5cf6) 25%, transparent);
 }
 
 .btn-primary:hover {
   background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%);
   transform: translateY(-1px);
-  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.35);
+  box-shadow: 0 10px 25px color-mix(in srgb, var(--accent-primary, #8b5cf6) 35%, transparent);
 }
 
 /* 快捷键提示 */
@@ -976,16 +976,16 @@ watch(modalVisible, (visible) => {
   justify-content: center;
   gap: 20px;
   padding: 14px 24px;
-  border-top: 1px solid rgba(51, 65, 85, 0.4);
+  border-top: 1px solid color-mix(in srgb, var(--border-default, #334155) 40%, transparent);
   font-size: 11px;
-  color: #475569;
+  color: var(--text-dim, #475569);
 }
 
 .keyboard-hints kbd {
   display: inline-block;
   padding: 3px 8px;
-  background: rgba(51, 65, 85, 0.5);
-  border: 1px solid rgba(71, 85, 105, 0.6);
+  background: color-mix(in srgb, var(--bg-surface, #334155) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-default, #475569) 60%, transparent);
   border-radius: 5px;
   font-size: 10px;
   font-family: monospace;
@@ -996,7 +996,7 @@ watch(modalVisible, (visible) => {
 .modal-footer-hint {
   text-align: center;
   font-size: 11px;
-  color: #475569;
+  color: var(--text-dim, #475569);
   line-height: 1.6;
 }
 

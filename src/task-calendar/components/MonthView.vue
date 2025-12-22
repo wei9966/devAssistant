@@ -225,7 +225,7 @@ const calendarDays = computed(() => {
   text-align: center;
   font-size: 12px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-dim, #64748b);
   padding: 6px 0;
   text-transform: uppercase;
 }
@@ -247,16 +247,16 @@ const calendarDays = computed(() => {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--text-primary, #fff) 2%, transparent);
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.05));
   min-height: 80px;
   overflow: hidden;
   position: relative;
 }
 
 .date-cell:hover {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.2);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary, #6366f1) 20%, transparent);
 }
 
 /* 非当月日期半透明 */
@@ -277,19 +277,19 @@ const calendarDays = computed(() => {
 
 /* 选中日期发光效果 */
 .date-cell.selected {
-  background: rgba(99, 102, 241, 0.2);
-  border: 1px solid rgba(99, 102, 241, 0.6);
-  box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #6366f1) 60%, transparent);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--accent-primary, #6366f1) 30%, transparent);
 }
 
 .date-cell.selected .date-number {
-  background: #6366f1;
+  background: var(--accent-primary, #6366f1);
   color: #ffffff;
 }
 
 /* 有任务的日期 */
 .date-cell.has-tasks {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--text-primary, #fff) 3%, transparent);
 }
 
 /* 全部完成的日期 */
@@ -315,19 +315,19 @@ const calendarDays = computed(() => {
   border-radius: 50%;
   font-size: 13px;
   font-weight: 500;
-  color: #e2e8f0;
+  color: var(--text-primary, #e2e8f0);
   transition: all 0.2s;
 }
 
 .date-cell.other-month .date-number {
-  color: #64748b;
+  color: var(--text-dim, #64748b);
 }
 
 /* 任务数量徽章 */
 .task-count-badge {
   font-size: 10px;
-  color: #94a3b8;
-  background: rgba(148, 163, 184, 0.2);
+  color: var(--text-secondary, #94a3b8);
+  background: color-mix(in srgb, var(--text-secondary, #94a3b8) 20%, transparent);
   padding: 2px 6px;
   border-radius: 10px;
   font-weight: 500;
@@ -377,7 +377,7 @@ const calendarDays = computed(() => {
 .task-title {
   font-size: 10px;
   line-height: 1.3;
-  color: #cbd5e1;
+  color: var(--text-primary, #cbd5e1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -391,14 +391,14 @@ const calendarDays = computed(() => {
 
 /* 已完成任务的标题 */
 .task-item .priority-indicator.done ~ .task-title {
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
   text-decoration: line-through;
 }
 
 /* 更多任务提示 */
 .more-tasks {
   font-size: 10px;
-  color: #64748b;
+  color: var(--text-dim, #64748b);
   padding-left: 12px;
   margin-top: 2px;
 }

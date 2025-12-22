@@ -25,7 +25,7 @@
                 <div class="setting-item">
                   <div class="setting-info">
                     <div class="setting-label">主题偏好</div>
-                    <div class="setting-desc">当前锁定为：Midnight Dark</div>
+                    <div class="setting-desc">选择应用的外观主题，更改后即时生效</div>
                   </div>
                   <div class="setting-control">
                     <n-select
@@ -827,7 +827,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, h } from 'vue';
+import { ref, onMounted, computed, h, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { NTabs, NTabPane, NSpace, NSwitch, NSelect, NInput, NInputNumber, NButton, NIcon, NSpin, NAlert, NDataTable, NTag, NEmpty, NStatistic, NGrid, NGi, NProgress, NText, useMessage, useDialog } from 'naive-ui';
 import { TimeOutline, RefreshOutline, InformationCircleOutline, TrashOutline, ReloadOutline, DownloadOutline } from '@vicons/ionicons5';
@@ -837,6 +837,7 @@ import { relaunch } from '@tauri-apps/plugin-process';
 import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
 import { aiApi } from '@/api/aiApi';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { AI_PROVIDERS } from '@/types/ai';
 import type { AiProvider, AiLog, AiLogStats } from '@/types/ai';
 import ContextManager from '@/components/context/ContextManager.vue';
@@ -867,6 +868,17 @@ const settings = ref({
   worklogReminder: true,
   logLevel: 'info',
 });
+
+// 获取全局设置 store（用于主题同步）
+const settingsStore = useSettingsStore();
+
+// 监听主题变化，立即同步到全局 store（实现主题即时切换）
+watch(
+  () => settings.value.theme,
+  (newTheme) => {
+    settingsStore.updateSettings({ theme: newTheme as 'light' | 'dark' | 'auto' });
+  }
+);
 
 // 日志级别选项
 const logLevelOptions = [
@@ -1136,8 +1148,9 @@ async function loadSettings() {
     const appSettings = await invoke<any>('get_app_settings');
 
     // 映射后端设置到前端设置
+    const loadedTheme = appSettings.theme || 'auto';
     settings.value = {
-      theme: appSettings.theme || 'auto',
+      theme: loadedTheme,
       alwaysOnTop: appSettings.always_on_top || false,
       autoStart: appSettings.auto_start || false,
       clipboardMonitor: appSettings.enable_clipboard_monitoring || true,
@@ -1151,6 +1164,9 @@ async function loadSettings() {
       worklogReminder: appSettings.worklog_reminder || true,
       logLevel: appSettings.log_level || 'info',
     };
+
+    // 同步主题到全局 store（确保主题立即生效）
+    settingsStore.updateSettings({ theme: loadedTheme as 'light' | 'dark' | 'auto' });
   } catch (error) {
     console.error('加载设置失败:', error);
     // 使用默认值
@@ -1675,12 +1691,12 @@ async function handleDownloadUpdate() {
 .page-title {
   font-size: 20px;
   font-weight: 600;
-  color: rgb(241, 245, 249);
+  color: var(--text-primary);
   letter-spacing: -0.025em;
   margin-bottom: 24px;
   position: sticky;
   top: -16px;
-  background: rgb(2, 6, 23);
+  background: var(--bg-base);
   padding-top: 16px;
   padding-bottom: 16px;
   margin-top: -16px;
@@ -1703,8 +1719,8 @@ async function handleDownloadUpdate() {
 
 /* 设置卡片 */
 .settings-card {
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 16px;
   overflow: hidden;
   backdrop-filter: blur(8px);
@@ -1715,14 +1731,14 @@ async function handleDownloadUpdate() {
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.6);
-  background: rgba(15, 23, 42, 0.3);
+  border-bottom: 1px solid var(--card-border);
+  background: var(--bg-overlay);
 }
 
 .card-title {
   font-size: 14px;
   font-weight: 500;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -1731,14 +1747,14 @@ async function handleDownloadUpdate() {
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 4px;
-  background: rgba(148, 163, 184, 0.1);
-  color: rgb(148, 163, 184);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
 }
 
 .status-active {
   background: rgba(16, 185, 129, 0.1);
-  color: rgb(52, 211, 153);
+  color: var(--success);
   border-color: rgba(16, 185, 129, 0.2);
 }
 
@@ -1747,6 +1763,7 @@ async function handleDownloadUpdate() {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  background: var(--card-bg);
 }
 
 /* 设置项 */
@@ -1773,21 +1790,21 @@ async function handleDownloadUpdate() {
   align-items: center;
   justify-content: center;
   padding: 8px;
-  background: rgb(30, 41, 59);
-  color: rgb(148, 163, 184);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
   border-radius: 8px;
 }
 
 .setting-label {
   font-size: 14px;
   font-weight: 500;
-  color: rgb(203, 213, 225);
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .setting-desc {
   font-size: 12px;
-  color: rgb(100, 116, 139);
+  color: var(--text-muted);
   line-height: 1.4;
 }
 
@@ -1817,7 +1834,7 @@ async function handleDownloadUpdate() {
 .shortcut-tips li {
   font-size: 13px;
   line-height: 1.6;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 .shortcut-tips p {
@@ -1831,7 +1848,7 @@ async function handleDownloadUpdate() {
   justify-content: center;
   gap: 12px;
   padding: 32px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 /* 主题选择器 */
@@ -1861,8 +1878,8 @@ async function handleDownloadUpdate() {
 
 /* AI 日志样式 */
 .stat-card {
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--bg-hover);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   padding: 16px;
   text-align: center;
@@ -1871,32 +1888,32 @@ async function handleDownloadUpdate() {
 .stat-card .stat-value {
   font-size: 24px;
   font-weight: 600;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .stat-card .stat-label {
   font-size: 12px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 .stat-card.stat-success .stat-value {
-  color: rgb(52, 211, 153);
+  color: var(--success);
 }
 
 .stat-card.stat-error .stat-value {
-  color: rgb(248, 113, 113);
+  color: var(--error);
 }
 
 .module-stats {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid rgba(51, 65, 85, 0.4);
+  border-top: 1px solid var(--border-default);
 }
 
 .module-stats-title {
   font-size: 13px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   margin-bottom: 12px;
 }
 
@@ -1915,8 +1932,8 @@ async function handleDownloadUpdate() {
 .number-adjuster {
   display: flex;
   align-items: center;
-  background: rgb(2, 6, 23);
-  border: 1px solid rgb(51, 65, 85);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 8px;
   padding: 4px;
   gap: 4px;
@@ -1926,7 +1943,7 @@ async function handleDownloadUpdate() {
   padding: 8px 12px;
   background: transparent;
   border: none;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   font-size: 14px;
   cursor: pointer;
   border-radius: 4px;
@@ -1935,8 +1952,8 @@ async function handleDownloadUpdate() {
 }
 
 .adjuster-btn:hover {
-  background: rgb(30, 41, 59);
-  color: rgb(255, 255, 255);
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .adjuster-btn:active {
@@ -1946,7 +1963,7 @@ async function handleDownloadUpdate() {
 .adjuster-value {
   width: 48px;
   text-align: center;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
   font-size: 14px;
   font-family: 'Monaco', 'Menlo', monospace;
   font-weight: 500;
@@ -1961,13 +1978,13 @@ async function handleDownloadUpdate() {
 }
 
 .db-path {
-  background: rgb(2, 6, 23);
+  background: var(--input-bg);
   padding: 8px 12px;
   border-radius: 6px;
   font-family: 'Monaco', 'Menlo', monospace;
   font-size: 12px;
-  color: rgb(148, 163, 184);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
   display: inline-block;
   word-break: break-all;
 }
@@ -1986,12 +2003,12 @@ async function handleDownloadUpdate() {
 .about-info p {
   margin: 0;
   font-size: 14px;
-  color: rgb(203, 213, 225);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
 .about-info strong {
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -2003,7 +2020,7 @@ async function handleDownloadUpdate() {
   padding-bottom: 16px;
   position: sticky;
   bottom: -32px;
-  background: rgb(2, 6, 23);
+  background: var(--bg-base);
   margin-bottom: -32px;
   z-index: 98;
 }
@@ -2014,90 +2031,90 @@ async function handleDownloadUpdate() {
 }
 
 .settings-page::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
 
 .settings-page::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.5);
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 .settings-page::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 0.7);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Naive UI 组件自定义样式 */
 :deep(.n-tabs) {
-  --n-tab-text-color: rgb(148, 163, 184);
-  --n-tab-text-color-active: rgb(99, 102, 241);
-  --n-tab-text-color-hover: rgb(203, 213, 225);
-  --n-bar-color: rgb(99, 102, 241);
-  --n-tab-border-color: rgba(51, 65, 85, 0.6);
+  --n-tab-text-color: var(--text-muted);
+  --n-tab-text-color-active: var(--accent-primary);
+  --n-tab-text-color-hover: var(--text-secondary);
+  --n-bar-color: var(--accent-primary);
+  --n-tab-border-color: var(--border-default);
 }
 
 :deep(.n-tabs-nav) {
   position: sticky;
   top: 52px;
-  background: rgb(2, 6, 23);
+  background: var(--bg-base);
   z-index: 99;
   padding-bottom: 8px;
 }
 
 :deep(.n-switch) {
-  --n-rail-color: rgb(51, 65, 85);
-  --n-rail-color-active: rgb(99, 102, 241);
-  --n-button-color: rgb(148, 163, 184);
-  --n-button-color-active: rgb(255, 255, 255);
+  --n-rail-color: var(--border-default);
+  --n-rail-color-active: var(--accent-primary);
+  --n-button-color: var(--text-muted);
+  --n-button-color-active: #ffffff;
 }
 
 :deep(.n-select) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
-  --n-border-focus: 1px solid rgb(99, 102, 241);
-  --n-color: rgb(2, 6, 23);
-  --n-text-color: rgb(203, 213, 225);
-  --n-caret-color: rgb(99, 102, 241);
+  --n-border: 1px solid var(--input-border);
+  --n-border-hover: 1px solid var(--accent-primary);
+  --n-border-focus: 1px solid var(--accent-primary);
+  --n-color: var(--input-bg);
+  --n-text-color: var(--text-primary);
+  --n-caret-color: var(--accent-primary);
 }
 
 :deep(.n-input) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
-  --n-border-focus: 1px solid rgb(99, 102, 241);
-  --n-color: rgb(2, 6, 23);
-  --n-text-color: rgb(203, 213, 225);
-  --n-caret-color: rgb(99, 102, 241);
-  --n-placeholder-color: rgb(100, 116, 139);
+  --n-border: 1px solid var(--input-border);
+  --n-border-hover: 1px solid var(--accent-primary);
+  --n-border-focus: 1px solid var(--accent-primary);
+  --n-color: var(--input-bg);
+  --n-text-color: var(--text-primary);
+  --n-caret-color: var(--accent-primary);
+  --n-placeholder-color: var(--text-muted);
 }
 
 :deep(.n-alert) {
-  --n-color: rgba(99, 102, 241, 0.1);
-  --n-title-text-color: rgb(203, 213, 225);
-  --n-content-text-color: rgb(148, 163, 184);
-  --n-icon-color: rgb(99, 102, 241);
-  --n-border: 1px solid rgba(99, 102, 241, 0.2);
+  --n-color: var(--accent-glow);
+  --n-title-text-color: var(--text-secondary);
+  --n-content-text-color: var(--text-muted);
+  --n-icon-color: var(--accent-primary);
+  --n-border: 1px solid var(--border-active);
 }
 
 :deep(.n-button) {
-  --n-color: rgb(30, 41, 59);
-  --n-color-hover: rgb(51, 65, 85);
-  --n-color-pressed: rgb(30, 41, 59);
-  --n-text-color: rgb(203, 213, 225);
-  --n-border: 1px solid rgb(51, 65, 85);
+  --n-color: var(--button-default-bg);
+  --n-color-hover: var(--bg-hover);
+  --n-color-pressed: var(--button-default-bg);
+  --n-text-color: var(--button-default-text);
+  --n-border: 1px solid var(--button-default-border);
 }
 
 :deep(.n-button--primary-type) {
-  --n-color: rgb(99, 102, 241);
-  --n-color-hover: rgb(79, 70, 229);
-  --n-color-pressed: rgb(99, 102, 241);
-  --n-text-color: rgb(255, 255, 255);
-  --n-border: 1px solid rgb(99, 102, 241);
-  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2);
+  --n-color: var(--accent-primary);
+  --n-color-hover: var(--accent-primary-hover);
+  --n-color-pressed: var(--accent-primary);
+  --n-text-color: #ffffff;
+  --n-border: 1px solid var(--accent-primary);
+  box-shadow: 0 10px 15px -3px var(--accent-glow);
 }
 
 :deep(.n-button--error-type) {
   --n-color: rgba(239, 68, 68, 0.1);
   --n-color-hover: rgba(239, 68, 68, 0.2);
-  --n-text-color: rgb(248, 113, 113);
+  --n-text-color: var(--error);
   --n-border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
@@ -2114,7 +2131,7 @@ async function handleDownloadUpdate() {
 
 .update-status {
   font-size: 14px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   margin: 0;
   display: flex;
   align-items: center;
@@ -2122,26 +2139,26 @@ async function handleDownloadUpdate() {
 }
 
 .update-status.checking {
-  color: rgb(99, 102, 241);
+  color: var(--accent-primary);
 }
 
 .update-status.available {
-  color: rgb(52, 211, 153);
+  color: var(--success);
 }
 
 .update-status.available strong {
-  color: rgb(74, 222, 128);
+  color: var(--success);
 }
 
 .update-status.error {
-  color: rgb(248, 113, 113);
+  color: var(--error);
 }
 
 .update-notes {
   margin-top: 16px;
   padding: 16px;
-  background: rgba(2, 6, 23, 0.8);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--bg-overlay);
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   max-height: 200px;
   overflow-y: auto;
@@ -2150,27 +2167,27 @@ async function handleDownloadUpdate() {
 .notes-label {
   font-size: 13px;
   font-weight: 500;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   margin-bottom: 8px;
 }
 
 .notes-content {
   font-size: 13px;
   line-height: 1.6;
-  color: rgb(203, 213, 225);
+  color: var(--text-secondary);
 }
 
 .notes-content :deep(h2) {
   font-size: 14px;
   font-weight: 600;
-  color: rgb(226, 232, 240);
+  color: var(--text-primary);
   margin: 12px 0 8px 0;
 }
 
 .notes-content :deep(h3) {
   font-size: 13px;
   font-weight: 500;
-  color: rgb(203, 213, 225);
+  color: var(--text-secondary);
   margin: 8px 0 6px 0;
 }
 
@@ -2194,22 +2211,22 @@ async function handleDownloadUpdate() {
 }
 
 .update-notes::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
 
 .update-notes::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.5);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
 .update-notes::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 0.7);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* 子设置项缩进 */
 .sub-setting {
   padding-left: 24px;
-  border-left: 2px solid rgba(51, 65, 85, 0.6);
+  border-left: 2px solid var(--border-default);
   margin-left: 8px;
 }
 
@@ -2219,7 +2236,7 @@ async function handleDownloadUpdate() {
   align-items: center;
   gap: 16px;
   padding-top: 16px;
-  border-top: 1px solid rgba(51, 65, 85, 0.4);
+  border-top: 1px solid var(--border-default);
   margin-top: 8px;
 }
 </style>

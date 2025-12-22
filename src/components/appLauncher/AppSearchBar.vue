@@ -114,8 +114,8 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(30, 41, 59, 0.6);
-  border: 2px solid rgba(51, 65, 85, 0.5);
+  background: var(--input-bg);
+  border: 2px solid var(--input-border);
   border-radius: 16px;
   padding: 14px 20px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -123,13 +123,13 @@ defineExpose({
 }
 
 .search-bar:focus-within {
-  background: rgba(30, 41, 59, 0.9);
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 10px 20px -5px rgba(99, 102, 241, 0.2);
+  background: var(--bg-surface);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow), var(--shadow-md);
 }
 
 .search-icon {
-  color: #94a3b8;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   transition: color 0.3s;
@@ -137,7 +137,7 @@ defineExpose({
 }
 
 .search-bar:focus-within .search-icon {
-  color: #6366f1;
+  color: var(--accent-primary);
 }
 
 .search-input {
@@ -146,17 +146,17 @@ defineExpose({
   border: none;
   outline: none;
   font-size: 15px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-weight: 400;
   min-width: 0;
 }
 
 .search-input::placeholder {
-  color: #64748b;
+  color: var(--text-dim);
 }
 
 .clear-btn {
-  color: #64748b;
+  color: var(--text-dim);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -167,8 +167,8 @@ defineExpose({
 }
 
 .clear-btn:hover {
-  color: #e2e8f0;
-  background: rgba(99, 102, 241, 0.1);
+  color: var(--text-primary);
+  background: var(--accent-glow);
 }
 
 .shortcut-hint {
@@ -176,34 +176,34 @@ defineExpose({
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-dim);
   flex-shrink: 0;
   margin-left: 8px;
   padding-left: 12px;
-  border-left: 1px solid rgba(51, 65, 85, 0.5);
+  border-left: 1px solid var(--border-default);
 }
 
 .shortcut-hint kbd {
   display: inline-block;
   padding: 2px 6px;
-  background: rgba(51, 65, 85, 0.5);
-  border: 1px solid rgba(71, 85, 105, 0.6);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   font-size: 10px;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-  color: #94a3b8;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1);
+  color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
 }
 
 .search-result-info {
   margin-top: 12px;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-muted);
   text-align: center;
 }
 
 .result-count {
-  color: #6366f1;
+  color: var(--accent-primary);
   font-weight: 600;
   font-size: 14px;
 }

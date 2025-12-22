@@ -115,7 +115,7 @@ const currentTab = ref<'tasks' | 'statistics' | 'timeline' | 'browse' | 'screens
   display: flex;
   flex-direction: column;
   padding: 32px;
-  background: linear-gradient(to bottom right, #0f172a, #1e293b);
+  background: linear-gradient(to bottom right, var(--bg-base), var(--bg-surface));
 }
 
 .report-header {
@@ -128,7 +128,7 @@ const currentTab = ref<'tasks' | 'statistics' | 'timeline' | 'browse' | 'screens
 .report-title {
   font-size: 20px;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--text-primary);
   letter-spacing: -0.025em;
   margin: 0;
 }
@@ -142,9 +142,9 @@ const currentTab = ref<'tasks' | 'statistics' | 'timeline' | 'browse' | 'screens
 .tab-content {
   flex: 1;
   overflow: auto;
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--card-bg);
   border-radius: 20px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--card-border);
   backdrop-filter: blur(12px);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
@@ -169,27 +169,27 @@ const currentTab = ref<'tasks' | 'statistics' | 'timeline' | 'browse' | 'screens
 }
 
 :deep(.n-button--default-type) {
-  background-color: #1e293b;
-  border-color: #334155;
-  color: #cbd5e1;
+  background-color: var(--bg-surface);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
 }
 
 :deep(.n-button--default-type:hover) {
-  background-color: #334155;
-  border-color: #475569;
+  background-color: var(--bg-elevated);
+  border-color: var(--border-hover);
 }
 
 :deep(.primary-button),
 :deep(.n-button--primary-type) {
-  background-color: #6366f1 !important;
-  border-color: #6366f1 !important;
-  color: #ffffff !important;
+  background-color: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  color: var(--text-primary) !important;
   box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2) !important;
 }
 
 :deep(.n-button--primary-type:hover) {
-  background-color: #4f46e5 !important;
-  border-color: #4f46e5 !important;
+  background-color: var(--accent-secondary) !important;
+  border-color: var(--accent-secondary) !important;
 }
 
 /* 滚动条样式 */
@@ -202,11 +202,11 @@ const currentTab = ref<'tasks' | 'statistics' | 'timeline' | 'browse' | 'screens
 }
 
 .tab-content::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--border-default);
   border-radius: 4px;
 }
 
 .tab-content::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--border-hover);
 }
 </style>

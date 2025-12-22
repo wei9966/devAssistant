@@ -132,8 +132,8 @@ function goNextDay() {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
   border-radius: 12px;
 }
 
@@ -157,17 +157,17 @@ function goNextDay() {
 
 .date-display {
   font-size: 14px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 /* Naive UI 样式覆盖 */
 :deep(.n-date-picker) {
-  --n-border: 1px solid rgb(51, 65, 85);
-  --n-border-hover: 1px solid rgb(99, 102, 241);
+  --n-border: 1px solid var(--border-default);
+  --n-border-hover: 1px solid var(--accent-primary);
 }
 
 :deep(.n-button--quaternary-type) {
-  --n-text-color: rgb(148, 163, 184);
-  --n-text-color-hover: rgb(99, 102, 241);
+  --n-text-color: var(--text-muted);
+  --n-text-color-hover: var(--accent-primary);
 }
 </style>

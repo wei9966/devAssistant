@@ -490,18 +490,18 @@ const handleCancel = () => {
 
 <style scoped>
 .app-edit-dialog {
-  background: rgba(15, 23, 42, 0.95);
+  background: var(--bg-overlay);
   backdrop-filter: blur(16px);
 }
 
 .app-edit-dialog :deep(.n-card) {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
 }
 
 .app-edit-dialog :deep(.n-card__header) {
-  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
-  color: #e2e8f0;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -517,9 +517,9 @@ const handleCancel = () => {
   justify-content: center;
   width: 80px;
   height: 80px;
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--accent-glow);
   border-radius: 8px;
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid var(--border-active);
 }
 
 .icon-preview img {
@@ -536,10 +536,10 @@ const handleCancel = () => {
   gap: 8px;
   width: 80px;
   height: 80px;
-  background: rgba(71, 85, 105, 0.2);
+  background: var(--bg-hover);
   border-radius: 8px;
-  border: 1px dashed rgba(148, 163, 184, 0.3);
-  color: rgba(148, 163, 184, 0.6);
+  border: 1px dashed var(--border-default);
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -557,35 +557,35 @@ const handleCancel = () => {
 
 /* 表单样式覆盖 */
 .app-edit-dialog :deep(.n-form-item-label) {
-  color: #cbd5e1;
+  color: var(--text-secondary);
 }
 
 .app-edit-dialog :deep(.n-input) {
-  background: rgba(15, 23, 42, 0.5);
-  border-color: rgba(51, 65, 85, 0.5);
+  background: var(--input-bg);
+  border-color: var(--input-border);
 }
 
 .app-edit-dialog :deep(.n-input:hover) {
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: var(--border-hover);
 }
 
 .app-edit-dialog :deep(.n-input:focus) {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-glow);
 }
 
 .app-edit-dialog :deep(.n-base-selection) {
-  background: rgba(15, 23, 42, 0.5);
-  border-color: rgba(51, 65, 85, 0.5);
+  background: var(--input-bg);
+  border-color: var(--input-border);
 }
 
 .app-edit-dialog :deep(.n-base-selection:hover) {
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: var(--border-hover);
 }
 
 .app-edit-dialog :deep(.n-base-selection.n-base-selection--active) {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-glow);
 }
 
 /* 元信息样式 */
@@ -594,9 +594,9 @@ const handleCancel = () => {
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   padding: 12px;
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--bg-overlay);
   border-radius: 8px;
-  border: 1px solid rgba(51, 65, 85, 0.3);
+  border: 1px solid var(--border-default);
 }
 
 .meta-item {
@@ -611,13 +611,13 @@ const handleCancel = () => {
 
 .meta-label {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-dim);
   font-weight: 500;
 }
 
 .meta-value {
   font-size: 13px;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   word-break: break-word;
 }
 
@@ -639,26 +639,26 @@ const handleCancel = () => {
 
 .source-start_menu {
   background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
+  color: var(--success);
 }
 
 .source-registry {
   background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
+  color: var(--info);
 }
 
 .source-shell_apps {
   background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  color: var(--warning);
 }
 
 .source-uwp {
   background: rgba(139, 92, 246, 0.15);
-  color: #a78bfa;
+  color: var(--accent-secondary);
 }
 
 .source-manual {
   background: rgba(148, 163, 184, 0.15);
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 </style>

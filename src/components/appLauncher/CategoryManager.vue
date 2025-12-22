@@ -276,18 +276,18 @@ watch(() => props.show, (newValue) => {
 
 <style scoped>
 .category-manager {
-  background: rgba(15, 23, 42, 0.95);
+  background: var(--bg-overlay);
   backdrop-filter: blur(16px);
 }
 
 .category-manager :deep(.n-card) {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
 }
 
 .category-manager :deep(.n-card__header) {
-  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
-  color: #e2e8f0;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -299,9 +299,9 @@ watch(() => props.show, (newValue) => {
 
 .add-section {
   padding: 16px;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--bg-overlay);
   border-radius: 8px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--border-default);
 }
 
 .category-list {
@@ -322,21 +322,21 @@ watch(() => props.show, (newValue) => {
 
 /* 表单样式覆盖 */
 .category-manager :deep(.n-form-item-label) {
-  color: #cbd5e1;
+  color: var(--text-secondary);
 }
 
 .category-manager :deep(.n-input) {
-  background: rgba(15, 23, 42, 0.5);
-  border-color: rgba(51, 65, 85, 0.5);
+  background: var(--input-bg);
+  border-color: var(--input-border);
 }
 
 .category-manager :deep(.n-input:hover) {
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: var(--border-hover);
 }
 
 .category-manager :deep(.n-input:focus) {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-glow);
 }
 
 /* 表格样式 */
@@ -345,19 +345,19 @@ watch(() => props.show, (newValue) => {
 }
 
 .category-manager :deep(.n-data-table-th) {
-  background: rgba(15, 23, 42, 0.5);
-  color: #cbd5e1;
-  border-color: rgba(51, 65, 85, 0.5);
+  background: var(--bg-overlay);
+  color: var(--text-secondary);
+  border-color: var(--border-default);
 }
 
 .category-manager :deep(.n-data-table-td) {
   background: transparent;
-  border-color: rgba(51, 65, 85, 0.3);
-  color: #e2e8f0;
+  border-color: var(--border-default);
+  color: var(--text-primary);
 }
 
 .category-manager :deep(.n-data-table-tr:hover .n-data-table-td) {
-  background: rgba(99, 102, 241, 0.05);
+  background: var(--bg-hover);
 }
 
 /* 滚动条样式 */
@@ -366,16 +366,16 @@ watch(() => props.show, (newValue) => {
 }
 
 .category-list::-webkit-scrollbar-track {
-  background: rgba(30, 41, 59, 0.3);
+  background: var(--scrollbar-track);
   border-radius: 4px;
 }
 
 .category-list::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 .category-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.5);
+  background: var(--scrollbar-thumb-hover);
 }
 </style>

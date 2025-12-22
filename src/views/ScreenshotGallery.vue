@@ -242,7 +242,7 @@ function formatDate(date: Date): string {
   justify-content: center;
   gap: 16px;
   padding: 64px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 .timeline-section {
@@ -259,16 +259,16 @@ function formatDate(date: Date): string {
 }
 
 :deep(.n-timeline-item-timeline__line) {
-  background: rgba(99, 102, 241, 0.3);
+  background: var(--accent-glow);
 }
 
 :deep(.n-timeline-item-timeline__circle) {
-  background: rgb(99, 102, 241);
-  border-color: rgba(99, 102, 241, 0.5);
+  background: var(--accent-primary);
+  border-color: var(--accent-glow);
 }
 
 :deep(.n-timeline-item-content__time) {
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   font-weight: 600;
   font-size: 14px;
 }
@@ -284,7 +284,7 @@ function formatDate(date: Date): string {
   justify-content: center;
   gap: 12px;
   padding: 32px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   font-size: 14px;
 }
 
@@ -292,9 +292,9 @@ function formatDate(date: Date): string {
 .all-loaded {
   text-align: center;
   padding: 32px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   font-size: 13px;
-  border-top: 1px dashed rgba(148, 163, 184, 0.2);
+  border-top: 1px dashed var(--border-default);
   margin-top: 16px;
 }
 

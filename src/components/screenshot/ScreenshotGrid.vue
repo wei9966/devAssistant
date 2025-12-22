@@ -134,8 +134,8 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .grid-item {
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--card-bg);
+  border: 1px solid var(--border-default);
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
@@ -143,8 +143,8 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .grid-item:hover {
-  border-color: rgba(99, 102, 241, 0.6);
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.15);
+  border-color: color-mix(in srgb, var(--accent-primary) 60%, transparent);
+  box-shadow: 0 8px 20px var(--accent-glow);
   transform: translateY(-2px);
 }
 
@@ -152,7 +152,7 @@ function truncateText(text: string, maxLength: number): string {
   position: relative;
   width: 100%;
   padding-top: 56.25%; /* 16:9 aspect ratio */
-  background: rgba(30, 41, 59, 0.5);
+  background: var(--bg-surface);
   overflow: hidden;
 }
 
@@ -166,7 +166,7 @@ function truncateText(text: string, maxLength: number): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgb(100, 116, 139);
+  color: var(--text-dim);
 }
 
 .thumbnail-image {
@@ -239,19 +239,19 @@ function truncateText(text: string, maxLength: number): string {
 
 .time-text {
   font-size: 11px;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
   font-family: 'Courier New', monospace;
 }
 
 .app-name {
   font-size: 12px;
   font-weight: 600;
-  color: rgb(99, 102, 241);
+  color: var(--accent-primary);
 }
 
 .description {
   font-size: 12px;
-  color: rgb(203, 213, 225);
+  color: var(--text-secondary);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;

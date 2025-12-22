@@ -903,22 +903,19 @@ async function hideWindow() {
   height: 100%;
   max-height: 100vh;
   /* 深色半透明背景 + 模糊效果 */
-  background: rgba(15, 23, 42, 0.85);
+  background: var(--bg-surface);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   /* 边框发光效果 */
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  border: 1px solid var(--accent-glow);
   border-radius: 16px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   /* 强烈的阴影 */
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.2),
-    0 20px 40px rgba(0, 0, 0, 0.6),
-    0 0 20px rgba(99, 102, 241, 0.1);
-  color: #e2e8f0;
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  color: var(--text-secondary);
   transition: all 0.3s ease;
 }
 
@@ -931,8 +928,8 @@ async function hideWindow() {
   justify-content: center;
   cursor: move;
   /* 顶部渐变条 */
-  background: linear-gradient(90deg, rgba(99, 102, 241, 0.1), rgba(167, 139, 250, 0.1));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(90deg, var(--accent-glow), rgba(167, 139, 250, 0.1));
+  border-bottom: 1px solid var(--border-default);
 }
 
 .handle-dots {
@@ -945,8 +942,8 @@ async function hideWindow() {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #818cf8;
-  box-shadow: 0 0 6px rgba(99, 102, 241, 0.6);
+  background: var(--accent-primary);
+  box-shadow: 0 0 6px var(--accent-glow);
 }
 
 .task-list {
@@ -964,16 +961,16 @@ async function hideWindow() {
 }
 
 .task-list::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
 
 .task-list::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--scrollbar-thumb);
   border-radius: 2px;
 }
 
 .task-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.4);
+  background: var(--scrollbar-thumb-hover);
 }
 
 .task-section {
@@ -986,7 +983,7 @@ async function hideWindow() {
   gap: 8px;
   padding: 0 4px 8px;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1001,8 +998,8 @@ async function hideWindow() {
 }
 
 .status-dot.active {
-  background: #6366f1;
-  box-shadow: 0 0 8px #6366f1;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary);
   animation: pulse 2s infinite;
 }
 
@@ -1013,13 +1010,13 @@ async function hideWindow() {
 }
 
 .status-dot.todo {
-  background: #64748b;
+  background: var(--text-dim);
 }
 
 .count {
   margin-left: auto;
-  background: rgba(99, 102, 241, 0.1);
-  color: #818cf8;
+  background: var(--accent-glow);
+  color: var(--accent-primary);
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 10px;
@@ -1039,9 +1036,9 @@ async function hideWindow() {
 }
 
 .task-item.active {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+  background: var(--accent-glow);
+  border-color: var(--border-active);
+  box-shadow: var(--shadow-md);
 }
 
 .task-item.active::before {
@@ -1051,24 +1048,24 @@ async function hideWindow() {
   top: 0;
   bottom: 0;
   width: 3px;
-  background: #6366f1;
-  box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .task-item.todo {
-  background: rgba(255, 255, 255, 0.02);
-  border-color: rgba(255, 255, 255, 0.03);
+  background: var(--bg-overlay);
+  border-color: var(--border-default);
 }
 
 .task-item:hover {
   transform: translateY(-1px);
-  background: rgba(99, 102, 241, 0.08);
-  border-color: rgba(99, 102, 241, 0.2);
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
 }
 
 .task-title {
   font-size: 13px;
-  color: #f1f5f9;
+  color: var(--text-primary);
   font-weight: 500;
   display: block;
   white-space: nowrap;
@@ -1079,7 +1076,7 @@ async function hideWindow() {
 .task-detail {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--border-default);
   animation: slideDown 0.2s ease-out;
 }
 
@@ -1098,14 +1095,14 @@ async function hideWindow() {
 }
 
 .detail-label {
-  color: #64748b;
+  color: var(--text-dim);
   flex-shrink: 0;
   font-size: 10px;
   text-transform: uppercase;
 }
 
 .detail-value {
-  color: #cbd5e1;
+  color: var(--text-secondary);
   flex: 1;
 }
 
@@ -1122,16 +1119,16 @@ async function hideWindow() {
 }
 
 .detail-value.description::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--scrollbar-track);
 }
 
 .detail-value.description::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
+  background: var(--scrollbar-thumb);
   border-radius: 2px;
 }
 
 .detail-value.branch {
-  color: #a78bfa;
+  color: var(--accent-secondary);
   font-family: 'Consolas', monospace;
   background: rgba(167, 139, 250, 0.1);
   padding: 1px 4px;
@@ -1140,7 +1137,7 @@ async function hideWindow() {
 
 .more-hint {
   font-size: 11px;
-  color: #6366f1;
+  color: var(--accent-primary);
   padding: 8px;
   text-align: center;
   cursor: pointer;
@@ -1149,8 +1146,8 @@ async function hideWindow() {
 }
 
 .more-hint:hover {
-  background: rgba(99, 102, 241, 0.1);
-  color: #818cf8;
+  background: var(--accent-glow);
+  color: var(--accent-primary-hover);
 }
 
 .empty-state {
@@ -1159,7 +1156,7 @@ async function hideWindow() {
   align-items: center;
   justify-content: center;
   height: 100px;
-  color: #64748b;
+  color: var(--text-dim);
   font-size: 12px;
   gap: 8px;
 }
@@ -1181,8 +1178,8 @@ async function hideWindow() {
   justify-content: flex-end;
   gap: 8px;
   padding: 8px 12px;
-  background: rgba(15, 23, 42, 0.6);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-overlay);
+  border-top: 1px solid var(--border-default);
   backdrop-filter: blur(4px);
   flex-shrink: 0;
 }
@@ -1191,8 +1188,8 @@ async function hideWindow() {
   width: 28px;
   height: 28px;
   border: none;
-  background: rgba(255, 255, 255, 0.03);
-  color: #94a3b8;
+  background: var(--button-default-bg);
+  color: var(--text-muted);
   border-radius: 6px;
   cursor: pointer;
   display: flex;
@@ -1202,34 +1199,34 @@ async function hideWindow() {
 }
 
 .action-btn:hover {
-  background: rgba(99, 102, 241, 0.2);
-  color: #fff;
+  background: var(--accent-glow);
+  color: var(--text-primary);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+  box-shadow: var(--shadow-md);
 }
 
 .action-btn.add:hover {
   background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
+  color: var(--success);
   box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2);
 }
 
 .action-btn.close:hover {
   background: rgba(244, 63, 94, 0.2);
-  color: #f43f5e;
+  color: var(--error);
   box-shadow: 0 2px 8px rgba(244, 63, 94, 0.2);
 }
 
 /* 右键菜单优化 */
 .context-menu {
   position: absolute;
-  background: rgba(30, 41, 59, 0.95);
+  background: var(--bg-elevated);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid var(--border-active);
   border-radius: 8px;
   padding: 6px;
   min-width: 140px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-lg);
   z-index: 1000;
   animation: fadeIn 0.1s ease-out;
 }
@@ -1245,30 +1242,30 @@ async function hideWindow() {
   gap: 10px;
   padding: 8px 12px;
   font-size: 12px;
-  color: #e2e8f0;
+  color: var(--text-secondary);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .menu-item:hover {
-  background: rgba(99, 102, 241, 0.2);
-  color: #fff;
+  background: var(--accent-glow);
+  color: var(--text-primary);
 }
 
 .menu-item svg {
-  color: #94a3b8;
+  color: var(--text-muted);
   transition: color 0.15s;
 }
 
 .menu-item:hover svg {
-  color: #818cf8;
+  color: var(--accent-primary);
 }
 
 /* 菜单分隔线 */
 .menu-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--border-default);
   margin: 4px 8px;
 }
 
@@ -1278,7 +1275,7 @@ async function hideWindow() {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #a78bfa;
+  color: var(--accent-secondary);
   padding: 6px 12px;
   background: rgba(139, 92, 246, 0.1);
   border-radius: 6px;
@@ -1289,7 +1286,7 @@ async function hideWindow() {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #a78bfa;
+  background: var(--accent-secondary);
   box-shadow: 0 0 8px rgba(167, 139, 250, 0.6);
   animation: pulse-dot 2s ease-in-out infinite;
 }

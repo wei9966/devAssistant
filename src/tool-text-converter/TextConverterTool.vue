@@ -385,7 +385,7 @@ function clearAll() {
   height: 100%;
   padding: 16px;
   gap: 12px;
-  background: rgba(12, 12, 20, 0.95);
+  background: color-mix(in srgb, var(--bg-base, #0c0c14) 95%, transparent);
 }
 
 /* 主内容区 */
@@ -400,8 +400,8 @@ function clearAll() {
 .panel {
   display: flex;
   flex-direction: column;
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: color-mix(in srgb, var(--card-bg, rgba(30, 41, 59, 0.5)) 100%, transparent);
+  border: 1px solid var(--card-border, rgba(148, 163, 184, 0.1));
   border-radius: 10px;
   overflow: hidden;
 }
@@ -411,19 +411,19 @@ function clearAll() {
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  background: rgba(0, 0, 0, 0.2);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  background: color-mix(in srgb, var(--bg-elevated, rgba(0, 0, 0, 0.2)) 100%, transparent);
+  border-bottom: 1px solid var(--border-default, rgba(148, 163, 184, 0.1));
 }
 
 .panel-title {
   font-size: 12px;
   font-weight: 500;
-  color: #94a3b8;
+  color: var(--text-muted, #94a3b8);
 }
 
 .char-count {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-dim, #64748b);
 }
 
 .panel-actions {
@@ -432,11 +432,11 @@ function clearAll() {
 }
 
 .icon-btn {
-  background: rgba(99, 102, 241, 0.1);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 10%, transparent);
   border: none;
   border-radius: 5px;
   padding: 5px;
-  color: #94a3b8;
+  color: var(--text-muted, #94a3b8);
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
@@ -445,8 +445,8 @@ function clearAll() {
 }
 
 .icon-btn:hover {
-  background: rgba(99, 102, 241, 0.2);
-  color: #e2e8f0;
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 20%, transparent);
+  color: var(--text-primary, #e2e8f0);
 }
 
 .text-area {
@@ -454,7 +454,7 @@ function clearAll() {
   background: transparent;
   border: none;
   padding: 12px;
-  color: #e2e8f0;
+  color: var(--text-primary, #e2e8f0);
   font-size: 13px;
   font-family: 'Consolas', 'Monaco', monospace;
   line-height: 1.5;
@@ -463,7 +463,7 @@ function clearAll() {
 }
 
 .text-area::placeholder {
-  color: #64748b;
+  color: var(--text-dim, #64748b);
 }
 
 .output-wrapper {
@@ -475,8 +475,8 @@ function clearAll() {
 .line-numbers {
   width: 32px;
   padding: 12px 6px;
-  background: rgba(0, 0, 0, 0.15);
-  color: #64748b;
+  background: color-mix(in srgb, var(--bg-elevated, rgba(0, 0, 0, 0.15)) 100%, transparent);
+  color: var(--text-dim, #64748b);
   font-size: 12px;
   font-family: 'Consolas', 'Monaco', monospace;
   line-height: 1.5;
@@ -489,7 +489,7 @@ function clearAll() {
 .output-content {
   flex: 1;
   padding: 12px;
-  color: #e2e8f0;
+  color: var(--text-primary, #e2e8f0);
   font-size: 13px;
   font-family: 'Consolas', 'Monaco', monospace;
   line-height: 1.5;
@@ -516,7 +516,7 @@ function clearAll() {
 }
 
 .output-content :deep(.json-null) {
-  color: #94a3b8;
+  color: var(--text-muted, #94a3b8);
 }
 
 /* 操作按钮区域 */
@@ -525,8 +525,8 @@ function clearAll() {
   display: flex;
   gap: 16px;
   padding: 12px;
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: color-mix(in srgb, var(--card-bg, rgba(30, 41, 59, 0.5)) 100%, transparent);
+  border: 1px solid var(--card-border, rgba(148, 163, 184, 0.1));
   border-radius: 10px;
   flex-wrap: wrap;
 }
@@ -540,7 +540,7 @@ function clearAll() {
 .section-title {
   font-size: 11px;
   font-weight: 500;
-  color: #64748b;
+  color: var(--text-dim, #64748b);
 }
 
 .button-group {
@@ -560,48 +560,48 @@ function clearAll() {
 }
 
 .btn-purple {
-  background: rgba(139, 92, 246, 0.2);
+  background: color-mix(in srgb, #8b5cf6 20%, transparent);
   color: #a78bfa;
 }
 
 .btn-purple:hover {
-  background: rgba(139, 92, 246, 0.3);
+  background: color-mix(in srgb, #8b5cf6 30%, transparent);
 }
 
 .btn-orange {
-  background: rgba(251, 146, 60, 0.2);
+  background: color-mix(in srgb, #fb923c 20%, transparent);
   color: #fb923c;
 }
 
 .btn-orange:hover {
-  background: rgba(251, 146, 60, 0.3);
+  background: color-mix(in srgb, #fb923c 30%, transparent);
 }
 
 .btn-green {
-  background: rgba(34, 197, 94, 0.2);
+  background: color-mix(in srgb, #22c55e 20%, transparent);
   color: #4ade80;
 }
 
 .btn-green:hover {
-  background: rgba(34, 197, 94, 0.3);
+  background: color-mix(in srgb, #22c55e 30%, transparent);
 }
 
 .btn-blue {
-  background: rgba(59, 130, 246, 0.2);
+  background: color-mix(in srgb, #3b82f6 20%, transparent);
   color: #60a5fa;
 }
 
 .btn-blue:hover {
-  background: rgba(59, 130, 246, 0.3);
+  background: color-mix(in srgb, #3b82f6 30%, transparent);
 }
 
 .btn-gray {
-  background: rgba(148, 163, 184, 0.15);
-  color: #94a3b8;
+  background: color-mix(in srgb, var(--text-muted, #94a3b8) 15%, transparent);
+  color: var(--text-muted, #94a3b8);
 }
 
 .btn-gray:hover {
-  background: rgba(148, 163, 184, 0.25);
+  background: color-mix(in srgb, var(--text-muted, #94a3b8) 25%, transparent);
 }
 
 /* 复制成功提示 */
@@ -610,7 +610,7 @@ function clearAll() {
   bottom: 60px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(34, 197, 94, 0.9);
+  background: color-mix(in srgb, #22c55e 90%, transparent);
   color: white;
   padding: 8px 20px;
   border-radius: 6px;
@@ -643,12 +643,12 @@ function clearAll() {
 
 .output-content::-webkit-scrollbar-thumb,
 .text-area::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 30%, transparent);
   border-radius: 3px;
 }
 
 .output-content::-webkit-scrollbar-thumb:hover,
 .text-area::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.5);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 50%, transparent);
 }
 </style>
