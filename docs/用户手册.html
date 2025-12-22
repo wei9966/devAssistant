@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevAssistant 用户手册</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #1f2940;
+            --text-primary: #e8e8e8;
+            --text-secondary: #a0a0a0;
+            --accent-primary: #7c3aed;
+            --accent-secondary: #4f46e5;
+            --border-color: #2d3748;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        /* 导航栏 */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            z-index: 1000;
+        }
+
+        .navbar-brand {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--accent-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .navbar-brand svg {
+            width: 32px;
+            height: 32px;
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            width: 280px;
+            height: calc(100vh - 60px);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+
+        .sidebar-section {
+            margin-bottom: 8px;
+        }
+
+        .sidebar-title {
+            padding: 8px 24px;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-link {
+            display: block;
+            padding: 10px 24px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar-link:hover {
+            background: var(--bg-card);
+            border-left-color: var(--accent-primary);
+        }
+
+        .sidebar-link.active {
+            background: var(--bg-card);
+            border-left-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
+        .sidebar-sublink {
+            padding-left: 40px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        /* 主内容区 */
+        .main-content {
+            margin-left: 280px;
+            margin-top: 60px;
+            padding: 40px;
+            max-width: 1000px;
+        }
+
+        /* 标题样式 */
+        h1 {
+            font-size: 36px;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        h2 {
+            font-size: 28px;
+            margin: 48px 0 24px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        h3 {
+            font-size: 22px;
+            margin: 32px 0 16px;
+            color: var(--text-primary);
+        }
+
+        h4 {
+            font-size: 18px;
+            margin: 24px 0 12px;
+            color: var(--accent-primary);
+        }
+
+        /* 段落和文本 */
+        p {
+            margin-bottom: 16px;
+            color: var(--text-secondary);
+        }
+
+        .lead {
+            font-size: 18px;
+            color: var(--text-primary);
+            margin-bottom: 24px;
+        }
+
+        /* 头部区域 */
+        .hero {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            padding: 40px;
+            border-radius: 16px;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            color: white;
+            margin-bottom: 8px;
+        }
+
+        .hero .subtitle {
+            color: rgba(255,255,255,0.8);
+            font-size: 18px;
+            margin-bottom: 16px;
+        }
+
+        .hero .version {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            color: white;
+        }
+
+        .tech-stack {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .tech-badge {
+            background: rgba(255,255,255,0.15);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: white;
+        }
+
+        /* 特性卡片 */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 24px 0;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--accent-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            font-size: 24px;
+        }
+
+        .feature-card h4 {
+            margin: 0 0 8px;
+            color: var(--text-primary);
+        }
+
+        .feature-card p {
+            margin: 0;
+            font-size: 14px;
+        }
+
+        /* 图片展示 */
+        .screenshot {
+            margin: 24px 0;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
+
+        .screenshot img {
+            width: 100%;
+            display: block;
+        }
+
+        .screenshot-caption {
+            background: var(--bg-card);
+            padding: 12px 16px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* 功能说明列表 */
+        .feature-list {
+            background: var(--bg-card);
+            padding: 24px;
+            border-radius: 12px;
+            margin: 24px 0;
+            border: 1px solid var(--border-color);
+        }
+
+        .feature-list h4 {
+            margin-top: 0;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .feature-list ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            padding-left: 24px;
+            position: relative;
+            color: var(--text-secondary);
+        }
+
+        .feature-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--success-color);
+            font-weight: bold;
+        }
+
+        /* 表格 */
+        .table-wrapper {
+            overflow-x: auto;
+            margin: 24px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 14px 20px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        td {
+            color: var(--text-secondary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        code {
+            background: var(--bg-secondary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: var(--accent-primary);
+        }
+
+        /* FAQ */
+        .faq-item {
+            background: var(--bg-card);
+            margin: 16px 0;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .faq-question {
+            padding: 20px 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .faq-answer {
+            padding: 0 24px 20px;
+            color: var(--text-secondary);
+        }
+
+        /* 返回顶部 */
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 48px;
+            height: 48px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-decoration: none;
+            box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+            transition: transform 0.2s;
+        }
+
+        .back-to-top:hover {
+            transform: translateY(-4px);
+        }
+
+        /* 页脚 */
+        .footer {
+            margin-top: 60px;
+            padding: 40px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+
+            .hero {
+                padding: 24px;
+            }
+
+            .hero h1 {
+                font-size: 28px;
+            }
+
+            h2 {
+                font-size: 24px;
+            }
+
+            h3 {
+                font-size: 20px;
+            }
+        }
+
+        /* 滚动条美化 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-primary);
+        }
+
+        /* 图片灯箱 */
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            cursor: zoom-out;
+        }
+
+        .lightbox.active {
+            display: flex;
+        }
+
+        .lightbox img {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                <rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            DevAssistant 用户手册
+        </div>
+    </nav>
+
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+        <div class="sidebar-section">
+            <a href="#intro" class="sidebar-link active">软件简介</a>
+        </div>
+        <div class="sidebar-section">
+            <div class="sidebar-title">核心功能</div>
+            <a href="#task" class="sidebar-link">任务管理</a>
+            <a href="#task-board" class="sidebar-link sidebar-sublink">任务看板</a>
+            <a href="#task-new" class="sidebar-link sidebar-sublink">新建任务</a>
+            <a href="#task-float" class="sidebar-link sidebar-sublink">任务悬浮窗</a>
+            <a href="#task-calendar" class="sidebar-link sidebar-sublink">任务日历</a>
+            <a href="#task-ai" class="sidebar-link sidebar-sublink">AI预测任务</a>
+            <a href="#pomodoro" class="sidebar-link">专注时钟</a>
+            <a href="#sql" class="sidebar-link">SQL管理</a>
+            <a href="#worklog" class="sidebar-link">工作日志</a>
+            <a href="#launcher" class="sidebar-link">应用启动器</a>
+            <a href="#report" class="sidebar-link">报表中心</a>
+            <a href="#notification" class="sidebar-link">通知中心</a>
+            <a href="#toolbox" class="sidebar-link">工具箱</a>
+        </div>
+        <div class="sidebar-section">
+            <div class="sidebar-title">系统配置</div>
+            <a href="#settings" class="sidebar-link">系统设置</a>
+            <a href="#settings-general" class="sidebar-link sidebar-sublink">通用设置</a>
+            <a href="#settings-ai" class="sidebar-link sidebar-sublink">AI集成</a>
+            <a href="#settings-screen" class="sidebar-link sidebar-sublink">屏幕上下文</a>
+        </div>
+        <div class="sidebar-section">
+            <a href="#shortcuts" class="sidebar-link">快捷键</a>
+            <a href="#faq" class="sidebar-link">常见问题</a>
+        </div>
+    </aside>
+
+    <!-- 主内容 -->
+    <main class="main-content">
+        <!-- 头部 -->
+        <div class="hero" id="intro">
+            <h1>DevAssistant</h1>
+            <p class="subtitle">个人开发效率工具</p>
+            <span class="version">v1.0.20</span>
+            <div class="tech-stack">
+                <span class="tech-badge">Tauri</span>
+                <span class="tech-badge">Rust</span>
+                <span class="tech-badge">Vue3</span>
+                <span class="tech-badge">TypeScript</span>
+                <span class="tech-badge">Naive UI</span>
+            </div>
+        </div>
+
+        <p class="lead">DevAssistant 是一款专为开发者打造的个人效率工具，集成了任务管理、番茄钟、SQL历史记录、工作日志、应用启动器等多种实用功能。</p>
+
+        <!-- 主要特性 -->
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📋</div>
+                <h4>智能任务管理</h4>
+                <p>支持四象限分类、AI智能分类、任务预测</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⏱️</div>
+                <h4>专注时钟</h4>
+                <p>番茄工作法，帮助保持专注</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💾</div>
+                <h4>SQL历史管理</h4>
+                <p>自动记录SQL执行历史，方便查询复用</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📝</div>
+                <h4>工作日志</h4>
+                <p>日报、周报、周计划一站式管理</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🚀</div>
+                <h4>应用启动器</h4>
+                <p>快速启动常用应用，支持工作流</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h4>AI助手</h4>
+                <p>支持自定义AI服务，提供智能建议</p>
+            </div>
+        </div>
+
+        <!-- 任务管理 -->
+        <h2 id="task">任务管理</h2>
+
+        <h3 id="task-board">任务看板</h3>
+        <p>任务看板是软件的核心功能，采用四象限法则对任务进行分类管理。</p>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133607_258_1.png" alt="任务看板主界面">
+            <div class="screenshot-caption">任务看板主界面 - 四象限任务分类展示</div>
+        </div>
+
+        <div class="feature-list">
+            <h4>📌 功能说明</h4>
+            <ul>
+                <li>左侧导航栏可快速切换各功能模块</li>
+                <li>任务按照四象限（重要紧急、重要不紧急、不重要紧急、不重要不紧急）分类展示</li>
+                <li>支持拖拽调整任务所属象限</li>
+                <li>底部状态栏显示系统CPU和内存使用情况</li>
+                <li>支持快捷键 <code>Ctrl + K</code> 快速搜索</li>
+            </ul>
+        </div>
+
+        <h3 id="task-new">新建任务</h3>
+        <p>点击"新建任务"按钮，弹出任务创建窗口。</p>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133616_259_1.png" alt="新建任务弹窗">
+            <div class="screenshot-caption">新建任务弹窗 - 支持AI智能分类</div>
+        </div>
+
+        <div class="feature-list">
+            <h4>📌 功能说明</h4>
+            <ul>
+                <li>输入任务标题和描述</li>
+                <li><strong>AI智能分类</strong>：点击AI按钮，自动分析任务内容并推荐所属象限</li>
+                <li>设置任务优先级、截止日期、标签等属性</li>
+                <li>支持添加子任务和里程碑</li>
+            </ul>
+        </div>
+
+        <h3 id="task-float">任务悬浮窗</h3>
+        <p>悬浮窗模式让您在进行其他工作时也能随时查看任务列表。</p>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133622_260_1.png" alt="任务悬浮窗">
+            <div class="screenshot-caption">任务悬浮窗 - 精简的任务列表视图</div>
+        </div>
+
+        <h3 id="task-calendar">任务日历</h3>
+        <p>日历视图让您直观地看到任务在时间轴上的分布。</p>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133736_261_1.png" alt="任务日历月视图">
+            <div class="screenshot-caption">任务日历 - 月视图</div>
+        </div>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133737_262_1.png" alt="任务日历周视图">
+            <div class="screenshot-caption">任务日历 - 周视图</div>
+        </div>
+
+        <h3 id="task-ai">AI预测任务</h3>
+        <p>基于您的工作习惯和历史数据，AI可以智能预测您可能需要处理的任务。</p>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133738_263_1.png" alt="AI预测任务">
+            <div class="screenshot-caption">AI预测任务 - 智能识别潜在待办事项</div>
+        </div>
+
+        <h4>任务操作</h4>
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133739_264_1.png" alt="任务操作菜单">
+            <div class="screenshot-caption">任务操作菜单</div>
+        </div>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133739_265_1.png" alt="添加里程碑">
+            <div class="screenshot-caption">添加里程碑功能</div>
+        </div>
+
+        <!-- 专注时钟 -->
+        <h2 id="pomodoro">专注时钟</h2>
+        <p>专注时钟基于番茄工作法，帮助您保持工作专注。</p>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133740_266_1.png" alt="专注时钟">
+            <div class="screenshot-caption">专注时钟 - 番茄工作法</div>
+        </div>
+
+        <div class="feature-list">
+            <h4>⏱️ 功能说明</h4>
+            <ul>
+                <li>可选择关联的任务</li>
+                <li>自定义专注时长（默认25分钟）</li>
+                <li>休息提醒功能</li>
+                <li>记录专注历史，生成统计报表</li>
+                <li>支持暂停和继续</li>
+            </ul>
+        </div>
+
+        <!-- SQL管理 -->
+        <h2 id="sql">SQL管理</h2>
+        <p>自动记录您执行过的SQL语句，方便后续查询和复用。</p>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133743_267_1.png" alt="SQL执行记录">
+            <div class="screenshot-caption">SQL执行记录页面</div>
+        </div>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133748_268_1.png" alt="快速任务输入">
+            <div class="screenshot-caption">快速任务/SQL输入框</div>
+        </div>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133753_269_1.png" alt="SQL搜索预览">
+            <div class="screenshot-caption">SQL搜索和预览</div>
+        </div>
+
+        <!-- 工作日志 -->
+        <h2 id="worklog">工作日志</h2>
+        <p>工作日志帮助您记录每日工作内容，生成周报和周计划。</p>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133815_270_1.png" alt="工作日志-日报">
+            <div class="screenshot-caption">工作日志 - 日报视图</div>
+        </div>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133817_271_1.png" alt="工作日志-周报">
+            <div class="screenshot-caption">工作日志 - 周报视图</div>
+        </div>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133818_272_1.png" alt="工作日志-周计划">
+            <div class="screenshot-caption">工作日志 - 周计划视图</div>
+        </div>
+
+        <!-- 应用启动器 -->
+        <h2 id="launcher">应用启动器</h2>
+        <p>快速启动常用应用程序，提高工作效率。</p>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133820_273_1.png" alt="应用启动器">
+            <div class="screenshot-caption">应用启动器 - 分类管理常用应用</div>
+        </div>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133827_274_1.png" alt="添加应用">
+            <div class="screenshot-caption">添加应用弹窗</div>
+        </div>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133831_275_1.png" alt="快捷搜索">
+            <div class="screenshot-caption">应用快捷搜索</div>
+        </div>
+
+        <!-- 报表中心 -->
+        <h2 id="report">报表中心</h2>
+        <p>报表中心提供丰富的数据统计和可视化分析。</p>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133836_276_1.png" alt="报表中心">
+            <div class="screenshot-caption">报表中心 - 任务报表</div>
+        </div>
+
+        <!-- 通知中心 -->
+        <h2 id="notification">通知中心</h2>
+        <p>集中管理所有系统通知和提醒。</p>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133843_277_1.png" alt="通知中心">
+            <div class="screenshot-caption">通知中心 - 集中管理消息</div>
+        </div>
+
+        <!-- 工具箱 -->
+        <h2 id="toolbox">工具箱</h2>
+        <p>工具箱提供多种实用的开发工具。</p>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133847_278_1.png" alt="工具箱">
+            <div class="screenshot-caption">工具箱 - 实用开发工具集</div>
+        </div>
+
+        <h3>文本转换器</h3>
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133902_280_1.png" alt="文本转换器">
+            <div class="screenshot-caption">文本转换器 - 支持多种文本处理操作</div>
+        </div>
+
+        <div class="feature-list">
+            <h4>🔧 功能说明</h4>
+            <ul>
+                <li><strong>引号转换</strong>：单引号、双引号、去引号</li>
+                <li><strong>JSON操作</strong>：格式化、压缩、转义、反转义</li>
+                <li><strong>其他操作</strong>：大小写转换、复制、清空</li>
+                <li>实时预览转换结果</li>
+            </ul>
+        </div>
+
+        <!-- 系统设置 -->
+        <h2 id="settings">系统设置</h2>
+        <p>系统设置提供丰富的配置选项，满足个性化需求。</p>
+
+        <h3 id="settings-general">通用设置</h3>
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133906_281_1.png" alt="通用设置">
+            <div class="screenshot-caption">通用设置 - 基础配置项</div>
+        </div>
+
+        <h3 id="settings-ai">集成设置 / AI配置</h3>
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133924_282_1.png" alt="集成设置">
+            <div class="screenshot-caption">集成设置 - AI智能助手配置</div>
+        </div>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133928_283_1.png" alt="AI日志">
+            <div class="screenshot-caption">AI日志 - 调用统计和日志</div>
+        </div>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133938_284_1.png" alt="提示词管理">
+            <div class="screenshot-caption">提示词管理 - 自定义AI提示词</div>
+        </div>
+
+        <h3>通知设置</h3>
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133941_285_1.png" alt="通知设置">
+            <div class="screenshot-caption">通知设置 - 定时任务配置</div>
+        </div>
+
+        <h3 id="settings-screen">屏幕上下文</h3>
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222133944_286_1.png" alt="屏幕上下文">
+            <div class="screenshot-caption">屏幕上下文 - 采集设置</div>
+        </div>
+
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222134005_287_1.png" alt="VLM配置">
+            <div class="screenshot-caption">VLM配置 - 视觉语言模型设置</div>
+        </div>
+
+        <h3>关于</h3>
+        <div class="screenshot" onclick="openLightbox(this)">
+            <img src="../pic/introduce/微信图片_20251222134013_288_1.png" alt="关于">
+            <div class="screenshot-caption">关于 - 版本信息和更新</div>
+        </div>
+
+        <!-- 快捷键 -->
+        <h2 id="shortcuts">快捷键说明</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>快捷键</th>
+                        <th>功能</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>Ctrl + K</code></td>
+                        <td>全局搜索</td>
+                    </tr>
+                    <tr>
+                        <td><code>Ctrl + N</code></td>
+                        <td>新建任务</td>
+                    </tr>
+                    <tr>
+                        <td><code>Ctrl + Space</code></td>
+                        <td>唤起应用启动器搜索</td>
+                    </tr>
+                    <tr>
+                        <td><code>Esc</code></td>
+                        <td>关闭弹窗</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- FAQ -->
+        <h2 id="faq">常见问题</h2>
+
+        <div class="faq-item">
+            <div class="faq-question">Q: 如何配置AI功能？</div>
+            <div class="faq-answer">A: 进入设置 > 集成，启用AI功能并配置API Key和Base URL。支持任何OpenAI兼容的API服务。</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Q: 屏幕截图会占用很多存储空间吗？</div>
+            <div class="faq-answer">A: 可以在设置 > 屏幕上下文中配置数据保留天数，系统会自动清理过期数据。</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Q: 如何导出工作日志？</div>
+            <div class="faq-answer">A: 在工作日志页面，点击导出按钮可将日报/周报导出为常用格式。</div>
+        </div>
+
+        <!-- 页脚 -->
+        <div class="footer">
+            <p><strong>感谢使用 DevAssistant！</strong></p>
+            <p>如有问题或建议，欢迎反馈。</p>
+        </div>
+    </main>
+
+    <!-- 返回顶部 -->
+    <a href="#intro" class="back-to-top">↑</a>
+
+    <!-- 图片灯箱 -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <img src="" alt="" id="lightbox-img">
+    </div>
+
+    <script>
+        // 侧边栏激活状态
+        const sidebarLinks = document.querySelectorAll('.sidebar-link');
+        const sections = document.querySelectorAll('h2[id], h3[id]');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (scrollY >= sectionTop - 100) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            sidebarLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // 图片灯箱
+        function openLightbox(element) {
+            const img = element.querySelector('img');
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImg = document.getElementById('lightbox-img');
+            lightboxImg.src = img.src;
+            lightbox.classList.add('active');
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+        }
+
+        // ESC关闭灯箱
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+    </script>
+</body>
+</html>
