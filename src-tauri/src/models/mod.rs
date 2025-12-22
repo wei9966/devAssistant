@@ -5,6 +5,7 @@ pub mod pomodoro;
 pub mod screen_context;
 pub mod sql_record;
 pub mod task;
+pub mod tool;
 pub mod weekly_plan;
 pub mod work_context;
 pub mod work_log;
@@ -29,5 +30,6 @@ pub use sql_record::SqlRecord;
 pub use task::{
     FileContext, Tag, Task, TaskCategory, TaskMilestone, TaskPriority, TaskQuadrant, TaskStatus, WorkContext,
 };
+pub use tool::{PinnedTool, ToolCategory, ToolItem, ToolUsageRecord};
 pub use weekly_plan::{WeeklyPlan, WeeklyPlanStatus};
 pub use work_log::WorkLog;

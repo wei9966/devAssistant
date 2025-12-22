@@ -55,7 +55,6 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { NSpace, NInput, NIcon, NCard, NEmpty, useMessage } from 'naive-ui'
 import {
   SearchOutline,
@@ -63,9 +62,8 @@ import {
   ServerOutline,
   CodeSlashOutline,
 } from '@vicons/ionicons5'
-import { openToolWindow } from '@/api/toolApi'
+import { openToolContainer } from '@/api/toolApi'
 
-const router = useRouter()
 const message = useMessage()
 
 // 搜索关键词
@@ -78,7 +76,6 @@ interface Tool {
   description: string
   icon: any
   color: string
-  route?: string // 如果有路由则跳转，否则打开独立窗口
 }
 
 const tools = ref<Tool[]>([
@@ -88,7 +85,6 @@ const tools = ref<Tool[]>([
     description: '文本格式转换、JSON格式化、引号处理等',
     icon: CodeSlashOutline,
     color: '#22c55e',
-    route: '/text-converter',
   },
   {
     id: 'port-checker',
@@ -115,18 +111,8 @@ const filteredTools = computed(() => {
 
 // 打开工具
 const handleOpenTool = async (toolId: string) => {
-  const tool = tools.value.find(t => t.id === toolId)
-  if (!tool) return
-
-  // 如果有路由配置，则跳转到对应页面
-  if (tool.route) {
-    router.push(tool.route)
-    return
-  }
-
-  // 否则打开独立窗口
   try {
-    await openToolWindow(toolId)
+    await openToolContainer(toolId)
   } catch (error) {
     message.error('打开工具失败: ' + error)
     console.error('打开工具失败:', error)

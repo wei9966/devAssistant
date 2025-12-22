@@ -51,27 +51,103 @@
         </div>
       </div>
 
-      <!-- Body: 应用网格 -->
+      <!-- Body: 三栏布局 -->
       <div class="modal-body">
-        <div class="apps-grid">
-          <div
-            v-for="(app, index) in displayApps"
-            :key="app.id"
-            :class="['app-item', { selected: selectedIndex === index, pinned: app.isPinned }]"
-            @click="handleLaunchApp(app)"
-            @contextmenu.prevent.stop="showContextMenu($event, app)"
-            @mouseenter="selectedIndex = index"
-          >
-            <div :class="['app-icon', getAppColorClass(app.category)]">
-              <img v-if="app.icon" :src="app.icon" :alt="app.name" class="app-icon-img" />
-              <span v-else class="app-icon-fallback">{{ getAppInitial(app.name) }}</span>
-              <!-- 置顶标记 -->
-              <span v-if="app.isPinned" class="pin-badge">📌</span>
+        <!-- 顶部区域：固定项目 + 最近使用 -->
+        <div class="top-section" v-if="!searchQuery.trim()">
+          <!-- 固定项目区 -->
+          <div class="section-block" v-if="pinnedApps.length > 0">
+            <div class="section-header">
+              <span class="section-icon">📌</span>
+              <span class="section-title">已固定</span>
+              <span class="section-count">{{ pinnedApps.length }}</span>
             </div>
-            <span :class="['app-name', { 'app-name-selected': selectedIndex === index }]">
-              {{ app.name }}
-            </span>
+            <div class="mini-apps-grid">
+              <div
+                v-for="(app, index) in pinnedApps"
+                :key="app.id"
+                :class="['app-item-mini', { selected: currentSection === 'pinned' && selectedIndex === index }]"
+                @click="handleLaunchApp(app)"
+                @contextmenu.prevent.stop="showContextMenu($event, app)"
+                @mouseenter="handleHover('pinned', index)"
+              >
+                <div :class="['app-icon-mini', getAppColorClass(app.category)]">
+                  <img v-if="app.icon && app.type !== 'tool'" :src="app.icon" :alt="app.name" class="app-icon-img-mini" />
+                  <span v-else class="app-icon-fallback-mini">{{ app.icon || getAppInitial(app.name) }}</span>
+                </div>
+                <span class="app-name-mini">{{ app.name }}</span>
+              </div>
+            </div>
           </div>
+
+          <!-- 最近使用区 -->
+          <div class="section-block" v-if="recentApps.length > 0">
+            <div class="section-header">
+              <span class="section-icon">🕐</span>
+              <span class="section-title">最近使用</span>
+              <span class="section-count">{{ recentApps.length }}</span>
+            </div>
+            <div class="mini-apps-grid">
+              <div
+                v-for="(app, index) in recentApps"
+                :key="app.id"
+                :class="['app-item-mini', { selected: currentSection === 'recent' && selectedIndex === index }]"
+                @click="handleLaunchApp(app)"
+                @contextmenu.prevent.stop="showContextMenu($event, app)"
+                @mouseenter="handleHover('recent', index)"
+              >
+                <div :class="['app-icon-mini', getAppColorClass(app.category)]">
+                  <img v-if="app.icon && app.type !== 'tool'" :src="app.icon" :alt="app.name" class="app-icon-img-mini" />
+                  <span v-else class="app-icon-fallback-mini">{{ app.icon || getAppInitial(app.name) }}</span>
+                </div>
+                <span class="app-name-mini">{{ app.name }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 分隔线 -->
+        <div class="section-divider" v-if="!searchQuery.trim() && (pinnedApps.length > 0 || recentApps.length > 0)"></div>
+
+        <!-- 所有应用区 -->
+        <div class="all-apps-section">
+          <div class="section-header">
+            <span class="section-icon">🗂️</span>
+            <span class="section-title">{{ searchQuery.trim() ? '搜索结果' : '所有应用' }}</span>
+            <span class="section-count">{{ allApps.length }}</span>
+          </div>
+          <div class="apps-grid">
+            <div
+              v-for="(app, index) in allApps"
+              :key="app.id"
+              :class="['app-item', { selected: currentSection === 'all' && selectedIndex === index, pinned: app.isPinned }]"
+              @click="handleLaunchApp(app)"
+              @contextmenu.prevent.stop="showContextMenu($event, app)"
+              @mouseenter="handleHover('all', index)"
+            >
+              <div :class="['app-icon', getAppColorClass(app.category)]">
+                <img v-if="app.icon && !app.icon.startsWith('🔌') && !app.icon.startsWith('🛠') && !app.icon.startsWith('🧰')" :src="app.icon" :alt="app.name" class="app-icon-img" />
+                <span v-else class="app-icon-fallback">{{ app.icon || getAppInitial(app.name) }}</span>
+                <!-- 置顶标记 -->
+                <span v-if="app.isPinned" class="pin-badge">📌</span>
+                <!-- 工具标记 -->
+                <span v-if="app.type === 'tool'" class="tool-badge">🧰</span>
+              </div>
+              <span :class="['app-name', { 'app-name-selected': currentSection === 'all' && selectedIndex === index }]">
+                {{ app.name }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-if="allApps.length === 0 && searchQuery.trim()" class="empty-state">
+          <span>No results found for "{{ searchQuery }}"</span>
+        </div>
+
+        <!-- 加载状态 -->
+        <div v-if="loading" class="loading-state">
+          <span>Loading...</span>
         </div>
 
         <!-- 右键菜单 -->
@@ -82,23 +158,13 @@
           @click.stop
         >
           <div class="context-menu-item" @click="handleTogglePin">
-            <span class="menu-icon">{{ contextMenu.app?.isPinned ? '📍' : '📌' }}</span>
-            <span>{{ contextMenu.app?.isPinned ? '取消置顶' : '置顶' }}</span>
+            <span class="menu-icon">{{ contextMenu.item?.isPinned ? '📍' : '📌' }}</span>
+            <span>{{ contextMenu.item?.isPinned ? '取消置顶' : '置顶' }}</span>
           </div>
-          <div class="context-menu-item" @click="handleShowInFolder">
+          <div v-if="contextMenu.item?.type !== 'tool'" class="context-menu-item" @click="handleShowInFolder">
             <span class="menu-icon">📂</span>
             <span>打开文件位置</span>
           </div>
-        </div>
-
-        <!-- 空状态 -->
-        <div v-if="displayApps.length === 0 && searchQuery" class="empty-state">
-          <span>No results found for "{{ searchQuery }}"</span>
-        </div>
-
-        <!-- 加载状态 -->
-        <div v-if="loading" class="loading-state">
-          <span>Loading...</span>
         </div>
       </div>
 
@@ -138,6 +204,7 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { pinyin, match } from 'pinyin-pro'
+import { getAllTools, getPinnedTools, pinTool, unpinTool, openToolContainer, type ToolItem as ToolItemType } from '../api/toolApi'
 
 interface AppItem {
   id: string
@@ -150,6 +217,26 @@ interface AppItem {
   lastLaunchedAt?: number
   isPinned: boolean
   isHidden: boolean
+}
+
+/** 统一项目类型（应用 + 工具） */
+interface UnifiedItem {
+  id: string
+  name: string
+  icon?: string
+  category: string
+  isPinned: boolean
+  launchCount: number
+  lastLaunchedAt?: number
+  type: 'app' | 'tool'
+  /** 应用路径（仅应用） */
+  path?: string
+  /** 工具组件名（仅工具） */
+  component?: string
+  /** 工具描述（仅工具） */
+  description?: string
+  tags?: string[]
+  isHidden?: boolean
 }
 
 interface Category {
@@ -170,9 +257,12 @@ const containerRef = ref<HTMLDivElement>()
 const searchInputRef = ref<HTMLInputElement>()
 const searchQuery = ref('')
 const selectedIndex = ref(0)
+const currentSection = ref<'pinned' | 'recent' | 'all'>('all')
 const activeTag = ref('all')
 const loading = ref(true)
 const apps = ref<AppItem[]>([])
+const tools = ref<ToolItemType[]>([])
+const pinnedToolIds = ref<Set<string>>(new Set())
 const categories = ref<Category[]>([])
 const cpuUsage = ref(0)
 const memoryUsed = ref(0)
@@ -182,12 +272,12 @@ const contextMenu = ref<{
   visible: boolean
   x: number
   y: number
-  app: AppItem | null
+  item: UnifiedItem | null
 }>({
   visible: false,
   x: 0,
   y: 0,
-  app: null
+  item: null
 })
 
 // 分类标签
@@ -204,51 +294,160 @@ const categoryTags = computed(() => {
       icon: cat.icon || '📁'
     }))
 
-  return [...defaultTags, ...storeCategories]
+  // 如果有工具，添加工具箱分类
+  const toolTag = tools.value.length > 0
+    ? [{ id: 'tools', name: '工具箱', icon: '🧰' }]
+    : []
+
+  return [...defaultTags, ...storeCategories, ...toolTag]
 })
 
-// 过滤后的应用列表
-const displayApps = computed(() => {
-  let filteredApps = apps.value.filter(app => !app.isHidden)
+// 转换工具为统一项目格式
+const toolsAsUnified = computed((): UnifiedItem[] => {
+  return tools.value.map(tool => ({
+    id: `tool:${tool.id}`,
+    name: tool.name,
+    icon: tool.icon,
+    category: 'tools',
+    isPinned: pinnedToolIds.value.has(tool.id),
+    launchCount: 0,
+    lastLaunchedAt: undefined,
+    type: 'tool' as const,
+    component: tool.component,
+    description: tool.description
+  }))
+})
+
+// 转换应用为统一项目格式
+const appsAsUnified = computed((): UnifiedItem[] => {
+  return apps.value
+    .filter(app => !app.isHidden)
+    .map(app => ({
+      id: app.id,
+      name: app.name,
+      icon: app.icon,
+      category: app.category,
+      isPinned: app.isPinned,
+      launchCount: app.launchCount,
+      lastLaunchedAt: app.lastLaunchedAt,
+      type: 'app' as const,
+      path: app.path,
+      tags: app.tags,
+      isHidden: app.isHidden
+    }))
+})
+
+// 固定的项目（应用 + 工具，最多8个）
+const pinnedApps = computed((): UnifiedItem[] => {
+  const pinnedAppItems = appsAsUnified.value.filter(item => item.isPinned)
+  const pinnedToolItems = toolsAsUnified.value.filter(item => item.isPinned)
+
+  return [...pinnedAppItems, ...pinnedToolItems]
+    .sort((a, b) => b.launchCount - a.launchCount)
+    .slice(0, 8)
+})
+
+// 最近使用的项目（最多8个，排除已固定的）
+const recentApps = computed((): UnifiedItem[] => {
+  return appsAsUnified.value
+    .filter(item => !item.isPinned && item.lastLaunchedAt)
+    .sort((a, b) => (b.lastLaunchedAt || 0) - (a.lastLaunchedAt || 0))
+    .slice(0, 8)
+})
+
+// 所有应用区的列表（应用 + 工具）
+const allApps = computed((): UnifiedItem[] => {
+  // 如果选择了工具箱分类，只显示工具
+  if (activeTag.value === 'tools') {
+    let filteredTools = toolsAsUnified.value
+
+    // 搜索过滤（支持拼音）
+    if (searchQuery.value.trim()) {
+      const query = searchQuery.value.toLowerCase()
+      filteredTools = filteredTools.filter(tool => {
+        const nameMatch = tool.name.toLowerCase().includes(query)
+        const descMatch = tool.description?.toLowerCase().includes(query) ?? false
+
+        const pinyinFull = pinyin(tool.name, { toneType: 'none', type: 'array' }).join('').toLowerCase()
+        const pinyinFullMatch = pinyinFull.includes(query)
+
+        const pinyinFirst = pinyin(tool.name, { pattern: 'first', type: 'array' }).join('').toLowerCase()
+        const pinyinFirstMatch = pinyinFirst.includes(query)
+
+        const fuzzyMatch = match(tool.name, query)
+
+        return nameMatch || descMatch || pinyinFullMatch || pinyinFirstMatch || fuzzyMatch
+      })
+    }
+
+    return filteredTools.slice(0, 20)
+  }
+
+  // 其他分类：显示应用（all 时也包含工具）
+  let filteredItems: UnifiedItem[] = appsAsUnified.value
 
   // 分类过滤
   if (activeTag.value !== 'all') {
-    filteredApps = filteredApps.filter(app => app.category === activeTag.value)
+    filteredItems = filteredItems.filter(item => item.category === activeTag.value)
+  } else {
+    // all 分类时，将工具也加入
+    filteredItems = [...filteredItems, ...toolsAsUnified.value]
   }
 
   // 搜索过滤（支持拼音）
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase()
-    filteredApps = filteredApps.filter(app => {
-      // 应用名称匹配
-      const nameMatch = app.name.toLowerCase().includes(query)
+    filteredItems = filteredItems.filter(item => {
+      // 名称匹配
+      const nameMatch = item.name.toLowerCase().includes(query)
 
-      // 标签匹配
-      const tagMatch = app.tags?.some(tag => tag.toLowerCase().includes(query)) ?? false
+      // 标签匹配（仅应用）
+      const tagMatch = item.tags?.some(tag => tag.toLowerCase().includes(query)) ?? false
+
+      // 描述匹配（仅工具）
+      const descMatch = item.description?.toLowerCase().includes(query) ?? false
 
       // 拼音全拼匹配
-      const pinyinFull = pinyin(app.name, { toneType: 'none', type: 'array' }).join('').toLowerCase()
+      const pinyinFull = pinyin(item.name, { toneType: 'none', type: 'array' }).join('').toLowerCase()
       const pinyinFullMatch = pinyinFull.includes(query)
 
       // 拼音首字母匹配
-      const pinyinFirst = pinyin(app.name, { pattern: 'first', type: 'array' }).join('').toLowerCase()
+      const pinyinFirst = pinyin(item.name, { pattern: 'first', type: 'array' }).join('').toLowerCase()
       const pinyinFirstMatch = pinyinFirst.includes(query)
 
       // pinyin-pro 的模糊匹配
-      const fuzzyMatch = match(app.name, query)
+      const fuzzyMatch = match(item.name, query)
 
-      return nameMatch || tagMatch || pinyinFullMatch || pinyinFirstMatch || fuzzyMatch
+      return nameMatch || tagMatch || descMatch || pinyinFullMatch || pinyinFirstMatch || fuzzyMatch
     })
   }
 
   // 排序：置顶 > 使用频率
-  filteredApps = [...filteredApps].sort((a, b) => {
+  filteredItems = [...filteredItems].sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1
     if (!a.isPinned && b.isPinned) return 1
     return b.launchCount - a.launchCount
   })
 
-  return filteredApps.slice(0, 15)
+  return filteredItems.slice(0, 20)
+})
+
+// 获取当前区域的应用列表（用于键盘导航）
+const getCurrentSectionApps = computed(() => {
+  if (searchQuery.value.trim()) {
+    return allApps.value
+  }
+
+  switch (currentSection.value) {
+    case 'pinned':
+      return pinnedApps.value
+    case 'recent':
+      return recentApps.value
+    case 'all':
+      return allApps.value
+    default:
+      return allApps.value
+  }
 })
 
 // 关闭启动器
@@ -257,24 +456,75 @@ const closeLauncher = async () => {
   await window.hide()
 }
 
+// 鼠标悬停处理
+const handleHover = (section: 'pinned' | 'recent' | 'all', index: number) => {
+  currentSection.value = section
+  selectedIndex.value = index
+}
+
 // 键盘导航
 const navigate = (direction: 'up' | 'down') => {
-  if (displayApps.value.length === 0) return
+  const currentApps = getCurrentSectionApps.value
+  if (currentApps.length === 0) return
 
-  const cols = 5
-  const total = displayApps.value.length
+  // 如果在搜索状态，只导航搜索结果
+  if (searchQuery.value.trim()) {
+    currentSection.value = 'all'
+    const cols = 5
+    const total = currentApps.length
+
+    if (direction === 'down') {
+      if (selectedIndex.value + cols < total) {
+        selectedIndex.value += cols
+      } else if (selectedIndex.value < total - 1) {
+        selectedIndex.value = total - 1
+      }
+    } else {
+      if (selectedIndex.value - cols >= 0) {
+        selectedIndex.value -= cols
+      } else if (selectedIndex.value > 0) {
+        selectedIndex.value = 0
+      }
+    }
+    return
+  }
+
+  // 非搜索状态，支持区域切换
+  const cols = currentSection.value === 'all' ? 5 : 4
+  const total = currentApps.length
 
   if (direction === 'down') {
     if (selectedIndex.value + cols < total) {
       selectedIndex.value += cols
-    } else if (selectedIndex.value < total - 1) {
-      selectedIndex.value = total - 1
+    } else {
+      // 尝试切换到下一个区域
+      if (currentSection.value === 'pinned' && recentApps.value.length > 0) {
+        currentSection.value = 'recent'
+        selectedIndex.value = 0
+      } else if ((currentSection.value === 'pinned' || currentSection.value === 'recent') && allApps.value.length > 0) {
+        currentSection.value = 'all'
+        selectedIndex.value = 0
+      } else if (selectedIndex.value < total - 1) {
+        selectedIndex.value = total - 1
+      }
     }
   } else {
     if (selectedIndex.value - cols >= 0) {
       selectedIndex.value -= cols
     } else if (selectedIndex.value > 0) {
       selectedIndex.value = 0
+    } else {
+      // 尝试切换到上一个区域
+      if (currentSection.value === 'all' && recentApps.value.length > 0) {
+        currentSection.value = 'recent'
+        selectedIndex.value = recentApps.value.length - 1
+      } else if (currentSection.value === 'all' && pinnedApps.value.length > 0) {
+        currentSection.value = 'pinned'
+        selectedIndex.value = pinnedApps.value.length - 1
+      } else if (currentSection.value === 'recent' && pinnedApps.value.length > 0) {
+        currentSection.value = 'pinned'
+        selectedIndex.value = pinnedApps.value.length - 1
+      }
     }
   }
 }
@@ -285,12 +535,14 @@ const handleKeyDown = (e: KeyboardEvent) => {
     closeLauncher()
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault()
+    const currentApps = getCurrentSectionApps.value
     if (selectedIndex.value > 0) {
       selectedIndex.value--
     }
   } else if (e.key === 'ArrowRight') {
     e.preventDefault()
-    if (selectedIndex.value < displayApps.value.length - 1) {
+    const currentApps = getCurrentSectionApps.value
+    if (selectedIndex.value < currentApps.length - 1) {
       selectedIndex.value++
     }
   } else if (e.key === 'Tab') {
@@ -302,20 +554,30 @@ const handleKeyDown = (e: KeyboardEvent) => {
 }
 
 const handleLaunch = () => {
-  const app = displayApps.value[selectedIndex.value]
+  const currentApps = getCurrentSectionApps.value
+  const app = currentApps[selectedIndex.value]
   if (app) {
     handleLaunchApp(app)
   }
 }
 
-const handleLaunchApp = async (app: AppItem) => {
+const handleLaunchApp = async (item: UnifiedItem) => {
   try {
     // 设置启动标志，防止窗口在启动过程中因失焦而关闭
     isLaunching.value = true
-    await invoke('launch_app', { appId: app.id })
+
+    if (item.type === 'tool') {
+      // 工具：打开工具容器窗口
+      const toolId = item.id.replace('tool:', '')
+      await openToolContainer(toolId)
+    } else {
+      // 应用：启动应用
+      await invoke('launch_app', { appId: item.id })
+    }
+
     closeLauncher()
   } catch (error) {
-    console.error('启动应用失败:', error)
+    console.error('启动失败:', error)
     isLaunching.value = false
   }
 }
@@ -328,7 +590,13 @@ const getAppColorClass = (category: string): string => {
     'design': 'bg-purple',
     'media': 'bg-red',
     'game': 'bg-emerald',
-    'other': 'bg-slate'
+    'other': 'bg-slate',
+    'tools': 'bg-orange',
+    'network': 'bg-cyan',
+    'system': 'bg-indigo',
+    'development': 'bg-blue',
+    'utility': 'bg-teal',
+    'file': 'bg-amber'
   }
   return colorMap[category] || 'bg-violet'
 }
@@ -338,30 +606,45 @@ const getAppInitial = (name: string): string => {
 }
 
 // 显示右键菜单
-const showContextMenu = (event: MouseEvent, app: AppItem) => {
+const showContextMenu = (event: MouseEvent, item: UnifiedItem) => {
   contextMenu.value = {
     visible: true,
     x: event.clientX,
     y: event.clientY,
-    app
+    item
   }
 }
 
 // 隐藏右键菜单
 const hideContextMenu = () => {
   contextMenu.value.visible = false
-  contextMenu.value.app = null
+  contextMenu.value.item = null
 }
 
 // 置顶/取消置顶
 const handleTogglePin = async () => {
-  if (!contextMenu.value.app) return
+  if (!contextMenu.value.item) return
   try {
-    await invoke('toggle_pin_app', { appId: contextMenu.value.app.id })
-    // 更新本地状态
-    const app = apps.value.find(a => a.id === contextMenu.value.app?.id)
-    if (app) {
-      app.isPinned = !app.isPinned
+    const item = contextMenu.value.item
+
+    if (item.type === 'tool') {
+      // 工具：使用工具API进行固定/取消固定
+      const toolId = item.id.replace('tool:', '')
+      if (item.isPinned) {
+        await unpinTool(toolId)
+        pinnedToolIds.value.delete(toolId)
+      } else {
+        await pinTool(toolId)
+        pinnedToolIds.value.add(toolId)
+      }
+    } else {
+      // 应用：使用原来的API
+      await invoke('toggle_pin_app', { appId: item.id })
+      // 更新本地状态
+      const app = apps.value.find(a => a.id === item.id)
+      if (app) {
+        app.isPinned = !app.isPinned
+      }
     }
   } catch (error) {
     console.error('置顶失败:', error)
@@ -369,11 +652,16 @@ const handleTogglePin = async () => {
   hideContextMenu()
 }
 
-// 打开文件位置
+// 打开文件位置（仅应用）
 const handleShowInFolder = async () => {
-  if (!contextMenu.value.app) return
+  if (!contextMenu.value.item) return
+  // 工具没有文件路径
+  if (contextMenu.value.item.type === 'tool') {
+    hideContextMenu()
+    return
+  }
   try {
-    await invoke('show_in_folder', { path: contextMenu.value.app.path })
+    await invoke('show_in_folder', { path: contextMenu.value.item.path })
   } catch (error) {
     console.error('打开文件位置失败:', error)
   }
@@ -389,16 +677,20 @@ const formatMemory = (bytes: number): string => {
 const loadData = async () => {
   loading.value = true
   try {
-    const [appsData, categoriesData, systemInfo] = await Promise.all([
+    const [appsData, categoriesData, systemInfo, toolsData, pinnedToolsData] = await Promise.all([
       invoke<AppItem[]>('get_all_apps'),
       invoke<Category[]>('get_categories'),
-      invoke<SystemInfo>('get_system_info')
+      invoke<SystemInfo>('get_system_info'),
+      getAllTools(),
+      getPinnedTools()
     ])
 
     apps.value = appsData
     categories.value = categoriesData
     cpuUsage.value = Math.round(systemInfo.cpu_usage)
     memoryUsed.value = systemInfo.memory_used
+    tools.value = toolsData
+    pinnedToolIds.value = new Set(pinnedToolsData.map(t => t.id))
   } catch (error) {
     console.error('加载数据失败:', error)
   } finally {
@@ -409,10 +701,24 @@ const loadData = async () => {
 // 监听搜索变化
 watch(searchQuery, () => {
   selectedIndex.value = 0
+  // 搜索时自动切换到所有应用区
+  if (searchQuery.value.trim()) {
+    currentSection.value = 'all'
+  } else {
+    // 清空搜索时，如果有固定应用则切换到固定区，否则切换到所有应用区
+    if (pinnedApps.value.length > 0) {
+      currentSection.value = 'pinned'
+    } else if (recentApps.value.length > 0) {
+      currentSection.value = 'recent'
+    } else {
+      currentSection.value = 'all'
+    }
+  }
 })
 
 watch(activeTag, () => {
   selectedIndex.value = 0
+  currentSection.value = 'all'
 })
 
 // 是否正在启动应用（防止失焦时关闭窗口）
@@ -440,6 +746,8 @@ onMounted(async () => {
       searchQuery.value = ''
       selectedIndex.value = 0
       activeTag.value = 'all'
+      // 重置到固定区或所有应用区
+      currentSection.value = pinnedApps.value.length > 0 ? 'pinned' : 'all'
       isLaunching.value = false
       hideContextMenu()
       nextTick(() => {
@@ -605,11 +913,160 @@ onMounted(async () => {
   overflow-x: hidden;
   padding: 16px 24px;
   z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .modal-body::-webkit-scrollbar {
   width: 0px;
   background: transparent;
+}
+
+/* 顶部区域：固定 + 最近使用 */
+.top-section {
+  display: flex;
+  gap: 16px;
+  padding-bottom: 8px;
+}
+
+.section-block {
+  flex: 1;
+  min-width: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.section-icon {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.section-title {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.section-count {
+  font-size: 10px;
+  color: #475569;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+}
+
+/* 迷你应用网格（固定 + 最近使用） */
+.mini-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.app-item-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 8px 6px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  min-width: 0;
+}
+
+.app-item-mini:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.app-item-mini.selected {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.2);
+}
+
+.app-icon-mini {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.app-item-mini:hover .app-icon-mini {
+  transform: scale(1.08);
+}
+
+.app-icon-img-mini {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+.app-icon-fallback-mini {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.app-name-mini {
+  font-size: 10px;
+  text-align: center;
+  color: #94a3b8;
+  font-weight: 500;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+  line-height: 1.3;
+}
+
+.app-item-mini:hover .app-name-mini {
+  color: #e2e8f0;
+}
+
+.app-item-mini.selected .app-name-mini {
+  color: #fff;
+}
+
+/* 分隔线 */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(139, 92, 246, 0.3) 20%,
+    rgba(139, 92, 246, 0.3) 80%,
+    transparent
+  );
+  margin: 8px 0;
+}
+
+/* 所有应用区 */
+.all-apps-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .apps-grid {
@@ -684,6 +1141,11 @@ onMounted(async () => {
 .bg-emerald { background: linear-gradient(135deg, #059669 0%, #34d399 100%); }
 .bg-slate { background: linear-gradient(135deg, #475569 0%, #64748b 100%); }
 .bg-violet { background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%); }
+.bg-orange { background: linear-gradient(135deg, #ea580c 0%, #f97316 100%); }
+.bg-cyan { background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%); }
+.bg-teal { background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%); }
+.bg-indigo { background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); }
+.bg-amber { background: linear-gradient(135deg, #d97706 0%, #fbbf24 100%); }
 
 .app-name {
   font-size: 11px;
@@ -786,6 +1248,14 @@ onMounted(async () => {
 .pin-badge {
   position: absolute;
   top: -4px;
+  right: -4px;
+  font-size: 10px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.tool-badge {
+  position: absolute;
+  bottom: -4px;
   right: -4px;
   font-size: 10px;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));

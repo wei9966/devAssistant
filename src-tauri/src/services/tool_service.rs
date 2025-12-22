@@ -1,6 +1,11 @@
+use crate::models::{PinnedTool, ToolCategory, ToolItem, ToolUsageRecord};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::process::Command;
+use std::sync::{Arc, Mutex};
+
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 
 /// 端口占用信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,12 +26,214 @@ pub struct PortInfo {
 }
 
 /// 工具服务
-pub struct ToolService;
+pub struct ToolService {
+    /// 固定的工具列表
+    pinned_tools: Arc<Mutex<Vec<PinnedTool>>>,
+    /// 工具使用记录
+    usage_records: Arc<Mutex<HashMap<String, ToolUsageRecord>>>,
+}
 
 impl ToolService {
     /// 创建新的服务实例
     pub fn new() -> Self {
-        Self
+        Self {
+            pinned_tools: Arc::new(Mutex::new(Vec::new())),
+            usage_records: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// 获取所有内置工具
+    ///
+    /// # Returns
+    /// 返回所有已注册的工具列表
+    pub fn get_all_tools(&self) -> Vec<ToolItem> {
+        vec![
+            // 端口检查器
+            ToolItem {
+                id: "port-checker".to_string(),
+                name: "端口检查器".to_string(),
+                icon: "🔌".to_string(),
+                description: "查询端口占用情况".to_string(),
+                component: "PortChecker".to_string(),
+                is_pinnable: true,
+                multi_instance: false,
+                category: ToolCategory::Network,
+                shortcut: None,
+            },
+            // 文本转换器
+            ToolItem {
+                id: "text-converter".to_string(),
+                name: "文本转换器".to_string(),
+                icon: "📝".to_string(),
+                description: "文本格式转换、JSON格式化".to_string(),
+                component: "TextConverter".to_string(),
+                is_pinnable: true,
+                multi_instance: false,
+                category: ToolCategory::Utility,
+                shortcut: None,
+            },
+        ]
+    }
+
+    /// 根据ID获取工具详情
+    ///
+    /// # Arguments
+    /// * `id` - 工具ID
+    ///
+    /// # Returns
+    /// 返回工具详情，如果不存在则返回 None
+    pub fn get_tool_by_id(&self, id: &str) -> Option<ToolItem> {
+        self.get_all_tools()
+            .into_iter()
+            .find(|tool| tool.id == id)
+    }
+
+    /// 固定工具
+    ///
+    /// # Arguments
+    /// * `tool_id` - 工具ID
+    ///
+    /// # Returns
+    /// 返回是否成功固定
+    pub fn pin_tool(&self, tool_id: String) -> Result<bool, String> {
+        // 检查工具是否存在
+        if self.get_tool_by_id(&tool_id).is_none() {
+            return Err(format!("工具不存在: {}", tool_id));
+        }
+
+        let mut pinned = self.pinned_tools.lock().unwrap();
+
+        // 检查是否已经固定
+        if pinned.iter().any(|p| p.tool_id == tool_id) {
+            return Err("工具已经固定".to_string());
+        }
+
+        // 计算新的排序顺序
+        let sort_order = pinned.len() as i32;
+
+        // 添加固定记录
+        pinned.push(PinnedTool {
+            tool_id,
+            pinned_at: chrono::Utc::now().timestamp(),
+            sort_order,
+        });
+
+        Ok(true)
+    }
+
+    /// 取消固定工具
+    ///
+    /// # Arguments
+    /// * `tool_id` - 工具ID
+    ///
+    /// # Returns
+    /// 返回是否成功取消固定
+    pub fn unpin_tool(&self, tool_id: &str) -> Result<bool, String> {
+        let mut pinned = self.pinned_tools.lock().unwrap();
+
+        // 查找并移除
+        let initial_len = pinned.len();
+        pinned.retain(|p| p.tool_id != tool_id);
+
+        if pinned.len() == initial_len {
+            return Err("工具未固定".to_string());
+        }
+
+        // 重新计算排序顺序
+        for (index, tool) in pinned.iter_mut().enumerate() {
+            tool.sort_order = index as i32;
+        }
+
+        Ok(true)
+    }
+
+    /// 获取固定的工具列表
+    ///
+    /// # Returns
+    /// 返回固定的工具列表（包含工具详情）
+    pub fn get_pinned_tools(&self) -> Vec<ToolItem> {
+        let pinned = self.pinned_tools.lock().unwrap();
+        let all_tools = self.get_all_tools();
+
+        // 按排序顺序返回固定的工具
+        let mut result: Vec<ToolItem> = pinned
+            .iter()
+            .filter_map(|p| {
+                all_tools.iter().find(|t| t.id == p.tool_id).cloned()
+            })
+            .collect();
+
+        result
+    }
+
+    /// 记录工具使用
+    ///
+    /// # Arguments
+    /// * `tool_id` - 工具ID
+    ///
+    /// # Returns
+    /// 返回是否成功记录
+    pub fn record_tool_usage(&self, tool_id: String) -> Result<bool, String> {
+        // 检查工具是否存在
+        if self.get_tool_by_id(&tool_id).is_none() {
+            return Err(format!("工具不存在: {}", tool_id));
+        }
+
+        let mut records = self.usage_records.lock().unwrap();
+
+        let now = chrono::Utc::now().timestamp();
+
+        // 更新或创建使用记录
+        records
+            .entry(tool_id.clone())
+            .and_modify(|record| {
+                record.use_count += 1;
+                record.last_used_at = now;
+            })
+            .or_insert(ToolUsageRecord {
+                tool_id,
+                use_count: 1,
+                last_used_at: now,
+            });
+
+        Ok(true)
+    }
+
+    /// 获取最近使用的工具
+    ///
+    /// # Arguments
+    /// * `limit` - 返回的最大数量
+    ///
+    /// # Returns
+    /// 返回最近使用的工具列表
+    pub fn get_recent_tools(&self, limit: usize) -> Vec<ToolItem> {
+        let records = self.usage_records.lock().unwrap();
+        let all_tools = self.get_all_tools();
+
+        // 按最后使用时间排序
+        let mut sorted_records: Vec<_> = records.values().collect();
+        sorted_records.sort_by(|a, b| b.last_used_at.cmp(&a.last_used_at));
+
+        // 获取工具详情
+        sorted_records
+            .into_iter()
+            .take(limit)
+            .filter_map(|record| {
+                all_tools.iter().find(|t| t.id == record.tool_id).cloned()
+            })
+            .collect()
+    }
+
+    /// 获取工具使用统计
+    ///
+    /// # Arguments
+    /// * `tool_id` - 工具ID
+    ///
+    /// # Returns
+    /// 返回工具使用记录，如果不存在则返回 None
+    pub fn get_tool_usage(&self, tool_id: &str) -> Option<ToolUsageRecord> {
+        let records = self.usage_records.lock().unwrap();
+        records.get(tool_id).cloned()
     }
 
     /// 检查端口占用情况
@@ -37,13 +244,21 @@ impl ToolService {
     /// # Returns
     /// 返回占用该端口的进程信息列表
     pub async fn check_port_usage(port: u16) -> Result<Vec<PortInfo>, String> {
+        #[cfg(windows)]
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
         // 使用 netstat 命令获取端口占用信息
         // netstat -ano 参数说明:
         // -a: 显示所有连接和侦听端口
         // -n: 以数字形式显示地址和端口号
         // -o: 显示拥有的进程 ID
-        let output = Command::new("netstat")
-            .args(["-ano"])
+        let mut cmd = Command::new("netstat");
+        cmd.args(["-ano"]);
+
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        let output = cmd
             .output()
             .map_err(|e| format!("执行 netstat 命令失败: {}", e))?;
 
@@ -103,8 +318,15 @@ impl ToolService {
                         }
                         seen_pids.insert(pid);
 
-                        // 获取进程名称
-                        let process_name = Self::get_process_name(pid).unwrap_or_else(|_| "Unknown".to_string());
+                        // 获取进程名称，如果进程不存在则跳过
+                        let process_name = match Self::get_process_name(pid) {
+                            Some(name) => name,
+                            None => {
+                                // 进程不存在，可能是已经结束的连接（如 TIME_WAIT, FIN_WAIT 状态）
+                                // 跳过这些记录
+                                continue;
+                            }
+                        };
 
                         // 获取状态
                         let state = if protocol == "TCP" && parts.len() >= 5 {
@@ -135,32 +357,51 @@ impl ToolService {
     /// * `pid` - 进程ID
     ///
     /// # Returns
-    /// 返回进程名称
-    fn get_process_name(pid: u32) -> Result<String, String> {
-        // 使用 tasklist 命令获取进程信息
-        let output = Command::new("tasklist")
-            .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
-            .output()
-            .map_err(|e| format!("执行 tasklist 命令失败: {}", e))?;
+    /// 返回进程名称，如果进程不存在返回 None
+    fn get_process_name(pid: u32) -> Option<String> {
+        #[cfg(windows)]
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+        let mut cmd = Command::new("tasklist");
+        cmd.args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"]);
+
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        let output = cmd.output().ok()?;
 
         if !output.status.success() {
-            return Err(format!(
-                "tasklist 命令执行失败: {}",
-                String::from_utf8_lossy(&output.stderr)
-            ));
+            return None;
         }
 
-        let output_str = String::from_utf8_lossy(&output.stdout);
+        // Windows tasklist 输出使用 GBK 编码
+        #[cfg(windows)]
+        let output_str = {
+            use encoding_rs::GBK;
+            let (decoded, _, _) = GBK.decode(&output.stdout);
+            decoded.into_owned()
+        };
+
+        #[cfg(not(windows))]
+        let output_str = String::from_utf8_lossy(&output.stdout).to_string();
 
         // tasklist CSV 输出格式: "进程名","PID","会话名","会话#","内存使用"
+        // 如果进程不存在，输出是: INFO: No tasks are running which match the specified criteria.
         if let Some(line) = output_str.lines().next() {
+            let line = line.trim();
+            // 检查是否是"没有找到进程"的提示信息
+            if line.starts_with("INFO:") || line.starts_with("信息:") || line.is_empty() {
+                return None;
+            }
             if let Some(name) = line.split(',').next() {
-                // 去除引号
-                return Ok(name.trim_matches('"').to_string());
+                let name = name.trim_matches('"').to_string();
+                if !name.is_empty() {
+                    return Some(name);
+                }
             }
         }
 
-        Err("无法获取进程名称".to_string())
+        None
     }
 
     /// 杀掉指定进程
@@ -174,16 +415,42 @@ impl ToolService {
         // 使用 taskkill 命令强制终止进程
         // /F: 强制终止进程
         // /PID: 指定进程ID
-        let output = Command::new("taskkill")
-            .args(["/F", "/PID", &pid.to_string()])
+        #[cfg(windows)]
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+        let mut cmd = Command::new("taskkill");
+        cmd.args(["/F", "/PID", &pid.to_string()]);
+
+        // Windows 下隐藏命令行窗口
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        let output = cmd
             .output()
             .map_err(|e| format!("执行 taskkill 命令失败: {}", e))?;
 
         if output.status.success() {
             Ok(true)
         } else {
-            let error_msg = String::from_utf8_lossy(&output.stderr);
-            Err(format!("终止进程失败: {}", error_msg))
+            // Windows 命令行使用 GBK 编码，需要正确解码
+            #[cfg(windows)]
+            let error_msg = {
+                use encoding_rs::GBK;
+                let (decoded, _, _) = GBK.decode(&output.stderr);
+                decoded.into_owned()
+            };
+
+            #[cfg(not(windows))]
+            let error_msg = String::from_utf8_lossy(&output.stderr).to_string();
+
+            // 检查是否是权限问题
+            if error_msg.contains("拒绝访问") || error_msg.contains("Access is denied") {
+                Err("终止进程失败: 权限不足，请以管理员身份运行程序".to_string())
+            } else if error_msg.contains("没有找到进程") || error_msg.contains("not found") {
+                Err("终止进程失败: 进程不存在或已经结束".to_string())
+            } else {
+                Err(format!("终止进程失败: {}", error_msg.trim()))
+            }
         }
     }
 }

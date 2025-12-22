@@ -24,6 +24,7 @@ use services::notification_service::NotificationService;
 use services::tips_service::TipsService;
 use services::ai_service::AiService;
 use services::todo_prediction_service::TodoPredictionService;
+use services::tool_service::ToolService;
 use chrono::{Duration, Local, Timelike};
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
@@ -218,6 +219,9 @@ fn main() {
 
     // 初始化批量处理器状态
     let batch_processor_state = BatchProcessorState::new();
+
+    // 初始化工具服务
+    let tool_service = Mutex::new(ToolService::new());
 
     // 获取数据库路径
     let db_path = match dirs::data_local_dir() {
@@ -710,6 +714,7 @@ fn main() {
         .manage(vlm_state)
         .manage(context_manager_state)
         .manage(batch_processor_state)
+        .manage(tool_service)
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -1420,6 +1425,14 @@ fn main() {
             commands::tool_commands::check_port_usage,
             commands::tool_commands::kill_process_by_pid,
             commands::tool_commands::open_tool_window,
+            commands::tool_commands::get_all_tools,
+            commands::tool_commands::get_tool_by_id,
+            commands::tool_commands::pin_tool,
+            commands::tool_commands::unpin_tool,
+            commands::tool_commands::get_pinned_tools,
+            commands::tool_commands::record_tool_usage,
+            commands::tool_commands::get_recent_tools,
+            commands::tool_commands::open_tool_container,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");
