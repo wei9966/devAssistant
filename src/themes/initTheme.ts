@@ -6,7 +6,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
-export type ThemeMode = 'light' | 'dark' | 'auto'
+export type ThemeMode = 'light' | 'dark' | 'nord' | 'auto'
 
 // 主题变化事件名称（与 useTheme.ts 保持一致）
 const THEME_CHANGE_EVENT = 'theme-changed'
@@ -27,7 +27,7 @@ function getSystemTheme(): 'light' | 'dark' {
 /**
  * 解析主题模式
  */
-function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
+function resolveTheme(mode: ThemeMode): 'light' | 'dark' | 'nord' {
   if (mode === 'auto') {
     return getSystemTheme()
   }
@@ -37,7 +37,7 @@ function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
 /**
  * 应用主题到 document
  */
-function applyTheme(theme: 'light' | 'dark') {
+function applyTheme(theme: 'light' | 'dark' | 'nord') {
   if (typeof document !== 'undefined') {
     document.documentElement.setAttribute('data-theme', theme)
     console.log('[Theme] Independent window applied theme:', theme)
@@ -54,7 +54,7 @@ async function listenForThemeChanges() {
   }
 
   try {
-    themeChangeUnlisten = await listen<{ theme: 'light' | 'dark' }>(
+    themeChangeUnlisten = await listen<{ theme: 'light' | 'dark' | 'nord' }>(
       THEME_CHANGE_EVENT,
       (event) => {
         console.log('[Theme] Received theme change event:', event.payload)

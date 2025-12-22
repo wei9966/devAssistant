@@ -223,3 +223,80 @@
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.1);
 }
+
+/* ========================================
+   Nord 主题 - 北极冷色调
+   基于 Nord 色板: https://www.nordtheme.com/
+   ======================================== */
+[data-theme="nord"] {
+  /* 背景色 - Nord Polar Night */
+  --bg-base: #2e3440;             /* nord0 */
+  --bg-surface: #3b4252;          /* nord1 */
+  --bg-elevated: #434c5e;         /* nord2 */
+  --bg-overlay: rgba(59, 66, 82, 0.6);
+  --bg-hover: rgba(67, 76, 94, 0.8);
+  --bg-active: rgba(76, 86, 106, 0.9);
+
+  /* 侧边栏 */
+  --sidebar-bg: linear-gradient(180deg, #3b4252 0%, #2e3440 100%);
+  --sidebar-border: rgba(76, 86, 106, 0.5);
+
+  /* 卡片和面板 */
+  --card-bg: rgba(59, 66, 82, 0.6);
+  --card-border: rgba(76, 86, 106, 0.5);
+  --card-hover-bg: rgba(67, 76, 94, 1);
+  --card-hover-border: rgba(76, 86, 106, 1);
+
+  /* 文字颜色 - Nord Snow Storm */
+  --text-primary: #eceff4;        /* nord6 */
+  --text-secondary: #e5e9f0;      /* nord5 */
+  --text-muted: #d8dee9;          /* nord4 */
+  --text-dim: #81a1c1;            /* nord9 - 使用 Frost 色作为 dim */
+
+  /* 品牌色 */
+  --brand-title: linear-gradient(135deg, #88c0d0 0%, #81a1c1 100%);
+  --brand-subtitle: #81a1c1;
+
+  /* 强调色 - Nord Frost */
+  --accent-primary: #88c0d0;      /* nord8 - 冰蓝色 */
+  --accent-primary-hover: #8fbcbb;/* nord7 */
+  --accent-secondary: #81a1c1;    /* nord9 */
+  --accent-glow: rgba(136, 192, 208, 0.25);
+
+  /* 状态色 - Nord Aurora */
+  --success: #a3be8c;             /* nord14 - 绿色 */
+  --warning: #ebcb8b;             /* nord13 - 黄色 */
+  --error: #bf616a;               /* nord11 - 红色 */
+  --info: #5e81ac;                /* nord10 - 蓝色 */
+
+  /* 边框 */
+  --border-default: rgba(76, 86, 106, 0.6);
+  --border-hover: rgba(136, 192, 208, 0.4);
+  --border-active: rgba(136, 192, 208, 0.6);
+
+  /* 滚动条 */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(136, 192, 208, 0.2);
+  --scrollbar-thumb-hover: rgba(136, 192, 208, 0.35);
+
+  /* 输入框 */
+  --input-bg: rgba(46, 52, 64, 0.8);
+  --input-border: rgba(76, 86, 106, 0.6);
+  --input-focus-border: rgba(136, 192, 208, 0.6);
+
+  /* 按钮 */
+  --button-default-bg: rgba(67, 76, 94, 0.6);
+  --button-default-border: rgba(76, 86, 106, 0.6);
+  --button-default-text: #e5e9f0;
+
+  /* 进度条 */
+  --progress-bg: rgba(67, 76, 94, 0.5);
+  --progress-fill: linear-gradient(90deg, #88c0d0 0%, #81a1c1 100%);
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px rgba(136, 192, 208, 0.15);
+  --shadow-color: rgba(0, 0, 0, 0.25);
+}

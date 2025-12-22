@@ -34,6 +34,7 @@
                         { label: '跟随系统', value: 'auto' },
                         { label: '深色模式', value: 'dark' },
                         { label: '浅色模式', value: 'light' },
+                        { label: 'Nord 北极', value: 'nord' },
                       ]"
                       class="theme-select"
                     />

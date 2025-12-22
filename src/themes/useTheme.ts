@@ -8,7 +8,7 @@ import { storeToRefs } from 'pinia'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { emit } from '@tauri-apps/api/event'
 
-export type ThemeMode = 'light' | 'dark' | 'auto'
+export type ThemeMode = 'light' | 'dark' | 'nord' | 'auto'
 
 // 主题变化事件名称（用于跨窗口同步）
 export const THEME_CHANGE_EVENT = 'theme-changed'
@@ -25,8 +25,8 @@ export function useTheme() {
     return 'dark'
   }
 
-  // 解析主题模式
-  const resolveTheme = (mode: ThemeMode): 'light' | 'dark' => {
+  // 解析主题模式（返回实际应用的主题名称）
+  const resolveTheme = (mode: ThemeMode): 'light' | 'dark' | 'nord' => {
     if (mode === 'auto') {
       return getSystemTheme()
     }
@@ -34,7 +34,7 @@ export function useTheme() {
   }
 
   // 当前实际主题（解析 auto）
-  const currentTheme = computed((): 'light' | 'dark' => {
+  const currentTheme = computed((): 'light' | 'dark' | 'nord' => {
     const mode = settings.value.theme as ThemeMode || 'dark'
     return resolveTheme(mode)
   })
@@ -45,7 +45,7 @@ export function useTheme() {
   }
 
   // 应用主题到 document
-  const applyTheme = (theme: 'light' | 'dark') => {
+  const applyTheme = (theme: 'light' | 'dark' | 'nord') => {
     if (typeof document !== 'undefined') {
       document.documentElement.setAttribute('data-theme', theme)
       console.log('[Theme] Applied theme:', theme)
@@ -53,7 +53,7 @@ export function useTheme() {
   }
 
   // 广播主题变化到所有窗口
-  const broadcastThemeChange = async (theme: 'light' | 'dark') => {
+  const broadcastThemeChange = async (theme: 'light' | 'dark' | 'nord') => {
     try {
       await emit(THEME_CHANGE_EVENT, { theme })
       console.log('[Theme] Broadcasted theme change to all windows:', theme)
