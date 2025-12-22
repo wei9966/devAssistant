@@ -725,6 +725,40 @@
           </div>
         </n-tab-pane>
 
+        <!-- 软件介绍及操作标签 -->
+        <n-tab-pane name="manual" tab="软件介绍及操作">
+          <div class="tab-content manual-tab">
+            <div class="manual-container">
+              <div class="manual-header">
+                <h3 class="manual-title">软件操作手册</h3>
+                <n-space>
+                  <n-button text @click="refreshManual">
+                    <template #icon>
+                      <n-icon :component="RefreshOutline" />
+                    </template>
+                    刷新
+                  </n-button>
+                  <n-button text @click="openManualExternal">
+                    <template #icon>
+                      <n-icon :component="OpenOutline" />
+                    </template>
+                    在浏览器中打开
+                  </n-button>
+                </n-space>
+              </div>
+              <div class="manual-iframe-wrapper">
+                <iframe
+                  ref="manualIframe"
+                  src="http://d.wbdao.cn:9900/"
+                  class="manual-iframe"
+                  frameborder="0"
+                  allowfullscreen
+                ></iframe>
+              </div>
+            </div>
+          </div>
+        </n-tab-pane>
+
         <!-- 关于标签 -->
         <n-tab-pane name="about" tab="关于">
           <div class="tab-content">
@@ -833,7 +867,8 @@
 import { ref, onMounted, computed, h, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { NTabs, NTabPane, NSpace, NSwitch, NSelect, NInput, NInputNumber, NButton, NIcon, NSpin, NAlert, NDataTable, NTag, NEmpty, NStatistic, NGrid, NGi, NProgress, NText, useMessage, useDialog } from 'naive-ui';
-import { TimeOutline, RefreshOutline, InformationCircleOutline, TrashOutline, ReloadOutline, DownloadOutline } from '@vicons/ionicons5';
+import { TimeOutline, RefreshOutline, InformationCircleOutline, TrashOutline, ReloadOutline, DownloadOutline, OpenOutline } from '@vicons/ionicons5';
+import { open } from '@tauri-apps/plugin-shell';
 import { marked } from 'marked';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
@@ -855,6 +890,7 @@ const activeTab = ref('general');
 const saving = ref(false);
 const loadingShortcuts = ref(false);
 const dataPath = ref('~/.dev-assistant/db.sqlite');
+const manualIframe = ref<HTMLIFrameElement | null>(null);
 
 const settings = ref({
   theme: 'auto',
@@ -1708,6 +1744,23 @@ async function handleDownloadUpdate() {
     updateProgress.value = 0;
   }
 }
+
+// 刷新操作手册 iframe
+function refreshManual() {
+  if (manualIframe.value) {
+    manualIframe.value.src = manualIframe.value.src;
+  }
+}
+
+// 在浏览器中打开操作手册
+async function openManualExternal() {
+  try {
+    await open('http://d.wbdao.cn:9900/');
+  } catch (error) {
+    console.error('打开链接失败:', error);
+    message.error('无法打开浏览器');
+  }
+}
 </script>
 
 <style scoped>
@@ -2288,5 +2341,51 @@ async function handleDownloadUpdate() {
   padding-top: 16px;
   border-top: 1px solid var(--border-default);
   margin-top: 8px;
+}
+
+/* 软件操作手册样式 */
+.manual-tab {
+  height: calc(100vh - 200px);
+  padding-top: 0 !important;
+}
+
+.manual-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.manual-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: var(--bg-overlay);
+  border-bottom: 1px solid var(--card-border);
+  flex-shrink: 0;
+}
+
+.manual-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.manual-iframe-wrapper {
+  flex: 1;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+.manual-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #ffffff;
 }
 </style>
