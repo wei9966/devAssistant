@@ -210,8 +210,8 @@ const weekDays = computed(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   transition: all 0.3s ease;
   cursor: pointer;
@@ -219,8 +219,8 @@ const weekDays = computed(() => {
 }
 
 .kanban-column:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
 }
 
 /* 今天的列 */
@@ -240,7 +240,7 @@ const weekDays = computed(() => {
 .column-header {
   padding: 12px 8px;
   text-align: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--card-border);
   flex-shrink: 0;
 }
 
@@ -251,7 +251,7 @@ const weekDays = computed(() => {
 .weekday-name {
   display: block;
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-secondary);
   margin-bottom: 6px;
   font-weight: 500;
 }
@@ -264,7 +264,7 @@ const weekDays = computed(() => {
   height: 28px;
   font-size: 14px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   border-radius: 50%;
   transition: all 0.2s;
 }
@@ -311,8 +311,8 @@ const weekDays = computed(() => {
 
 /* 任务卡片 */
 .task-card {
-  background: #1a1d2d;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-elevated);
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   padding: 10px;
   cursor: pointer;
@@ -371,7 +371,7 @@ const weekDays = computed(() => {
 /* 任务标题 */
 .task-title {
   font-size: 12px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   line-height: 1.4;
   margin: 0;
   display: -webkit-box;
@@ -382,7 +382,7 @@ const weekDays = computed(() => {
 }
 
 .task-title.done {
-  color: #64748b;
+  color: var(--text-secondary);
   text-decoration: line-through;
 }
 
@@ -404,7 +404,7 @@ const weekDays = computed(() => {
 .add-icon {
   width: 24px;
   height: 24px;
-  color: #64748b;
+  color: var(--text-secondary);
   transition: color 0.2s;
 }
 

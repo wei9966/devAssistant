@@ -323,13 +323,13 @@ const handleCancel = () => {
   margin: 0 0 8px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .section-desc {
   margin: 0;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
@@ -338,13 +338,13 @@ const handleCancel = () => {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: rgba(30, 41, 59, 0.5);
+  background: var(--card-bg);
   border-radius: 8px;
 }
 
 .monitor-status {
   font-size: 14px;
-  color: #cbd5e1;
+  color: var(--text-primary);
 }
 
 .extensions-list {
@@ -352,7 +352,7 @@ const handleCancel = () => {
   flex-wrap: wrap;
   gap: 8px;
   padding: 16px;
-  background: rgba(30, 41, 59, 0.5);
+  background: var(--card-bg);
   border-radius: 8px;
   min-height: 80px;
 }
@@ -374,13 +374,13 @@ const handleCancel = () => {
   gap: 8px;
   align-items: center;
   padding: 12px;
-  background: rgba(30, 41, 59, 0.3);
+  background: var(--bg-hover);
   border-radius: 8px;
 }
 
 .common-extensions .label {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   margin-right: 8px;
 }
 

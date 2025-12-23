@@ -166,23 +166,23 @@ const handleViewDetail = () => {
 }
 
 .icon-tip {
-  background: rgba(251, 191, 36, 0.1);
-  border: 1px solid rgba(251, 191, 36, 0.2);
+  background: color-mix(in srgb, var(--warning, #fbbf24) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning, #fbbf24) 20%, transparent);
 }
 
 .icon-daily_report {
-  background: rgba(96, 165, 250, 0.1);
-  border: 1px solid rgba(96, 165, 250, 0.2);
+  background: color-mix(in srgb, var(--info, #60a5fa) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--info, #60a5fa) 20%, transparent);
 }
 
 .icon-weekly_report {
-  background: rgba(167, 139, 250, 0.1);
-  border: 1px solid rgba(167, 139, 250, 0.2);
+  background: color-mix(in srgb, var(--accent-secondary, #a78bfa) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-secondary, #a78bfa) 20%, transparent);
 }
 
 .icon-activity_summary {
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: color-mix(in srgb, var(--success, #22c55e) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success, #22c55e) 20%, transparent);
 }
 
 .title-section {

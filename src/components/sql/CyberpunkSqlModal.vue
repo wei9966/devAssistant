@@ -482,12 +482,12 @@ watch(searchQuery, () => {
 /* ============================================ */
 .modal-header {
   height: 64px;
-  border-bottom: 1px solid var(--border-default, #1e293b);
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   padding: 0 24px;
   flex-shrink: 0;
-  background: var(--bg-surface, rgba(15, 23, 42, 0.8));
+  background: var(--bg-surface);
 }
 
 .search-icon-wrapper {
@@ -497,7 +497,7 @@ watch(searchQuery, () => {
 .search-icon {
   width: 24px;
   height: 24px;
-  color: var(--text-secondary, #64748b);
+  color: var(--text-secondary);
 }
 
 .search-input {
@@ -507,12 +507,12 @@ watch(searchQuery, () => {
   outline: none;
   font-size: 18px;
   font-weight: 400;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary);
   height: 100%;
 }
 
 .search-input::placeholder {
-  color: var(--text-muted, #475569);
+  color: var(--text-muted);
 }
 
 .search-hints {
@@ -521,12 +521,12 @@ watch(searchQuery, () => {
 }
 
 .hint-badge {
-  background: var(--bg-surface, #1e293b);
-  color: var(--text-secondary, #64748b);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
   font-size: 11px;
   padding: 4px 10px;
   border-radius: 4px;
-  border: 1px solid var(--border-default, #334155);
+  border: 1px solid var(--border-default);
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
@@ -542,9 +542,9 @@ watch(searchQuery, () => {
 /* 左侧列表 */
 .list-panel {
   width: 40%;
-  border-right: 1px solid var(--border-default, #1e293b);
+  border-right: 1px solid var(--border-default);
   overflow-y: auto;
-  background: var(--bg-surface, rgba(15, 23, 42, 0.5));
+  background: var(--bg-surface);
 }
 
 .list-panel::-webkit-scrollbar {
@@ -556,12 +556,12 @@ watch(searchQuery, () => {
 }
 
 .list-panel::-webkit-scrollbar-thumb {
-  background: var(--border-default, #334155);
+  background: var(--border-default);
   border-radius: 3px;
 }
 
 .list-panel::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted, #475569);
+  background: var(--text-muted);
 }
 
 .empty-state {
@@ -570,7 +570,7 @@ watch(searchQuery, () => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--text-muted, #475569);
+  color: var(--text-muted);
   padding: 32px;
 }
 
@@ -587,15 +587,15 @@ watch(searchQuery, () => {
   padding: 12px 16px;
   cursor: pointer;
   transition: all 0.15s ease;
-  border-bottom: 1px solid var(--border-default, rgba(30, 41, 59, 0.5));
+  border-bottom: 1px solid var(--border-default);
 }
 
 .list-item:hover {
-  background: var(--bg-surface, rgba(30, 41, 59, 0.5));
+  background: var(--bg-hover);
 }
 
 .list-item.selected {
-  background: var(--bg-elevated, rgba(30, 41, 59, 0.8));
+  background: var(--bg-active);
 }
 
 .selection-indicator {
@@ -618,7 +618,7 @@ watch(searchQuery, () => {
 .item-title {
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -627,7 +627,7 @@ watch(searchQuery, () => {
 }
 
 .item-title.title-selected {
-  color: var(--text-primary, #e0f2fe);
+  color: var(--text-primary);
 }
 
 .status-icons {
@@ -656,7 +656,7 @@ watch(searchQuery, () => {
 .item-preview {
   font-size: 11px;
   font-family: 'Consolas', 'Monaco', monospace;
-  color: var(--text-muted, #475569);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -711,7 +711,7 @@ watch(searchQuery, () => {
 
 .time-badge {
   font-size: 10px;
-  color: var(--text-muted, #475569);
+  color: var(--text-muted);
   margin-left: auto;
 }
 
@@ -720,19 +720,19 @@ watch(searchQuery, () => {
 /* ============================================ */
 .preview-panel {
   width: 60%;
-  background: var(--bg-base, #0b1120);
+  background: var(--bg-base);
   display: flex;
   flex-direction: column;
 }
 
 .preview-header {
   height: 48px;
-  border-bottom: 1px solid var(--border-default, #1e293b);
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: var(--bg-elevated, #0f172a);
+  background: var(--bg-elevated);
   flex-shrink: 0;
 }
 
@@ -742,7 +742,7 @@ watch(searchQuery, () => {
   gap: 8px;
   font-size: 11px;
   font-family: 'Consolas', 'Monaco', monospace;
-  color: var(--text-secondary, #64748b);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -786,14 +786,14 @@ watch(searchQuery, () => {
 }
 
 .edit-btn {
-  background: var(--bg-surface, #1e293b);
-  border-color: var(--border-default, #334155);
-  color: var(--text-secondary, #94a3b8);
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
 }
 
 .edit-btn:hover {
-  background: var(--border-default, #334155);
-  color: var(--text-primary, #e2e8f0);
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 /* 预览内容 */
@@ -812,7 +812,7 @@ watch(searchQuery, () => {
 }
 
 .preview-content::-webkit-scrollbar-thumb {
-  background: var(--border-default, #334155);
+  background: var(--border-default);
   border-radius: 3px;
 }
 
@@ -823,7 +823,7 @@ watch(searchQuery, () => {
 .sql-title {
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
@@ -832,18 +832,18 @@ watch(searchQuery, () => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--text-secondary, #64748b);
+  color: var(--text-secondary);
 }
 
 .meta-separator {
-  color: var(--text-muted, #475569);
+  color: var(--text-muted);
 }
 
 /* 代码块 */
 .code-block {
   position: relative;
-  background: var(--input-bg, rgba(30, 41, 59, 0.5));
-  border: 1px solid var(--border-default, rgba(51, 65, 85, 0.5));
+  background: var(--input-bg);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 20px;
@@ -854,7 +854,7 @@ watch(searchQuery, () => {
   top: 8px;
   right: 12px;
   font-size: 10px;
-  color: var(--text-muted, #475569);
+  color: var(--text-muted);
   font-family: 'Consolas', 'Monaco', monospace;
   text-transform: uppercase;
 }
@@ -863,7 +863,7 @@ watch(searchQuery, () => {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;
-  color: var(--text-primary, #cbd5e1);
+  color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
@@ -885,7 +885,7 @@ watch(searchQuery, () => {
 
 /* 收藏按钮 */
 .favorite-section {
-  border-top: 1px solid var(--border-default, #1e293b);
+  border-top: 1px solid var(--border-default);
   padding-top: 16px;
 }
 
@@ -898,14 +898,14 @@ watch(searchQuery, () => {
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: var(--bg-surface, #1e293b);
-  border: 1px solid var(--border-default, #334155);
-  color: var(--text-secondary, #94a3b8);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
 }
 
 .favorite-btn:hover {
-  background: var(--border-default, #334155);
-  color: var(--text-primary, #e2e8f0);
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .favorite-btn.active {
@@ -930,7 +930,7 @@ watch(searchQuery, () => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--text-muted, #475569);
+  color: var(--text-muted);
 }
 
 .empty-preview-icon {
@@ -945,8 +945,8 @@ watch(searchQuery, () => {
 /* ============================================ */
 .modal-footer {
   height: 40px;
-  border-top: 1px solid var(--border-default, #1e293b);
-  background: var(--bg-surface, rgba(15, 23, 42, 0.8));
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-surface);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -964,23 +964,23 @@ watch(searchQuery, () => {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: var(--text-secondary, #64748b);
+  color: var(--text-secondary);
 }
 
 .shortcut kbd {
   display: inline-block;
   padding: 2px 6px;
-  background: var(--bg-surface, #1e293b);
+  background: var(--bg-surface);
   border-radius: 3px;
   font-size: 10px;
   font-family: 'Consolas', 'Monaco', monospace;
-  color: var(--text-secondary, #94a3b8);
-  border: 1px solid var(--border-default, #334155);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
 }
 
 .record-count {
   font-size: 11px;
-  color: var(--text-secondary, #64748b);
+  color: var(--text-secondary);
 }
 
 /* ============================================ */
@@ -1441,7 +1441,7 @@ watch(searchQuery, () => {
     width: 100%;
     height: 40%;
     border-right: none;
-    border-bottom: 1px solid var(--border-default, #1e293b);
+    border-bottom: 1px solid var(--border-default);
   }
 
   .preview-panel {

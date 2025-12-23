@@ -314,7 +314,7 @@ onMounted(() => {
 .title-text {
   font-size: 16px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .close-btn {
@@ -371,7 +371,7 @@ onMounted(() => {
 .input-label {
   font-size: 13px;
   font-weight: 500;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -387,7 +387,7 @@ onMounted(() => {
   border: 1px solid rgba(99, 102, 241, 0.2);
   border-radius: 8px;
   padding: 10px 14px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 14px;
   transition: all 0.2s;
 }
@@ -399,7 +399,7 @@ onMounted(() => {
 }
 
 .port-input::placeholder {
-  color: rgba(148, 163, 184, 0.5);
+  color: var(--text-dim);
 }
 
 .check-btn {
@@ -407,7 +407,7 @@ onMounted(() => {
   border: 1px solid rgba(99, 102, 241, 0.3);
   border-radius: 8px;
   padding: 10px 24px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -487,7 +487,7 @@ onMounted(() => {
   padding: 10px 12px;
   text-align: left;
   font-weight: 600;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--text-muted);
   border-bottom: 1px solid rgba(99, 102, 241, 0.2);
 }
 
@@ -502,7 +502,7 @@ onMounted(() => {
 
 .result-table td {
   padding: 10px 12px;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .process-name {
@@ -512,7 +512,7 @@ onMounted(() => {
 .address {
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 12px;
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--text-secondary);
 }
 
 .status-badge {
@@ -576,7 +576,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: rgba(148, 163, 184, 0.6);
+  color: var(--text-dim);
   font-size: 14px;
   gap: 12px;
 }
@@ -608,13 +608,13 @@ onMounted(() => {
 .confirm-title {
   font-size: 18px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 12px;
 }
 
 .confirm-message {
   font-size: 14px;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--text-muted);
   margin-bottom: 20px;
   line-height: 1.6;
 }
@@ -631,7 +631,7 @@ onMounted(() => {
 }
 
 .confirm-details strong {
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .confirm-warning {
@@ -658,7 +658,7 @@ onMounted(() => {
 .confirm-btn.cancel {
   background: rgba(99, 102, 241, 0.1);
   border: 1px solid rgba(99, 102, 241, 0.2);
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .confirm-btn.cancel:hover {

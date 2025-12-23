@@ -2953,6 +2953,10 @@ onUnmounted(() => {
   transform: rotate(-90deg);
 }
 
+.progress-svg circle:first-child {
+  stroke: color-mix(in srgb, var(--card-bg) 50%, transparent);
+}
+
 .progress-bar {
   transition: stroke-dashoffset 1s linear;
   filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.5));
@@ -3186,7 +3190,7 @@ onUnmounted(() => {
 .progress-bar-bg {
   flex: 1;
   height: 8px;
-  background: rgba(30, 41, 59, 0.6);
+  background: color-mix(in srgb, var(--card-bg) 60%, transparent);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -3218,8 +3222,8 @@ onUnmounted(() => {
   align-items: flex-start;
   gap: 12px;
   padding: 12px;
-  background: rgba(30, 41, 59, 0.4);
-  border: 1px solid rgba(51, 65, 85, 0.3);
+  background: color-mix(in srgb, var(--card-bg) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-border) 30%, transparent);
   border-radius: 8px;
 }
 
@@ -3240,7 +3244,7 @@ onUnmounted(() => {
 .milestone-title {
   font-size: 13px;
   font-weight: 500;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
@@ -3253,7 +3257,7 @@ onUnmounted(() => {
 }
 
 .milestone-date {
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .empty-state {
@@ -3273,7 +3277,7 @@ onUnmounted(() => {
 .empty-state p {
   margin: 0;
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 /* Panel Slide Animation */
