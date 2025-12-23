@@ -3,18 +3,11 @@
     <div class="quadrant-grid">
       <!-- 第一象限：不紧急但重要 -->
       <div
-        class="quadrant-item"
-        :class="{
-          'selected': modelValue === 'not_urgent_important',
-          'quadrant-top-left': true
-        }"
+        class="quadrant-item quadrant-not-urgent-important"
+        :class="{ 'selected': modelValue === 'not_urgent_important' }"
         @click="handleSelect('not_urgent_important')"
       >
-        <div class="quadrant-badge" :style="{
-          background: QUADRANT_CONFIG.not_urgent_important.bgColor,
-          borderColor: QUADRANT_CONFIG.not_urgent_important.borderColor,
-          color: QUADRANT_CONFIG.not_urgent_important.color
-        }">
+        <div class="quadrant-badge">
           <n-icon size="20">
             <CalendarOutline />
           </n-icon>
@@ -23,7 +16,7 @@
           <h4 class="quadrant-title">{{ QUADRANT_CONFIG.not_urgent_important.label }}</h4>
         </div>
         <div v-if="modelValue === 'not_urgent_important'" class="selected-check">
-          <n-icon size="20" color="#6366f1">
+          <n-icon size="20">
             <CheckmarkCircle />
           </n-icon>
         </div>
@@ -31,18 +24,11 @@
 
       <!-- 第二象限：紧急且重要 -->
       <div
-        class="quadrant-item"
-        :class="{
-          'selected': modelValue === 'urgent_important',
-          'quadrant-top-right': true
-        }"
+        class="quadrant-item quadrant-urgent-important"
+        :class="{ 'selected': modelValue === 'urgent_important' }"
         @click="handleSelect('urgent_important')"
       >
-        <div class="quadrant-badge" :style="{
-          background: QUADRANT_CONFIG.urgent_important.bgColor,
-          borderColor: QUADRANT_CONFIG.urgent_important.borderColor,
-          color: QUADRANT_CONFIG.urgent_important.color
-        }">
+        <div class="quadrant-badge">
           <n-icon size="20">
             <FlameOutline />
           </n-icon>
@@ -51,7 +37,7 @@
           <h4 class="quadrant-title">{{ QUADRANT_CONFIG.urgent_important.label }}</h4>
         </div>
         <div v-if="modelValue === 'urgent_important'" class="selected-check">
-          <n-icon size="20" color="#f43f5e">
+          <n-icon size="20">
             <CheckmarkCircle />
           </n-icon>
         </div>
@@ -59,18 +45,11 @@
 
       <!-- 第三象限：不紧急不重要 -->
       <div
-        class="quadrant-item"
-        :class="{
-          'selected': modelValue === 'not_urgent_not_important',
-          'quadrant-bottom-left': true
-        }"
+        class="quadrant-item quadrant-not-urgent-not-important"
+        :class="{ 'selected': modelValue === 'not_urgent_not_important' }"
         @click="handleSelect('not_urgent_not_important')"
       >
-        <div class="quadrant-badge" :style="{
-          background: QUADRANT_CONFIG.not_urgent_not_important.bgColor,
-          borderColor: QUADRANT_CONFIG.not_urgent_not_important.borderColor,
-          color: QUADRANT_CONFIG.not_urgent_not_important.color
-        }">
+        <div class="quadrant-badge">
           <n-icon size="20">
             <RemoveCircleOutline />
           </n-icon>
@@ -79,7 +58,7 @@
           <h4 class="quadrant-title">{{ QUADRANT_CONFIG.not_urgent_not_important.label }}</h4>
         </div>
         <div v-if="modelValue === 'not_urgent_not_important'" class="selected-check">
-          <n-icon size="20" color="#64748b">
+          <n-icon size="20">
             <CheckmarkCircle />
           </n-icon>
         </div>
@@ -87,18 +66,11 @@
 
       <!-- 第四象限：紧急不重要 -->
       <div
-        class="quadrant-item"
-        :class="{
-          'selected': modelValue === 'urgent_not_important',
-          'quadrant-bottom-right': true
-        }"
+        class="quadrant-item quadrant-urgent-not-important"
+        :class="{ 'selected': modelValue === 'urgent_not_important' }"
         @click="handleSelect('urgent_not_important')"
       >
-        <div class="quadrant-badge" :style="{
-          background: QUADRANT_CONFIG.urgent_not_important.bgColor,
-          borderColor: QUADRANT_CONFIG.urgent_not_important.borderColor,
-          color: QUADRANT_CONFIG.urgent_not_important.color
-        }">
+        <div class="quadrant-badge">
           <n-icon size="20">
             <TimeOutline />
           </n-icon>
@@ -107,7 +79,7 @@
           <h4 class="quadrant-title">{{ QUADRANT_CONFIG.urgent_not_important.label }}</h4>
         </div>
         <div v-if="modelValue === 'urgent_not_important'" class="selected-check">
-          <n-icon size="20" color="#f59e0b">
+          <n-icon size="20">
             <CheckmarkCircle />
           </n-icon>
         </div>
@@ -181,8 +153,8 @@ const handleSelect = (quadrant: TaskQuadrant) => {
   position: relative;
   padding: 8px;
   border-radius: 8px;
-  background: rgba(30, 41, 59, 0.4);
-  border: 2px solid rgba(51, 65, 85, 0.5);
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
@@ -193,27 +165,34 @@ const handleSelect = (quadrant: TaskQuadrant) => {
 }
 
 .quadrant-item:hover {
-  background: rgba(30, 41, 59, 0.7);
-  border-color: rgba(71, 85, 105, 0.7);
+  background: var(--card-hover-bg);
+  border-color: var(--card-hover-border);
   transform: translateY(-2px);
-  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .quadrant-item.selected {
-  background: rgba(30, 41, 59, 0.8);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4), 0 8px 16px -4px rgba(0, 0, 0, 0.3);
+  background: var(--bg-active);
 }
 
-.quadrant-item.quadrant-top-right.selected {
-  box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.4), 0 8px 16px -4px rgba(0, 0, 0, 0.3);
+/* 不紧急但重要 - 紫色 */
+.quadrant-item.quadrant-not-urgent-important.selected {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 40%, transparent), var(--shadow-md);
 }
 
-.quadrant-item.quadrant-bottom-right.selected {
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4), 0 8px 16px -4px rgba(0, 0, 0, 0.3);
+/* 紧急且重要 - 红色 */
+.quadrant-item.quadrant-urgent-important.selected {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--error) 40%, transparent), var(--shadow-md);
 }
 
-.quadrant-item.quadrant-bottom-left.selected {
-  box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.4), 0 8px 16px -4px rgba(0, 0, 0, 0.3);
+/* 不紧急不重要 - 灰色 */
+.quadrant-item.quadrant-not-urgent-not-important.selected {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text-muted) 40%, transparent), var(--shadow-md);
+}
+
+/* 紧急不重要 - 橙色 */
+.quadrant-item.quadrant-urgent-not-important.selected {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 40%, transparent), var(--shadow-md);
 }
 
 /* 象限徽章 */
@@ -228,6 +207,50 @@ const handleSelect = (quadrant: TaskQuadrant) => {
   flex-shrink: 0;
 }
 
+/* 不紧急但重要 - 紫色徽章 */
+.quadrant-not-urgent-important .quadrant-badge {
+  background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  color: var(--accent-primary);
+}
+
+.quadrant-not-urgent-important .selected-check {
+  color: var(--accent-primary);
+}
+
+/* 紧急且重要 - 红色徽章 */
+.quadrant-urgent-important .quadrant-badge {
+  background: color-mix(in srgb, var(--error) 15%, transparent);
+  border-color: color-mix(in srgb, var(--error) 30%, transparent);
+  color: var(--error);
+}
+
+.quadrant-urgent-important .selected-check {
+  color: var(--error);
+}
+
+/* 不紧急不重要 - 灰色徽章 */
+.quadrant-not-urgent-not-important .quadrant-badge {
+  background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+  border-color: color-mix(in srgb, var(--text-muted) 30%, transparent);
+  color: var(--text-muted);
+}
+
+.quadrant-not-urgent-not-important .selected-check {
+  color: var(--text-muted);
+}
+
+/* 紧急不重要 - 橙色徽章 */
+.quadrant-urgent-not-important .quadrant-badge {
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 30%, transparent);
+  color: var(--warning);
+}
+
+.quadrant-urgent-not-important .selected-check {
+  color: var(--warning);
+}
+
 /* 象限内容 */
 .quadrant-content {
   flex: 1;
@@ -239,7 +262,7 @@ const handleSelect = (quadrant: TaskQuadrant) => {
 .quadrant-title {
   font-size: 12px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin: 0;
   line-height: 1.4;
 }
@@ -275,7 +298,7 @@ const handleSelect = (quadrant: TaskQuadrant) => {
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -296,7 +319,7 @@ const handleSelect = (quadrant: TaskQuadrant) => {
 
 .arrow {
   font-size: 14px;
-  color: #6366f1;
+  color: var(--accent-primary);
 }
 
 /* 响应式 */

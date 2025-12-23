@@ -147,19 +147,19 @@ const parseTags = (tags: string | string[]): string[] => {
 }
 
 .db-name {
-  color: #cbd5e1; /* slate-300 */
+  color: var(--text-secondary);
   font-size: 14px;
   font-family: monospace;
 }
 
 .exec-time {
-  color: #94a3b8; /* slate-400 */
+  color: var(--text-muted);
   font-size: 12px;
 }
 
 .sql-content {
   margin: 12px 0;
-  background: rgba(15, 23, 42, 0.5); /* 深色背景 */
+  background: var(--bg-surface);
   border-radius: 4px;
   padding: 8px;
 }
@@ -167,13 +167,13 @@ const parseTags = (tags: string | string[]): string[] => {
 .sql-extra {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid rgba(51, 65, 85, 0.5);
+  border-top: 1px solid var(--border-default);
 }
 
 .description {
   margin-bottom: 8px;
   font-size: 12px;
-  color: #cbd5e1; /* slate-300 */
+  color: var(--text-secondary);
 }
 
 .tags {
@@ -184,11 +184,11 @@ const parseTags = (tags: string | string[]): string[] => {
 
 /* 文字按钮样式 */
 :deep(.text-button-primary) {
-  color: #6366f1;
+  color: var(--primary-color);
   transition: color 0.2s;
 }
 
 :deep(.text-button-primary:hover) {
-  color: #818cf8;
+  color: var(--primary-color-hover);
 }
 </style>

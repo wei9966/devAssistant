@@ -59,7 +59,7 @@
             :height="6"
             :border-radius="3"
             :color="progressColor"
-            :rail-color="'rgba(30, 41, 59, 0.5)'"
+            :rail-color="'var(--bg-hover)'"
           />
         </div>
 
@@ -237,7 +237,7 @@ const handleSkip = () => {
 
 .update-content {
   width: 100%;
-  background: rgba(15, 23, 42, 0.98);
+  background: var(--card-bg);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(99, 102, 241, 0.3);
   border-radius: 20px;
@@ -255,7 +255,7 @@ const handleSkip = () => {
   gap: 16px;
   padding: 24px 28px;
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .icon-wrapper {
@@ -277,14 +277,14 @@ const handleSkip = () => {
 .title {
   font-size: 22px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--text-primary);
   margin: 0 0 4px 0;
   letter-spacing: -0.025em;
 }
 
 .subtitle {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -294,8 +294,8 @@ const handleSkip = () => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 28px;
-  background: rgba(15, 23, 42, 0.5);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .version-badge {
@@ -311,7 +311,7 @@ const handleSkip = () => {
 .version-label {
   font-size: 11px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -328,7 +328,7 @@ const handleSkip = () => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 /* 更新日志区 */
@@ -344,7 +344,7 @@ const handleSkip = () => {
   gap: 8px;
   font-size: 12px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 16px;
@@ -360,7 +360,7 @@ const handleSkip = () => {
 .changelog-content :deep(h1),
 .changelog-content :deep(h2),
 .changelog-content :deep(h3) {
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin: 16px 0 10px 0;
   font-weight: 600;
 }
@@ -410,8 +410,8 @@ const handleSkip = () => {
 .changelog-content :deep(pre) {
   margin: 12px 0;
   padding: 12px;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: var(--bg-hover);
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   overflow-x: auto;
 }
@@ -423,7 +423,7 @@ const handleSkip = () => {
 }
 
 .changelog-content :deep(strong) {
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -443,7 +443,7 @@ const handleSkip = () => {
   padding: 12px 16px;
   border-left: 3px solid #6366f1;
   background: rgba(99, 102, 241, 0.05);
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -469,8 +469,8 @@ const handleSkip = () => {
 .progress-section {
   padding: 20px 28px;
   background: rgba(99, 102, 241, 0.05);
-  border-top: 1px solid rgba(148, 163, 184, 0.08);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .progress-header {
@@ -512,8 +512,8 @@ const handleSkip = () => {
 /* 底部操作区 */
 .actions-section {
   padding: 20px 28px;
-  background: rgba(15, 23, 42, 0.5);
-  border-top: 1px solid rgba(148, 163, 184, 0.08);
+  background: var(--bg-hover);
+  border-top: 1px solid var(--border-default);
 }
 
 .action-buttons {
@@ -540,8 +540,8 @@ const handleSkip = () => {
 
 .btn-secondary {
   background: transparent;
-  color: #94a3b8;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
 }
 
 .btn-secondary:hover:not(:disabled) {
@@ -552,14 +552,14 @@ const handleSkip = () => {
 
 .btn-tertiary {
   background: transparent;
-  color: #94a3b8;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
 }
 
 .btn-tertiary:hover:not(:disabled) {
-  background: rgba(51, 65, 85, 0.5);
-  border-color: rgba(148, 163, 184, 0.3);
-  color: #e2e8f0;
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
 }
 
 .btn-primary {
@@ -599,7 +599,7 @@ const handleSkip = () => {
   align-items: center;
   gap: 8px;
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .status-dot {

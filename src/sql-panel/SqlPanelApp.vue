@@ -386,13 +386,13 @@ onMounted(async () => {
 .sql-modal {
   width: 100%;
   height: 100%;
-  background: #0f172a;
+  background: var(--bg-base);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(51, 65, 85, 0.8);
+  border: 1px solid var(--border-default);
   box-shadow:
     0 0 0 1px rgba(6, 182, 212, 0.1),
     0 25px 50px -12px rgba(0, 0, 0, 0.5);
@@ -425,12 +425,12 @@ onMounted(async () => {
 /* Header: 搜索栏 */
 .modal-header {
   height: 64px;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   padding: 0 24px;
   flex-shrink: 0;
-  background: rgba(15, 23, 42, 0.8);
+  background: var(--bg-surface);
 }
 
 .search-icon-wrapper {
@@ -450,7 +450,7 @@ onMounted(async () => {
   outline: none;
   font-size: 18px;
   font-weight: 400;
-  color: #e2e8f0;
+  color: var(--text-primary);
   height: 100%;
 }
 
@@ -464,12 +464,12 @@ onMounted(async () => {
 }
 
 .hint-badge {
-  background: #1e293b;
+  background: var(--bg-surface);
   color: #64748b;
   font-size: 11px;
   padding: 4px 10px;
   border-radius: 4px;
-  border: 1px solid #334155;
+  border: 1px solid var(--border-default);
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
@@ -483,9 +483,9 @@ onMounted(async () => {
 /* 左侧列表 */
 .list-panel {
   width: 40%;
-  border-right: 1px solid #1e293b;
+  border-right: 1px solid var(--border-default);
   overflow-y: auto;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--bg-surface);
 }
 
 .list-panel::-webkit-scrollbar {
@@ -528,15 +528,15 @@ onMounted(async () => {
   padding: 12px 16px;
   cursor: pointer;
   transition: all 0.15s ease;
-  border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+  border-bottom: 1px solid var(--card-border);
 }
 
 .list-item:hover {
-  background: rgba(30, 41, 59, 0.5);
+  background: var(--bg-hover);
 }
 
 .list-item.selected {
-  background: rgba(30, 41, 59, 0.8);
+  background: var(--bg-active);
 }
 
 .selection-indicator {
@@ -659,19 +659,19 @@ onMounted(async () => {
 /* 右侧预览区 */
 .preview-panel {
   width: 60%;
-  background: #0b1120;
+  background: var(--bg-base);
   display: flex;
   flex-direction: column;
 }
 
 .preview-header {
   height: 48px;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: #0f172a;
+  background: var(--bg-surface);
   flex-shrink: 0;
 }
 
@@ -770,8 +770,8 @@ onMounted(async () => {
 /* 代码块 */
 .code-block {
   position: relative;
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 20px;
@@ -813,7 +813,7 @@ onMounted(async () => {
 
 /* 收藏按钮 */
 .favorite-section {
-  border-top: 1px solid #1e293b;
+  border-top: 1px solid var(--border-default);
   padding-top: 16px;
 }
 
@@ -826,14 +826,14 @@ onMounted(async () => {
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
   color: #94a3b8;
 }
 
 .favorite-btn:hover {
-  background: #334155;
-  color: #e2e8f0;
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .favorite-btn.active {
@@ -871,8 +871,8 @@ onMounted(async () => {
 /* Footer: 状态栏 */
 .modal-footer {
   height: 40px;
-  border-top: 1px solid #1e293b;
-  background: rgba(15, 23, 42, 0.8);
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-surface);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -896,12 +896,12 @@ onMounted(async () => {
 .shortcut kbd {
   display: inline-block;
   padding: 2px 6px;
-  background: #1e293b;
+  background: var(--bg-surface);
   border-radius: 3px;
   font-size: 10px;
   font-family: 'Consolas', 'Monaco', monospace;
   color: #94a3b8;
-  border: 1px solid #334155;
+  border: 1px solid var(--border-default);
 }
 
 .record-count {

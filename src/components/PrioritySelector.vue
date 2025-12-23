@@ -17,7 +17,7 @@
           <h4 class="priority-title">高优先级</h4>
         </div>
         <div v-if="modelValue === 1" class="selected-check">
-          <n-icon size="18" color="#f43f5e">
+          <n-icon size="18">
             <CheckmarkCircle />
           </n-icon>
         </div>
@@ -39,7 +39,7 @@
           <h4 class="priority-title">中优先级</h4>
         </div>
         <div v-if="modelValue === 2" class="selected-check">
-          <n-icon size="18" color="#f59e0b">
+          <n-icon size="18">
             <CheckmarkCircle />
           </n-icon>
         </div>
@@ -61,7 +61,7 @@
           <h4 class="priority-title">低优先级</h4>
         </div>
         <div v-if="modelValue === 3" class="selected-check">
-          <n-icon size="18" color="#10b981">
+          <n-icon size="18">
             <CheckmarkCircle />
           </n-icon>
         </div>
@@ -111,8 +111,8 @@ const handleSelect = (priority: number) => {
   position: relative;
   padding: 8px;
   border-radius: 8px;
-  background: rgba(30, 41, 59, 0.4);
-  border: 2px solid rgba(51, 65, 85, 0.5);
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
@@ -122,26 +122,26 @@ const handleSelect = (priority: number) => {
 }
 
 .priority-item:hover {
-  background: rgba(30, 41, 59, 0.7);
-  border-color: rgba(71, 85, 105, 0.7);
+  background: var(--card-hover-bg);
+  border-color: var(--card-hover-border);
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px -3px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .priority-item.selected {
-  background: rgba(30, 41, 59, 0.8);
+  background: var(--bg-active);
 }
 
 .priority-item.priority-high.selected {
-  box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.4), 0 6px 12px -3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--error) 40%, transparent), var(--shadow-md);
 }
 
 .priority-item.priority-medium.selected {
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4), 0 6px 12px -3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 40%, transparent), var(--shadow-md);
 }
 
 .priority-item.priority-low.selected {
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4), 0 6px 12px -3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--success) 40%, transparent), var(--shadow-md);
 }
 
 /* 优先级徽章 */
@@ -157,18 +157,18 @@ const handleSelect = (priority: number) => {
 }
 
 .priority-high .priority-badge {
-  background: rgba(244, 63, 94, 0.15);
-  color: #fca5a5;
+  background: color-mix(in srgb, var(--error) 15%, transparent);
+  color: var(--error);
 }
 
 .priority-medium .priority-badge {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fcd34d;
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  color: var(--warning);
 }
 
 .priority-low .priority-badge {
-  background: rgba(16, 185, 129, 0.15);
-  color: #6ee7b7;
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: var(--success);
 }
 
 .priority-badge .priority-dot {
@@ -181,18 +181,18 @@ const handleSelect = (priority: number) => {
 }
 
 .priority-high .priority-badge .priority-dot {
-  background: #f43f5e;
-  box-shadow: 0 0 6px rgba(244, 63, 94, 0.6);
+  background: var(--error);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--error) 60%, transparent);
 }
 
 .priority-medium .priority-badge .priority-dot {
-  background: #f59e0b;
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+  background: var(--warning);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--warning) 60%, transparent);
 }
 
 .priority-low .priority-badge .priority-dot {
-  background: #10b981;
-  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+  background: var(--success);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent);
 }
 
 /* 优先级内容 */
@@ -206,9 +206,22 @@ const handleSelect = (priority: number) => {
 .priority-title {
   font-size: 12px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin: 0;
   line-height: 1.4;
+}
+
+/* 选中图标颜色 */
+.priority-high .selected-check {
+  color: var(--error);
+}
+
+.priority-medium .selected-check {
+  color: var(--warning);
+}
+
+.priority-low .selected-check {
+  color: var(--success);
 }
 
 /* 选中标记 */

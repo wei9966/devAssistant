@@ -16,7 +16,7 @@
           <h4 class="category-title">后端开发</h4>
         </div>
         <div v-if="modelValue === 'backend'" class="selected-check">
-          <n-icon size="18" color="#10b981">
+          <n-icon size="18">
             <CheckmarkCircle />
           </n-icon>
         </div>
@@ -37,7 +37,7 @@
           <h4 class="category-title">数据库</h4>
         </div>
         <div v-if="modelValue === 'database'" class="selected-check">
-          <n-icon size="18" color="#06b6d4">
+          <n-icon size="18">
             <CheckmarkCircle />
           </n-icon>
         </div>
@@ -58,7 +58,7 @@
           <h4 class="category-title">功能开发</h4>
         </div>
         <div v-if="modelValue === 'feature'" class="selected-check">
-          <n-icon size="18" color="#f59e0b">
+          <n-icon size="18">
             <CheckmarkCircle />
           </n-icon>
         </div>
@@ -79,7 +79,7 @@
           <h4 class="category-title">文档</h4>
         </div>
         <div v-if="modelValue === 'docs'" class="selected-check">
-          <n-icon size="18" color="#8b5cf6">
+          <n-icon size="18">
             <CheckmarkCircle />
           </n-icon>
         </div>
@@ -100,7 +100,7 @@
           <h4 class="category-title">其他</h4>
         </div>
         <div v-if="modelValue === 'other'" class="selected-check">
-          <n-icon size="18" color="#64748b">
+          <n-icon size="18">
             <CheckmarkCircle />
           </n-icon>
         </div>
@@ -152,8 +152,8 @@ const handleSelect = (category: string) => {
   position: relative;
   padding: 8px;
   border-radius: 8px;
-  background: rgba(30, 41, 59, 0.4);
-  border: 2px solid rgba(51, 65, 85, 0.5);
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
@@ -163,34 +163,34 @@ const handleSelect = (category: string) => {
 }
 
 .category-item:hover {
-  background: rgba(30, 41, 59, 0.7);
-  border-color: rgba(71, 85, 105, 0.7);
+  background: var(--card-hover-bg);
+  border-color: var(--card-hover-border);
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px -3px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .category-item.selected {
-  background: rgba(30, 41, 59, 0.8);
+  background: var(--bg-active);
 }
 
 .category-item.category-backend.selected {
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4), 0 6px 12px -3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--success) 40%, transparent), var(--shadow-md);
 }
 
 .category-item.category-database.selected {
-  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.4), 0 6px 12px -3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--info) 40%, transparent), var(--shadow-md);
 }
 
 .category-item.category-feature.selected {
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4), 0 6px 12px -3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 40%, transparent), var(--shadow-md);
 }
 
 .category-item.category-docs.selected {
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.4), 0 6px 12px -3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-secondary) 40%, transparent), var(--shadow-md);
 }
 
 .category-item.category-other.selected {
-  box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.4), 0 6px 12px -3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text-muted) 40%, transparent), var(--shadow-md);
 }
 
 /* 分类徽章 */
@@ -205,28 +205,49 @@ const handleSelect = (category: string) => {
 }
 
 .category-backend .category-badge {
-  background: rgba(16, 185, 129, 0.15);
-  color: #6ee7b7;
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: var(--success);
 }
 
 .category-database .category-badge {
-  background: rgba(6, 182, 212, 0.15);
-  color: #67e8f9;
+  background: color-mix(in srgb, var(--info) 15%, transparent);
+  color: var(--info);
 }
 
 .category-feature .category-badge {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fcd34d;
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  color: var(--warning);
 }
 
 .category-docs .category-badge {
-  background: rgba(139, 92, 246, 0.15);
-  color: #c4b5fd;
+  background: color-mix(in srgb, var(--accent-secondary) 15%, transparent);
+  color: var(--accent-secondary);
 }
 
 .category-other .category-badge {
-  background: rgba(100, 116, 139, 0.15);
-  color: #94a3b8;
+  background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+  color: var(--text-muted);
+}
+
+/* 选中图标颜色 */
+.category-backend .selected-check {
+  color: var(--success);
+}
+
+.category-database .selected-check {
+  color: var(--info);
+}
+
+.category-feature .selected-check {
+  color: var(--warning);
+}
+
+.category-docs .selected-check {
+  color: var(--accent-secondary);
+}
+
+.category-other .selected-check {
+  color: var(--text-muted);
 }
 
 /* 分类内容 */
@@ -240,7 +261,7 @@ const handleSelect = (category: string) => {
 .category-title {
   font-size: 12px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin: 0;
   line-height: 1.4;
 }
