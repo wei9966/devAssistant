@@ -88,9 +88,6 @@ dist/index.html
 dist-package/**
 dist-package
 
-pic/
-
-pic
-
 pic/*
+!pic/introduce/
 无标题.json
