@@ -2,6 +2,10 @@ import { check, Update } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
+import { fetch } from '@tauri-apps/plugin-http'
+
+// 更新服务器 URL
+const UPDATE_SERVER_URL = 'http://d.wbdao.cn:9900/update/update.php'
 
 // 记录更新日志到后端
 async function logUpdate(message: string) {
@@ -25,11 +29,38 @@ export interface UpdateInfo {
   notes?: string
   date?: string
   update?: Update  // 原始 Update 对象，用于下载安装
+  forceUpdate?: boolean  // 是否强制更新
 }
 
 export interface UpdateProgress {
   downloaded: number
   total: number
+}
+
+/**
+ * 从服务器获取强制更新标志
+ */
+async function fetchForceUpdateFlag(currentVersion: string): Promise<boolean> {
+  try {
+    const target = 'windows' // 简化处理，根据平台调整
+    const url = `${UPDATE_SERVER_URL}?target=${target}&current_version=${currentVersion}`
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (response.ok) {
+      const data = await response.json() as { forceUpdate?: boolean }
+      return data.forceUpdate === true
+    }
+    return false
+  } catch (error) {
+    console.error('获取强制更新标志失败:', error)
+    return false
+  }
 }
 
 /**
@@ -62,9 +93,13 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
     await logUpdate(`  - 发布日期: ${update.date || '未知'}`)
     await logUpdate(`  - 更新说明: ${update.body?.substring(0, 100) || '无'}...`)
 
-    // 检查是否是被跳过的版本
+    // 获取强制更新标志
+    const forceUpdate = await fetchForceUpdateFlag(currentVersion)
+    await logUpdate(`  - 强制更新: ${forceUpdate ? '是' : '否'}`)
+
+    // 检查是否是被跳过的版本（强制更新时忽略跳过设置）
     const skippedVersion = getSkippedVersion()
-    if (skippedVersion && update.version === skippedVersion) {
+    if (!forceUpdate && skippedVersion && update.version === skippedVersion) {
       await logUpdate(`版本 ${update.version} 已被用户跳过，忽略此更新`)
       await logUpdate(`========== 更新检查结束 ==========`)
       return { available: false }
@@ -78,7 +113,8 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
       version: update.version,
       notes: update.body,
       date: update.date,
-      update: update  // 返回原始 Update 对象
+      update: update,  // 返回原始 Update 对象
+      forceUpdate: forceUpdate  // 返回强制更新标志
     }
   } catch (error: any) {
     await logUpdate(`检查更新失败: ${error?.message || error}`)

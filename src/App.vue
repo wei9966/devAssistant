@@ -112,6 +112,7 @@
               :date="updateInfo.date || ''"
               :downloading="isUpdating"
               :progress="updateProgress"
+              :force-update="updateInfo.forceUpdate || false"
               @update="handleUpdate"
               @later="handleUpdateLater"
               @skip="handleUpdateSkip"
@@ -572,8 +573,9 @@ onMounted(() => {
   window.addEventListener('open-cyberpunk-sql', handleOpenSqlModal)
 
   // 启动时检查更新（延迟3秒，等待应用初始化完成）
+  // 启动检查使用 force=true，确保每次启动都检查，不受间隔限制
   setTimeout(() => {
-    checkAppUpdate()
+    checkAppUpdate(true)
   }, 3000)
 
   // 设置定时检查更新（每1小时检查一次）

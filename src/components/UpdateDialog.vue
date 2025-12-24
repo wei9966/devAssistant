@@ -65,25 +65,33 @@
 
         <!-- 底部操作区 -->
         <div class="actions-section">
+          <!-- 强制更新提示 -->
+          <div v-if="props.forceUpdate" class="force-update-hint">
+            <n-icon size="14" color="var(--warning-color, #f59e0b)"><WarningOutline /></n-icon>
+            <span>此版本为重要更新，需要立即更新后才能使用</span>
+          </div>
           <div class="action-buttons">
-            <button
-              class="btn-secondary"
-              @click="handleSkip"
-              :disabled="isDownloading"
-              title="不再提醒此版本"
-            >
-              <n-icon size="16"><CloseCircleOutline /></n-icon>
-              跳过此版本
-            </button>
-            <button
-              class="btn-tertiary"
-              @click="handleLater"
-              :disabled="isDownloading"
-              title="稍后在设置中更新"
-            >
-              <n-icon size="16"><TimeOutline /></n-icon>
-              稍后提醒
-            </button>
+            <!-- 非强制更新时显示跳过和稍后按钮 -->
+            <template v-if="!props.forceUpdate">
+              <button
+                class="btn-secondary"
+                @click="handleSkip"
+                :disabled="isDownloading"
+                title="不再提醒此版本"
+              >
+                <n-icon size="16"><CloseCircleOutline /></n-icon>
+                跳过此版本
+              </button>
+              <button
+                class="btn-tertiary"
+                @click="handleLater"
+                :disabled="isDownloading"
+                title="稍后在设置中更新"
+              >
+                <n-icon size="16"><TimeOutline /></n-icon>
+                稍后提醒
+              </button>
+            </template>
             <button
               class="btn-primary"
               @click="handleUpdate"
@@ -121,6 +129,7 @@ import {
   DownloadOutline,
   CloseCircleOutline,
   SyncOutline,
+  WarningOutline,
 } from '@vicons/ionicons5'
 import { marked } from 'marked'
 
@@ -132,6 +141,7 @@ const props = withDefaults(
     date: string
     downloading?: boolean
     progress?: number
+    forceUpdate?: boolean  // 是否强制更新
   }>(),
   {
     show: false,
@@ -139,7 +149,8 @@ const props = withDefaults(
     notes: '',
     date: '',
     downloading: false,
-    progress: 0
+    progress: 0,
+    forceUpdate: false
   }
 )
 
@@ -514,6 +525,20 @@ const handleSkip = () => {
   padding: 20px 28px;
   background: var(--bg-hover);
   border-top: 1px solid var(--border-default);
+}
+
+/* 强制更新提示 */
+.force-update-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--warning-color, #f59e0b);
 }
 
 .action-buttons {

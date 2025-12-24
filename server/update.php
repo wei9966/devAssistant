@@ -195,6 +195,7 @@ try {
         'version' => $versionData['version'],
         'notes' => isset($versionData['notes']) ? $versionData['notes'] : '',
         'pub_date' => isset($versionData['pub_date']) ? $versionData['pub_date'] : date('c'),
+        'forceUpdate' => isset($versionData['forceUpdate']) ? (bool)$versionData['forceUpdate'] : false,
         'platforms' => [
             $platformKey => $versionData['platforms'][$platformKey]
         ]
