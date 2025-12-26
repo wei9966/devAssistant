@@ -721,6 +721,7 @@ fn main() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_http::init())
         .setup(move |app| {
             // ========== 系统托盘设置 ==========
             let app_handle = app.handle().clone();
@@ -1156,6 +1157,17 @@ fn main() {
             commands::ai_commands::get_ai_log_stats,
             commands::ai_commands::clear_ai_logs,
             commands::ai_commands::save_ai_log,
+            // AI Chat 相关命令
+            commands::ai_chat_commands::ai_assistant_chat,
+            commands::ai_chat_commands::ai_get_dashboard_stats,
+            commands::ai_chat_commands::ai_save_chat_session,
+            commands::ai_chat_commands::ai_get_chat_sessions,
+            commands::ai_chat_commands::ai_delete_chat_session,
+            commands::ai_chat_commands::ai_get_session_messages,
+            commands::ai_chat_commands::ai_save_chat_message,
+            commands::ai_chat_commands::ai_clear_session_messages,
+            commands::ai_chat_commands::ai_get_process_logs,
+            commands::ai_chat_commands::ai_clear_process_logs,
             // VLM 相关命令
             commands::vlm_commands::vlm_save_config,
             commands::vlm_commands::vlm_get_config,

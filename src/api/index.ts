@@ -11,3 +11,4 @@ export const api = {
 
 // Export API modules
 export * from './screenshotApi';
+export * from './aiChatApi';

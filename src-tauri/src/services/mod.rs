@@ -3,6 +3,8 @@
 
 pub mod activity_summary_service;
 pub mod ai_service;
+pub mod ai_chat_service;
+pub mod ai_functions_service;
 pub mod app_launcher_service;
 pub mod app_monitor_service;
 pub mod app_scanner_service;
@@ -39,6 +41,8 @@ pub mod tool_service;
 // 重新导出常用类型
 pub use activity_summary_service::{ActivitySummary, ActivitySummaryService, ActivityType};
 pub use ai_service::{AiConfig, AiService, ChatMessage};
+pub use ai_chat_service::{AiChatService, ChatResponse, DashboardStats, FunctionCall};
+pub use ai_functions_service::AiFunctionsService;
 pub use app_launcher_service::AppLauncherService;
 pub use app_monitor_service::{AppMonitorService, NewAppsDetectedEvent};
 pub use app_scanner_service::AppScannerService;

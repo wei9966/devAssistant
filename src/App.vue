@@ -155,7 +155,8 @@ import {
   SettingsOutline as SettingsIcon,
   PieChartOutline as ReportIcon,
   TimerOutline as TimerIcon,
-  ConstructOutline as ToolboxIcon
+  ConstructOutline as ToolboxIcon,
+  ChatboxOutline as AiChatIcon
 } from '@vicons/ionicons5'
 import { invoke } from '@tauri-apps/api/core'
 import CyberpunkLauncher from '@/components/appLauncher/CyberpunkLauncher.vue'
@@ -461,6 +462,11 @@ const menuOptions: MenuOption[] = [
     label: '应用启动器',
     key: 'app-launcher',
     icon: () => h(LauncherIcon)
+  },
+  {
+    label: 'AI 助手',
+    key: 'ai-chat',
+    icon: () => h(AiChatIcon)
   },
   {
     label: '报表中心',
