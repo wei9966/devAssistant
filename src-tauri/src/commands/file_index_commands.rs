@@ -47,6 +47,35 @@ pub struct IndexProgressEvent {
     pub total: usize,
 }
 
+/// 从路径中提取有效的驱动器字母
+///
+/// 验证路径格式是否为有效的 Windows 路径（如 `C:\...`）
+/// 只接受 A-Z 的驱动器字母
+///
+/// # Arguments
+/// * `path` - 文件路径字符串
+///
+/// # Returns
+/// * `Some(String)` - 驱动器标识（如 "C:"）
+/// * `None` - 如果路径不是有效的 Windows 驱动器路径
+fn extract_drive_letter(path: &str) -> Option<String> {
+    let chars: Vec<char> = path.chars().take(3).collect();
+
+    // 检查路径格式：至少需要 3 个字符，格式为 "X:\" 或 "X:/"
+    if chars.len() >= 2 {
+        let first_char = chars[0];
+        let second_char = chars[1];
+
+        // 验证第一个字符是有效的驱动器字母 (A-Z 或 a-z)
+        if first_char.is_ascii_alphabetic() && second_char == ':' {
+            // 返回大写的驱动器字母
+            return Some(format!("{}:", first_char.to_ascii_uppercase()));
+        }
+    }
+
+    None
+}
+
 /// 文件索引状态管理
 pub struct FileIndexState {
     /// 索引服务
@@ -205,50 +234,64 @@ pub async fn start_file_indexing(
             *msg = Some("正在读取文件系统...".to_string());
         });
 
-        emit_progress("reading", 0, "正在读取文件系统...", 0, 0);
+        emit_progress("reading", 5, "正在检测可用驱动器...", 0, 0);
 
-        // 读取 MFT
+        // 读取 MFT - 改为逐个驱动器读取以支持进度更新
         #[cfg(windows)]
-        let files = if let Some(drive_letters) = drives {
+        let files = {
             let mut all_files = Vec::new();
-            let total_drives = drive_letters.len();
 
-            for (i, drive) in drive_letters.iter().enumerate() {
-                let drive_char = drive.chars().next().unwrap_or('C');
+            // 获取要读取的驱动器列表
+            let drive_letters: Vec<char> = if let Some(ref specified_drives) = drives {
+                specified_drives.iter().filter_map(|d| d.chars().next()).collect()
+            } else {
+                // 检测所有可用的 NTFS 驱动器
+                ('C'..='Z')
+                    .filter(|c| {
+                        let path = format!("{}:\\", c);
+                        std::path::Path::new(&path).exists()
+                    })
+                    .collect()
+            };
+
+            let total_drives = drive_letters.len();
+            if total_drives == 0 {
+                runtime.block_on(async {
+                    let mut is_indexing = is_indexing_flag.lock().await;
+                    *is_indexing = false;
+                });
+                let _ = app.emit("file-index:error", "未找到可用驱动器".to_string());
+                return Err("未找到可用驱动器".to_string());
+            }
+
+            log::info!("准备读取 {} 个驱动器: {:?}", total_drives, drive_letters);
+
+            for (i, drive_char) in drive_letters.iter().enumerate() {
+                let progress = 5 + ((i * 25) / total_drives.max(1)) as u32;
                 emit_progress(
                     "reading",
-                    ((i * 100) / total_drives) as u32,
-                    &format!("正在读取驱动器 {}:...", drive_char),
+                    progress,
+                    &format!("正在读取驱动器 {}:... ({}/{})", drive_char, i + 1, total_drives),
                     i,
                     total_drives,
                 );
 
-                match MftReader::read_drive(drive_char) {
+                match MftReader::read_drive(*drive_char) {
                     Ok(files) => {
                         log::info!("驱动器 {}: 读取到 {} 个文件", drive_char, files.len());
                         all_files.extend(files);
                     }
                     Err(e) => {
                         log::warn!("读取驱动器 {} 失败: {}", drive_char, e);
+                        // 继续读取其他驱动器
                     }
                 }
+
+                // 短暂休眠让出 CPU
+                std::thread::sleep(std::time::Duration::from_millis(10));
             }
+
             all_files
-        } else {
-            emit_progress("reading", 0, "正在读取所有驱动器...", 0, 0);
-            match MftReader::read_all_drives() {
-                Ok(files) => files,
-                Err(e) => {
-                    runtime.block_on(async {
-                        let mut is_indexing = is_indexing_flag.lock().await;
-                        *is_indexing = false;
-                        let mut msg = progress_message.lock().await;
-                        *msg = Some(format!("读取失败: {}", e));
-                    });
-                    let _ = app.emit("file-index:error", e.clone());
-                    return Err(e);
-                }
-            }
         };
 
         #[cfg(not(windows))]
@@ -302,7 +345,7 @@ pub async fn start_file_indexing(
                 .filter_map(|(path, is_dir)| {
                     let path_obj = std::path::Path::new(path);
                     let file_name = path_obj.file_name()?.to_string_lossy().to_string();
-                    let drive = format!("{}:", path.chars().next().unwrap_or('C'));
+                    let drive = extract_drive_letter(path)?;
                     let file_type = if *is_dir {
                         String::new()
                     } else {
@@ -479,7 +522,21 @@ pub async fn start_file_watching(
 
         // 确定要监控的驱动器
         let drive_chars: Vec<char> = if let Some(drive_list) = drives {
-            drive_list.iter().filter_map(|d| d.chars().next()).collect()
+            // 从驱动器列表中提取有效的驱动器字母 (A-Z)
+            // 过滤掉无效的驱动器（如中文字符、数字等）
+            drive_list
+                .iter()
+                .filter_map(|d| {
+                    let first_char = d.chars().next()?;
+                    // 只接受有效的驱动器字母 (A-Z 或 a-z)
+                    if first_char.is_ascii_alphabetic() {
+                        Some(first_char.to_ascii_uppercase())
+                    } else {
+                        log::warn!("[文件监控] 忽略无效的驱动器: {}", d);
+                        None
+                    }
+                })
+                .collect()
         } else {
             // 默认监控所有可用驱动器
             ('C'..='Z')
@@ -668,12 +725,12 @@ pub fn get_available_drives() -> Vec<String> {
 /// 后台自动索引（内部函数）
 ///
 /// 用于后台自动建立/更新文件索引，使用最低优先级执行，
-/// 不发送频繁的进度事件以减少开销。
+/// 发送进度事件以便前端显示进度。
 ///
 /// # Arguments
 /// * `service` - 文件索引服务实例
 /// * `drives` - 要索引的驱动器列表，None 表示所有驱动器
-/// * `app` - 可选的 AppHandle，用于发送完成事件
+/// * `app` - 可选的 AppHandle，用于发送进度和完成事件
 ///
 /// # Returns
 /// 返回索引的文件数量，失败返回错误信息
@@ -692,18 +749,39 @@ pub fn start_background_indexing(
         log::debug!("后台索引线程已设置为低优先级");
     }
 
+    // 发送进度事件的辅助闭包
+    let emit_progress = |app_opt: &Option<AppHandle>, stage: &str, progress: u32, message: &str, processed: usize, total: usize| {
+        if let Some(ref app_handle) = app_opt {
+            let event = IndexProgressEvent {
+                stage: stage.to_string(),
+                progress,
+                message: message.to_string(),
+                processed,
+                total,
+            };
+            let _ = app_handle.emit("file-index:progress", event);
+        }
+    };
+
     // 检查管理员权限
     #[cfg(windows)]
     if !MftReader::check_admin_privilege() {
+        emit_progress(&app, "error", 0, "需要管理员权限", 0, 0);
         return Err("需要管理员权限才能读取 NTFS MFT".to_string());
     }
+
+    emit_progress(&app, "reading", 5, "正在读取文件系统...", 0, 0);
 
     // 读取 MFT
     #[cfg(windows)]
     let files = if let Some(drive_letters) = drives {
         let mut all_files = Vec::new();
-        for drive in drive_letters.iter() {
+        let total_drives = drive_letters.len();
+        for (i, drive) in drive_letters.iter().enumerate() {
             let drive_char = drive.chars().next().unwrap_or('C');
+            let progress = 5 + ((i * 20) / total_drives.max(1)) as u32;
+            emit_progress(&app, "reading", progress, &format!("正在读取驱动器 {}:...", drive_char), i, total_drives);
+
             match MftReader::read_drive(drive_char) {
                 Ok(files) => {
                     log::info!("后台索引: 驱动器 {}: 读取到 {} 个文件", drive_char, files.len());
@@ -718,24 +796,28 @@ pub fn start_background_indexing(
         }
         all_files
     } else {
+        emit_progress(&app, "reading", 10, "正在读取所有驱动器...", 0, 0);
         match MftReader::read_all_drives() {
             Ok(files) => files,
             Err(e) => {
+                emit_progress(&app, "error", 0, &format!("读取失败: {}", e), 0, 0);
                 return Err(format!("后台索引: 读取失败: {}", e));
             }
         }
     };
 
     #[cfg(not(windows))]
-    let files: Vec<crate::services::mft_reader::MftFileEntry> = Vec::new();
+    let files: Vec<crate::services::mft_reader::MftFileInfo> = Vec::new();
 
     if files.is_empty() {
         log::info!("后台索引: 未找到任何文件");
+        emit_progress(&app, "completed", 100, "未找到任何文件", 0, 0);
         return Ok(0);
     }
 
     let total_files = files.len();
     log::info!("后台索引: 开始构建路径 ({} 个文件)", total_files);
+    emit_progress(&app, "building", 25, &format!("正在构建路径 ({} 个文件)...", total_files), 0, total_files);
 
     // 构建完整路径
     #[cfg(windows)]
@@ -743,6 +825,8 @@ pub fn start_background_indexing(
 
     #[cfg(not(windows))]
     let paths: Vec<(String, bool)> = Vec::new();
+
+    emit_progress(&app, "indexing", 35, &format!("正在建立索引 ({} 个文件)...", paths.len()), 0, paths.len());
 
     // 清空旧索引
     if let Err(e) = service.clear_index() {
@@ -753,7 +837,7 @@ pub fn start_background_indexing(
     let batch_size = 3000;
     let total_paths = paths.len();
     let mut processed = 0;
-    let progress_interval = total_paths / 10; // 每处理 10% 记录一次日志
+    let progress_report_interval = total_paths / 20; // 每处理 5% 发送一次进度
 
     for chunk in paths.chunks(batch_size) {
         let records: Vec<FileIndexRecord> = chunk
@@ -761,7 +845,7 @@ pub fn start_background_indexing(
             .filter_map(|(path, is_dir)| {
                 let path_obj = std::path::Path::new(path);
                 let file_name = path_obj.file_name()?.to_string_lossy().to_string();
-                let drive = format!("{}:", path.chars().next().unwrap_or('C'));
+                let drive = extract_drive_letter(path)?;
                 let file_type = if *is_dir {
                     String::new()
                 } else {
@@ -789,10 +873,17 @@ pub fn start_background_indexing(
 
         processed += chunk.len();
 
-        // 仅在达到进度里程碑时记录日志
-        if progress_interval > 0 && processed % progress_interval < batch_size {
-            let percent = (processed * 100) / total_paths;
-            log::info!("后台索引进度: {}% ({}/{})", percent, processed, total_paths);
+        // 发送进度事件
+        if progress_report_interval == 0 || processed % progress_report_interval < batch_size {
+            let percent = 35 + ((processed * 60) / total_paths.max(1)) as u32;
+            emit_progress(
+                &app,
+                "indexing",
+                percent.min(95),
+                &format!("正在建立索引 ({}/{})...", processed, total_paths),
+                processed,
+                total_paths
+            );
         }
 
         // 后台索引使用更长的休眠间隔（50ms），进一步降低 CPU 占用
@@ -801,9 +892,11 @@ pub fn start_background_indexing(
 
     log::info!("后台索引完成，共 {} 个文件", total_paths);
 
-    // 发送完成事件（如果提供了 AppHandle）
-    if let Some(app_handle) = app {
-        let _ = app_handle.emit("file-index:background-completed", total_paths);
+    // 发送完成事件
+    emit_progress(&app, "completed", 100, &format!("索引完成，共 {} 个文件", total_paths), total_paths, total_paths);
+
+    if let Some(ref app_handle) = app {
+        let _ = app_handle.emit("file-index:completed", total_paths);
     }
 
     Ok(total_paths)
@@ -992,7 +1085,21 @@ async fn start_file_watching_internal(
 
     // 确定要监控的驱动器
     let drive_chars: Vec<char> = if let Some(drive_list) = drives {
-        drive_list.iter().filter_map(|d| d.chars().next()).collect()
+        // 从驱动器列表中提取有效的驱动器字母 (A-Z)
+        // 过滤掉无效的驱动器（如中文字符、数字等）
+        drive_list
+            .iter()
+            .filter_map(|d| {
+                let first_char = d.chars().next()?;
+                // 只接受有效的驱动器字母 (A-Z 或 a-z)
+                if first_char.is_ascii_alphabetic() {
+                    Some(first_char.to_ascii_uppercase())
+                } else {
+                    log::warn!("[文件监控] 忽略无效的驱动器: {}", d);
+                    None
+                }
+            })
+            .collect()
     } else {
         // 默认监控所有可用驱动器
         ('C'..='Z')

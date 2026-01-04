@@ -1,0 +1,359 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Search, 
+  FileText, 
+  Image as ImageIcon, 
+  Music, 
+  Video, 
+  Folder, 
+  Grid, 
+  List as ListIcon, 
+  Filter, 
+  MoreVertical, 
+  Clock, 
+  HardDrive, 
+  Star, 
+  Cloud, 
+  Settings, 
+  Download, 
+  Share2, 
+  Trash2, 
+  Maximize2,
+  X
+} from 'lucide-react';
+
+// Mock Data
+const MOCK_FILES = [
+  { id: 1, name: 'Q3_Financial_Report.pdf', type: 'document', size: '2.4 MB', date: '2023-10-24', author: 'Finance Team', category: 'Work' },
+  { id: 2, name: 'Project_Alpha_Mockup.png', type: 'image', size: '4.1 MB', date: '2023-10-23', author: 'Design Team', category: 'Design' },
+  { id: 3, name: 'Meeting_Recording_Oct.mp3', type: 'audio', size: '14.2 MB', date: '2023-10-22', author: 'HR Dept', category: 'Meetings' },
+  { id: 4, name: 'Website_Launch_Promo.mp4', type: 'video', size: '156 MB', date: '2023-10-20', author: 'Marketing', category: 'Marketing' },
+  { id: 5, name: 'Client_List_2023.xlsx', type: 'document', size: '1.2 MB', date: '2023-10-19', author: 'Sales', category: 'Work' },
+  { id: 6, name: 'Avatar_Assets.zip', type: 'archive', size: '45 MB', date: '2023-10-18', author: 'Design Team', category: 'Assets' },
+  { id: 7, name: 'Notes_Brainstorming.txt', type: 'document', size: '12 KB', date: '2023-10-18', author: 'Me', category: 'Personal' },
+  { id: 8, name: 'Holiday_Party_Photos.jpg', type: 'image', size: '8.5 MB', date: '2023-10-15', author: 'Admin', category: 'Events' },
+  { id: 9, name: 'System_Logs.log', type: 'code', size: '560 KB', date: '2023-10-10', author: 'DevOps', category: 'Tech' },
+  { id: 10, name: 'App_Icon_v2.svg', type: 'image', size: '24 KB', date: '2023-10-09', author: 'Design Team', category: 'Design' },
+  { id: 11, name: 'Budget_Draft_v1.docx', type: 'document', size: '1.8 MB', date: '2023-10-05', author: 'Finance', category: 'Work' },
+  { id: 12, name: 'Presentation_Slide_Deck.pptx', type: 'document', size: '12.5 MB', date: '2023-10-01', author: 'CEO', category: 'Work' },
+];
+
+const CATEGORIES = [
+  { id: 'all', label: '全部', icon: HardDrive },
+  { id: 'document', label: '文档', icon: FileText },
+  { id: 'image', label: '图片', icon: ImageIcon },
+  { id: 'audio', label: '音频', icon: Music },
+  { id: 'video', label: '视频', icon: Video },
+];
+
+export default function FileSearchApp() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Filter logic
+  const filteredFiles = MOCK_FILES.filter(file => {
+    const matchesSearch = file.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || file.type === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const getFileIcon = (type) => {
+    switch (type) {
+      case 'document': return <FileText className="text-blue-500" />;
+      case 'image': return <ImageIcon className="text-purple-500" />;
+      case 'audio': return <Music className="text-pink-500" />;
+      case 'video': return <Video className="text-red-500" />;
+      case 'archive': return <Folder className="text-yellow-500" />;
+      default: return <FileText className="text-gray-500" />;
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-50 text-gray-800 font-sans overflow-hidden">
+      
+      {/* Sidebar Navigation */}
+      <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col z-20`}>
+        <div className="h-16 flex items-center justify-center border-b border-gray-100">
+          <div className="flex items-center gap-2 font-bold text-xl text-indigo-600 cursor-pointer" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            <Cloud size={24} />
+            {sidebarOpen && <span>CloudSearch</span>}
+          </div>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto py-4">
+          <div className="px-4 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            {sidebarOpen ? '浏览' : '...'}
+          </div>
+          <ul className="space-y-1 px-2">
+            {[
+              { label: '我的文件', icon: HardDrive, active: true },
+              { label: '最近访问', icon: Clock },
+              { label: '星标文件', icon: Star },
+              { label: '回收站', icon: Trash2 },
+            ].map((item) => (
+              <li key={item.label}>
+                <button className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${item.active ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'}`}>
+                  <item.icon size={20} />
+                  {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-8 px-4 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+             {sidebarOpen ? '位置' : '...'}
+          </div>
+          <ul className="space-y-1 px-2">
+            <li className="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">
+              <div className="w-5 h-5 rounded bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold">W</div>
+              {sidebarOpen && <span className="text-sm">工作文档</span>}
+            </li>
+            <li className="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">
+               <div className="w-5 h-5 rounded bg-green-100 flex items-center justify-center text-green-600 text-xs font-bold">P</div>
+              {sidebarOpen && <span className="text-sm">个人资料</span>}
+            </li>
+          </ul>
+        </nav>
+        
+        <div className="p-4 border-t border-gray-100">
+           <button className="flex items-center gap-3 text-gray-500 hover:text-gray-800 transition-colors">
+             <Settings size={20} />
+             {sidebarOpen && <span className="text-sm">设置</span>}
+           </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-w-0 bg-gray-50">
+        
+        {/* Header / Search Bar */}
+        <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
+          <div className="flex-1 max-w-2xl relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search size={18} className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="搜索文件、文件夹或标签..."
+              className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl leading-5 bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all shadow-inner"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          <div className="flex items-center gap-4 ml-4">
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+               <button 
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+               >
+                 <ListIcon size={18} />
+               </button>
+               <button 
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+               >
+                 <Grid size={18} />
+               </button>
+            </div>
+            <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs shadow-lg cursor-pointer hover:shadow-xl transition-shadow">
+              JD
+            </div>
+          </div>
+        </header>
+
+        {/* Filters and Toolbar */}
+        <div className="px-6 py-4 flex items-center gap-2 overflow-x-auto no-scrollbar">
+           {CATEGORIES.map(cat => (
+             <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
+                selectedCategory === cat.id 
+                  ? 'bg-indigo-600 text-white shadow-md transform scale-105' 
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+              }`}
+             >
+               <cat.icon size={16} />
+               {cat.label}
+             </button>
+           ))}
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto px-6 pb-6">
+          <div className="mb-4 text-sm text-gray-500 flex justify-between items-center">
+            <span>找到 {filteredFiles.length} 个文件</span>
+            <button className="flex items-center gap-1 hover:text-indigo-600">
+               <Filter size={14} />
+               排序
+            </button>
+          </div>
+
+          {viewMode === 'list' ? (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-100">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">名称</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">大小</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">修改日期</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">拥有者</th>
+                    <th className="relative px-6 py-3"><span className="sr-only">操作</span></th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-50">
+                  {filteredFiles.map((file) => (
+                    <tr 
+                      key={file.id} 
+                      onClick={() => setSelectedFile(file)}
+                      className={`cursor-pointer transition-colors hover:bg-indigo-50 ${selectedFile?.id === file.id ? 'bg-indigo-50 ring-1 ring-inset ring-indigo-200' : ''}`}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center bg-gray-100 rounded-lg">
+                            {getFileIcon(file.type)}
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">{file.name}</div>
+                            <div className="text-xs text-gray-500 sm:hidden">{file.size} • {file.date}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">{file.size}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">{file.date}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                          {file.author}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button className="text-gray-400 hover:text-gray-600">
+                          <MoreVertical size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filteredFiles.length === 0 && (
+                <div className="p-12 text-center text-gray-500">
+                  <Search size={48} className="mx-auto mb-4 text-gray-300" />
+                  <p className="text-lg">未找到相关文件</p>
+                  <p className="text-sm mt-1">尝试调整搜索词或筛选条件</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            // Grid View
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {filteredFiles.map((file) => (
+                <div 
+                  key={file.id}
+                  onClick={() => setSelectedFile(file)}
+                  className={`group relative bg-white rounded-xl border p-4 flex flex-col items-center text-center cursor-pointer transition-all hover:shadow-md hover:border-indigo-300 ${
+                    selectedFile?.id === file.id ? 'ring-2 ring-indigo-500 border-transparent shadow-md' : 'border-gray-200'
+                  }`}
+                >
+                  <div className="w-16 h-16 mb-4 flex items-center justify-center bg-gray-50 rounded-2xl group-hover:scale-110 transition-transform">
+                     {React.cloneElement(getFileIcon(file.type), { size: 32 })}
+                  </div>
+                  <h3 className="text-sm font-medium text-gray-900 truncate w-full mb-1">{file.name}</h3>
+                  <p className="text-xs text-gray-500">{file.size}</p>
+                  
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button className="p-1 hover:bg-gray-100 rounded-full">
+                      <MoreVertical size={14} className="text-gray-500" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Details Panel (Right Sidebar) */}
+      {selectedFile && (
+        <aside className="w-80 bg-white border-l border-gray-200 shadow-xl z-30 flex flex-col transition-transform duration-300 ease-in-out absolute right-0 h-full lg:static">
+          <div className="p-6 border-b border-gray-100 flex justify-between items-start">
+            <h2 className="text-lg font-bold text-gray-800">文件详情</h2>
+            <button 
+              onClick={() => setSelectedFile(null)}
+              className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-full transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex flex-col items-center mb-8">
+               <div className="w-32 h-32 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
+                 {React.cloneElement(getFileIcon(selectedFile.type), { size: 64 })}
+               </div>
+               <h3 className="text-center font-bold text-gray-900 break-all px-4">{selectedFile.name}</h3>
+               <span className="mt-1 text-sm text-gray-500 uppercase tracking-wide">{selectedFile.type}</span>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">信息</h4>
+                <div className="space-y-3">
+                   <div className="flex justify-between text-sm">
+                     <span className="text-gray-500">大小</span>
+                     <span className="font-medium text-gray-900">{selectedFile.size}</span>
+                   </div>
+                   <div className="flex justify-between text-sm">
+                     <span className="text-gray-500">创建日期</span>
+                     <span className="font-medium text-gray-900">{selectedFile.date}</span>
+                   </div>
+                   <div className="flex justify-between text-sm">
+                     <span className="text-gray-500">创建者</span>
+                     <span className="font-medium text-gray-900">{selectedFile.author}</span>
+                   </div>
+                   <div className="flex justify-between text-sm">
+                     <span className="text-gray-500">位置</span>
+                     <span className="font-medium text-gray-900">{selectedFile.category}</span>
+                   </div>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">标签</h4>
+                <div className="flex flex-wrap gap-2">
+                   <span className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded text-xs font-medium">#工作</span>
+                   <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium">#2023</span>
+                   {selectedFile.type === 'image' && <span className="px-2 py-1 bg-pink-50 text-pink-600 rounded text-xs font-medium">#设计资源</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 border-t border-gray-100 bg-gray-50">
+             <div className="grid grid-cols-3 gap-2">
+                <button className="flex flex-col items-center justify-center gap-1 p-2 rounded-lg hover:bg-white hover:shadow-sm transition-all text-gray-600">
+                  <Download size={20} />
+                  <span className="text-xs">下载</span>
+                </button>
+                <button className="flex flex-col items-center justify-center gap-1 p-2 rounded-lg hover:bg-white hover:shadow-sm transition-all text-gray-600">
+                  <Share2 size={20} />
+                  <span className="text-xs">分享</span>
+                </button>
+                <button className="flex flex-col items-center justify-center gap-1 p-2 rounded-lg hover:bg-white hover:shadow-sm transition-all text-red-500 hover:text-red-600">
+                  <Trash2 size={20} />
+                  <span className="text-xs">删除</span>
+                </button>
+             </div>
+             <button className="w-full mt-4 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg transition-colors font-medium text-sm">
+                <Maximize2 size={16} />
+                打开文件
+             </button>
+          </div>
+        </aside>
+      )}
+    </div>
+  );
+}

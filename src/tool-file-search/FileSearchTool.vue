@@ -1,126 +1,200 @@
 <template>
   <div class="file-search-tool">
+    <!-- 管理员权限提示 -->
+    <div class="admin-notice" v-if="needAdminPermission && initCheckDone && !isIndexing && !adminNoticeDismissed">
+      <div class="notice-icon">⚠️</div>
+      <div class="notice-content">
+        <div class="notice-title">建议以管理员身份运行</div>
+        <div class="notice-desc">
+          当前使用传统搜索模式（较慢）。以管理员身份运行程序可启用 NTFS 快速索引，搜索速度将大幅提升。
+        </div>
+      </div>
+      <button class="notice-dismiss" @click="dismissAdminNotice" title="不再提示">×</button>
+    </div>
+
     <!-- 搜索区域 -->
-    <div class="search-section">
-      <div class="search-row">
-        <div class="input-group keyword-group">
-          <label class="input-label">搜索关键词</label>
-          <div class="input-wrapper">
-            <input
-              ref="keywordInputRef"
-              type="text"
-              v-model="keyword"
-              placeholder="输入关键词自动搜索..."
-              class="search-input"
-              @keydown.enter="handleSearch"
-            />
-            <button class="search-btn" @click="handleSearch" :disabled="loading || !keyword.trim()">
-              <span v-if="loading" class="loading-spinner"></span>
-              <span v-else class="search-icon"></span>
-              搜索
-            </button>
-          </div>
-          <!-- 状态指示器 -->
-          <div class="status-indicator" v-if="isIndexing">
-            <span class="status-text indexing">
-              <span class="status-dot pulsing"></span>
-              {{ indexStatusText }}
-            </span>
-            <!-- 进度条 -->
-            <div class="mini-progress" v-if="indexProgress && indexProgress.progress > 0">
-              <div class="mini-progress-bar" :style="{ width: indexProgress.progress + '%' }"></div>
-            </div>
-          </div>
-          <div class="status-indicator" v-else-if="!hasIndex">
-            <span class="status-text preparing">
-              <span class="status-dot" :class="{ 'pulsing': !needAdminPermission }"></span>
-              {{ noIndexStatusText }}
-            </span>
-          </div>
-          <div class="status-indicator ready" v-else-if="hasIndex && indexStats">
-            <span class="status-dot ready-dot"></span>
-            <span class="ready-text">就绪 - {{ formatNumber(indexStats.totalFiles) }} 文件</span>
-          </div>
+    <div class="search-header">
+      <div class="search-bar">
+        <div class="search-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+          </svg>
+        </div>
+        <input
+          ref="keywordInputRef"
+          type="text"
+          v-model="keyword"
+          placeholder="搜索文件、文件夹..."
+          class="search-input"
+          @keydown.enter="handleSearch"
+        />
+        <!-- 状态指示器 -->
+        <div class="search-status" v-if="isIndexing || hasIndex">
+          <span class="status-badge indexing" v-if="isIndexing">
+            <span class="status-dot pulsing"></span>
+            {{ indexProgress?.progress || 0 }}%
+          </span>
+          <span class="status-badge ready" v-else-if="hasIndex">
+            <span class="status-dot"></span>
+            {{ formatNumber(indexStats?.totalFiles || 0) }} 文件
+          </span>
         </div>
       </div>
 
-      <!-- 高级选项（折叠） -->
-      <div class="advanced-options">
-        <button class="toggle-options-btn" @click="showAdvanced = !showAdvanced">
-          <span class="toggle-icon" :class="{ expanded: showAdvanced }"></span>
-          高级选项
-        </button>
-        <div class="options-content" v-show="showAdvanced">
-          <div class="option-group">
-            <label class="option-label">结果数量</label>
-            <select v-model="maxResults" class="option-select">
-              <option :value="100">100 条</option>
-              <option :value="500">500 条</option>
-              <option :value="1000">1000 条</option>
-              <option :value="2000">2000 条</option>
-            </select>
-          </div>
-
-          <div v-if="hasIndex" class="option-group">
-            <label class="option-label">限定驱动器</label>
-            <select v-model="selectedDrive" class="option-select">
-              <option value="">全部驱动器</option>
-              <option v-for="drive in availableDrives" :key="drive" :value="drive">
-                {{ drive }}:
-              </option>
-            </select>
-          </div>
-
-          <div v-if="!hasIndex" class="option-group path-group">
-            <label class="option-label">搜索路径</label>
-            <div class="path-input-wrapper">
-              <input
-                type="text"
-                v-model="searchPath"
-                placeholder="留空则搜索全盘，多路径用分号分隔"
-                class="path-input"
-              />
-              <button class="browse-btn" @click="browsePath" title="选择目录">
-                <span class="folder-icon"></span>
-              </button>
-            </div>
-          </div>
+      <div class="search-actions">
+        <!-- 视图切换 -->
+        <div class="view-toggle">
+          <button
+            class="toggle-btn"
+            :class="{ active: viewMode === 'list' }"
+            @click="viewMode = 'list'"
+            title="列表视图"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"/>
+              <line x1="8" y1="12" x2="21" y2="12"/>
+              <line x1="8" y1="18" x2="21" y2="18"/>
+              <line x1="3" y1="6" x2="3.01" y2="6"/>
+              <line x1="3" y1="12" x2="3.01" y2="12"/>
+              <line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+          </button>
+          <button
+            class="toggle-btn"
+            :class="{ active: viewMode === 'grid' }"
+            @click="viewMode = 'grid'"
+            title="网格视图"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"/>
+              <rect x="14" y="3" width="7" height="7"/>
+              <rect x="14" y="14" width="7" height="7"/>
+              <rect x="3" y="14" width="7" height="7"/>
+            </svg>
+          </button>
         </div>
+
+        <!-- 高级选项按钮 -->
+        <button class="options-btn" @click="showAdvanced = !showAdvanced" title="高级选项">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="4" y1="21" x2="4" y2="14"/>
+            <line x1="4" y1="10" x2="4" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12" y2="3"/>
+            <line x1="20" y1="21" x2="20" y2="16"/>
+            <line x1="20" y1="12" x2="20" y2="3"/>
+            <line x1="1" y1="14" x2="7" y2="14"/>
+            <line x1="9" y1="8" x2="15" y2="8"/>
+            <line x1="17" y1="16" x2="23" y2="16"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 高级选项面板 -->
+    <div class="advanced-panel" v-show="showAdvanced">
+      <div class="option-item">
+        <label class="option-label">结果数量</label>
+        <select v-model="maxResults" class="option-select">
+          <option :value="100">100 条</option>
+          <option :value="500">500 条</option>
+          <option :value="1000">1000 条</option>
+          <option :value="2000">2000 条</option>
+        </select>
+      </div>
+
+      <div v-if="hasIndex" class="option-item">
+        <label class="option-label">驱动器</label>
+        <select v-model="selectedDrive" class="option-select">
+          <option value="">全部</option>
+          <option v-for="drive in availableDrives" :key="drive" :value="drive">
+            {{ drive }}:
+          </option>
+        </select>
+      </div>
+
+      <div v-if="!hasIndex" class="option-item path-option">
+        <label class="option-label">搜索路径</label>
+        <div class="path-input-group">
+          <input
+            type="text"
+            v-model="searchPath"
+            placeholder="留空搜索全盘，多路径用分号分隔"
+            class="path-input"
+          />
+          <button class="browse-btn" @click="browsePath" title="选择目录">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 文件类型筛选 -->
+    <div class="category-filters">
+      <button
+        v-for="cat in categories"
+        :key="cat.id"
+        class="category-btn"
+        :class="{ active: selectedCategory === cat.id }"
+        @click="selectedCategory = cat.id"
+      >
+        <span class="category-icon">{{ cat.icon }}</span>
+        {{ cat.label }}
+      </button>
+    </div>
+
+    <!-- 索引进度条 -->
+    <div class="index-progress" v-if="isIndexing">
+      <div class="progress-info">
+        <span class="progress-text">{{ indexStatusText }}</span>
+        <span class="progress-percent">{{ indexProgress?.progress || 0 }}%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" :style="{ width: (indexProgress?.progress || 0) + '%' }"></div>
       </div>
     </div>
 
     <!-- 结果统计 -->
-    <div class="stats-bar" v-if="hasSearched && !loading">
-      <span class="stats-text">
-        找到 <strong>{{ results.length }}</strong> 个文件
-        <span v-if="searchTime" class="search-time">(耗时 {{ searchTime }}ms)</span>
+    <div class="results-stats" v-if="hasSearched && !loading">
+      <span class="stats-count">
+        找到 <strong>{{ filteredResults.length }}</strong> 个文件
       </span>
+      <span class="stats-time" v-if="searchTime">({{ searchTime }}ms)</span>
     </div>
 
-    <!-- 结果表格 -->
-    <div class="result-section" v-if="results.length > 0">
-      <div class="result-table-wrapper">
-        <table class="result-table">
+    <!-- 列表视图 -->
+    <div class="results-container" v-if="filteredResults.length > 0 && viewMode === 'list'">
+      <div class="results-table-wrapper">
+        <table class="results-table">
           <thead>
             <tr>
-              <th class="col-icon"></th>
-              <th class="col-name">文件名</th>
-              <th class="col-path">路径</th>
+              <th class="col-name">名称</th>
               <th class="col-size">大小</th>
               <th class="col-time">修改时间</th>
               <th class="col-actions">操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(file, index) in results" :key="index" @dblclick="openFile(file.path)">
-              <td class="col-icon">
-                <span class="file-icon">{{ getFileIcon(file) }}</span>
-              </td>
+            <tr
+              v-for="(file, index) in filteredResults"
+              :key="index"
+              :class="{ selected: selectedFile?.path === file.path }"
+              @click="selectFile(file)"
+              @dblclick="openFile(file.path)"
+            >
               <td class="col-name">
-                <span class="file-name" :title="file.name">{{ file.name }}</span>
-              </td>
-              <td class="col-path">
-                <span class="file-path" :title="file.path">{{ getDisplayPath(file.path) }}</span>
+                <div class="file-info">
+                  <div class="file-icon-wrapper" :class="getFileColorClass(file)">
+                    <span class="file-icon">{{ getFileIcon(file) }}</span>
+                  </div>
+                  <div class="file-details">
+                    <div class="file-name" :title="file.name">{{ file.name }}</div>
+                    <div class="file-path" :title="file.path">{{ getDisplayPath(file.path) }}</div>
+                  </div>
+                </div>
               </td>
               <td class="col-size">
                 <span class="file-size">{{ file.isDir ? '-' : formatFileSize(file.size) }}</span>
@@ -129,20 +203,18 @@
                 <span class="file-time">{{ formatDateTime(file.modifiedTime) }}</span>
               </td>
               <td class="col-actions">
-                <div class="action-buttons">
-                  <button
-                    class="action-btn open-btn"
-                    @click.stop="openFile(file.path)"
-                    title="打开文件"
-                  >
-                    打开
+                <div class="action-btns">
+                  <button class="action-btn primary" @click.stop="openFile(file.path)" title="打开">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
                   </button>
-                  <button
-                    class="action-btn folder-btn"
-                    @click.stop="openInFolder(file.path)"
-                    title="在文件夹中显示"
-                  >
-                    文件夹
+                  <button class="action-btn" @click.stop="openInFolder(file.path)" title="打开文件夹">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
                   </button>
                 </div>
               </td>
@@ -152,25 +224,123 @@
       </div>
     </div>
 
+    <!-- 网格视图 -->
+    <div class="results-grid" v-else-if="filteredResults.length > 0 && viewMode === 'grid'">
+      <div
+        v-for="(file, index) in filteredResults"
+        :key="index"
+        class="grid-item"
+        :class="{ selected: selectedFile?.path === file.path }"
+        @click="selectFile(file)"
+        @dblclick="openFile(file.path)"
+      >
+        <div class="grid-icon-wrapper" :class="getFileColorClass(file)">
+          <span class="grid-icon">{{ getFileIcon(file) }}</span>
+        </div>
+        <div class="grid-name" :title="file.name">{{ file.name }}</div>
+        <div class="grid-size">{{ file.isDir ? '文件夹' : formatFileSize(file.size) }}</div>
+        <div class="grid-actions">
+          <button class="grid-action-btn" @click.stop="openFile(file.path)" title="打开">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </button>
+          <button class="grid-action-btn" @click.stop="openInFolder(file.path)" title="打开文件夹">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 空状态 -->
     <div v-else-if="!loading && hasSearched" class="empty-state">
-      <span class="empty-icon"></span>
-      <span class="empty-text">未找到匹配的文件</span>
-      <span class="empty-hint">尝试使用其他关键词或更改搜索路径</span>
+      <div class="empty-icon">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+          <path d="M8 11h6"/>
+        </svg>
+      </div>
+      <div class="empty-title">未找到相关文件</div>
+      <div class="empty-desc">尝试调整搜索词或筛选条件</div>
     </div>
 
     <!-- 初始状态 -->
-    <div v-else-if="!loading && !hasSearched" class="initial-state">
-      <span class="initial-icon"></span>
-      <span class="initial-text">输入关键词开始搜索</span>
-      <span class="initial-hint">支持文件名模糊匹配</span>
+    <div v-else-if="!loading && !hasSearched" class="empty-state initial">
+      <div class="empty-icon">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+      </div>
+      <div class="empty-title">开始搜索</div>
+      <div class="empty-desc">输入关键词自动搜索文件</div>
     </div>
 
     <!-- 加载状态 -->
     <div v-if="loading" class="loading-state">
-      <span class="loading-spinner large"></span>
-      <span class="loading-text">正在搜索 "{{ keyword }}"...</span>
+      <div class="loading-spinner"></div>
+      <div class="loading-text">正在搜索 "{{ keyword }}"...</div>
     </div>
+
+    <!-- 文件详情面板 -->
+    <Transition name="slide">
+      <div class="detail-panel" v-if="selectedFile">
+        <div class="detail-header">
+          <h3 class="detail-title">文件详情</h3>
+          <button class="detail-close" @click="selectedFile = null">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="detail-content">
+          <div class="detail-icon-wrapper" :class="getFileColorClass(selectedFile)">
+            <span class="detail-icon">{{ getFileIcon(selectedFile) }}</span>
+          </div>
+          <div class="detail-name">{{ selectedFile.name }}</div>
+          <div class="detail-type">{{ selectedFile.isDir ? '文件夹' : selectedFile.fileType.toUpperCase() }}</div>
+
+          <div class="detail-info">
+            <div class="info-row">
+              <span class="info-label">大小</span>
+              <span class="info-value">{{ selectedFile.isDir ? '-' : formatFileSize(selectedFile.size) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">修改时间</span>
+              <span class="info-value">{{ formatDateTime(selectedFile.modifiedTime) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">路径</span>
+              <span class="info-value path-value" :title="selectedFile.path">{{ selectedFile.path }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-actions">
+          <button class="detail-action-btn" @click="openFile(selectedFile.path)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            打开
+          </button>
+          <button class="detail-action-btn secondary" @click="openInFolder(selectedFile.path)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            打开文件夹
+          </button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -209,6 +379,38 @@ interface UnifiedFileResult {
   fileType: string
 }
 
+// 分类配置
+const categories = [
+  { id: 'all', label: '全部', icon: '📁' },
+  { id: 'document', label: '文档', icon: '📄' },
+  { id: 'image', label: '图片', icon: '🖼️' },
+  { id: 'audio', label: '音频', icon: '🎵' },
+  { id: 'video', label: '视频', icon: '🎬' },
+  { id: 'code', label: '代码', icon: '💻' },
+  { id: 'archive', label: '压缩包', icon: '📦' },
+]
+
+// 文件类型映射
+const fileTypeMap: Record<string, string> = {
+  // 文档
+  doc: 'document', docx: 'document', pdf: 'document', txt: 'document', rtf: 'document',
+  xls: 'document', xlsx: 'document', ppt: 'document', pptx: 'document', odt: 'document',
+  // 图片
+  jpg: 'image', jpeg: 'image', png: 'image', gif: 'image', bmp: 'image',
+  webp: 'image', svg: 'image', ico: 'image', psd: 'image',
+  // 音频
+  mp3: 'audio', wav: 'audio', flac: 'audio', aac: 'audio', ogg: 'audio', wma: 'audio', m4a: 'audio',
+  // 视频
+  mp4: 'video', avi: 'video', mkv: 'video', mov: 'video', wmv: 'video', flv: 'video', webm: 'video',
+  // 代码
+  js: 'code', ts: 'code', vue: 'code', jsx: 'code', tsx: 'code', py: 'code',
+  java: 'code', c: 'code', cpp: 'code', h: 'code', cs: 'code', go: 'code',
+  rs: 'code', rb: 'code', php: 'code', html: 'code', css: 'code', scss: 'code',
+  less: 'code', json: 'code', xml: 'code', yaml: 'code', yml: 'code', md: 'code', sql: 'code',
+  // 压缩包
+  zip: 'archive', rar: 'archive', '7z': 'archive', tar: 'archive', gz: 'archive', bz2: 'archive',
+}
+
 // Refs
 const keywordInputRef = ref<HTMLInputElement | null>(null)
 
@@ -221,6 +423,9 @@ const maxResults = ref(500)
 const searchPath = ref('')
 const searchTime = ref<number | null>(null)
 const showAdvanced = ref(false)
+const viewMode = ref<'list' | 'grid'>('list')
+const selectedCategory = ref('all')
+const selectedFile = ref<UnifiedFileResult | null>(null)
 
 // 索引相关状态
 const isIndexing = ref(false)
@@ -231,6 +436,7 @@ const availableDrives = ref<string[]>([])
 const selectedDrive = ref('')
 const needAdminPermission = ref(false)
 const initCheckDone = ref(false)
+const adminNoticeDismissed = ref(false)
 
 // 事件监听器
 let unlistenProgress: UnlistenFn | null = null
@@ -240,28 +446,36 @@ let unlistenError: UnlistenFn | null = null
 // 防抖搜索定时器
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
+// 过滤后的结果
+const filteredResults = computed(() => {
+  if (selectedCategory.value === 'all') {
+    return results.value
+  }
+  return results.value.filter(file => {
+    const ext = file.fileType.toLowerCase()
+    const category = fileTypeMap[ext] || 'other'
+    return category === selectedCategory.value || (file.isDir && selectedCategory.value === 'all')
+  })
+})
+
 // 监听关键词变化，自动搜索（防抖 400ms）
 watch(keyword, (newVal) => {
-  // 清除之前的定时器
   if (searchDebounceTimer) {
     clearTimeout(searchDebounceTimer)
   }
 
   const trimmed = newVal.trim()
 
-  // 如果关键词为空，清空结果
   if (!trimmed) {
     results.value = []
     hasSearched.value = false
     return
   }
 
-  // 至少输入2个字符才触发搜索
   if (trimmed.length < 2) {
     return
   }
 
-  // 设置防抖定时器
   searchDebounceTimer = setTimeout(() => {
     handleSearch()
   }, 400)
@@ -269,30 +483,26 @@ watch(keyword, (newVal) => {
 
 // 索引状态文字
 const indexStatusText = computed(() => {
-  if (!indexProgress.value) return '正在准备搜索...'
+  if (!indexProgress.value) return '正在准备索引...'
 
   const { stage, message: msg, progress } = indexProgress.value
 
+  if (stage === 'error') return msg || '索引出错'
   if (stage === 'starting') return '正在启动索引...'
-  if (stage === 'reading') return `正在读取文件系统... ${progress}%`
-  if (stage === 'building') return `正在构建路径... ${progress}%`
-  if (stage === 'indexing') return `正在建立索引... ${progress}%`
+  if (stage === 'reading') {
+    if (msg) return msg
+    return `正在读取文件系统...`
+  }
+  if (stage === 'building') return `正在构建路径...`
+  if (stage === 'indexing') return `正在建立索引...`
   if (stage === 'completed') return '索引完成'
 
-  return msg || '正在准备搜索...'
-})
-
-// 无索引状态文字
-const noIndexStatusText = computed(() => {
-  if (!initCheckDone.value) return '正在检查...'
-  if (needAdminPermission.value) return '使用传统搜索模式（管理员运行可启用快速索引）'
-  return '正在准备索引...'
+  return msg || `正在处理...`
 })
 
 // 初始化
 async function initialize() {
   try {
-    // 获取索引状态
     const status = await getIndexStatus()
     isIndexing.value = status.isIndexing
     hasIndex.value = status.stats?.totalFiles ? status.stats.totalFiles > 0 : false
@@ -300,10 +510,8 @@ async function initialize() {
     needAdminPermission.value = !status.hasAdminPrivilege
     initCheckDone.value = true
 
-    // 获取可用驱动器
     availableDrives.value = await getAvailableDrives()
 
-    // 设置事件监听器
     unlistenProgress = await onIndexProgress((event) => {
       isIndexing.value = true
       indexProgress.value = event
@@ -313,21 +521,18 @@ async function initialize() {
       isIndexing.value = false
       indexProgress.value = null
       hasIndex.value = true
-      // 刷新统计信息
       indexStats.value = await getIndexStats()
     })
 
     unlistenError = await onIndexError(async (error) => {
       isIndexing.value = false
       indexProgress.value = null
-      // 检查是否是权限问题
       if (error.includes('管理员') || error.includes('admin') || error.includes('privilege')) {
         needAdminPermission.value = true
       }
       console.error('索引错误:', error)
     })
 
-    // 如果没有索引且有管理员权限，自动开始建立索引
     if (!hasIndex.value && !isIndexing.value && !needAdminPermission.value) {
       autoStartIndexing()
     }
@@ -337,7 +542,6 @@ async function initialize() {
   }
 }
 
-// 自动开始建立索引（无提示，后台静默进行）
 async function autoStartIndexing() {
   try {
     isIndexing.value = true
@@ -346,7 +550,6 @@ async function autoStartIndexing() {
   } catch (error: any) {
     isIndexing.value = false
     indexProgress.value = null
-    // 检查是否是权限问题
     const errStr = error.toString()
     if (errStr.includes('管理员') || errStr.includes('admin') || errStr.includes('privilege')) {
       needAdminPermission.value = true
@@ -355,26 +558,27 @@ async function autoStartIndexing() {
   }
 }
 
+function dismissAdminNotice() {
+  adminNoticeDismissed.value = true
+}
 
-// 搜索方法
 async function handleSearch() {
   const trimmedKeyword = keyword.value.trim()
   if (!trimmedKeyword || trimmedKeyword.length < 2) {
     return
   }
 
-  // 如果正在搜索，不重复触发
   if (loading.value) return
 
   loading.value = true
   hasSearched.value = false
   results.value = []
   searchTime.value = null
+  selectedFile.value = null
 
   const startTime = Date.now()
 
   try {
-    // 优先使用索引搜索（如果有索引）
     if (hasIndex.value) {
       const searchResults = await searchIndexedFiles(
         trimmedKeyword,
@@ -383,7 +587,6 @@ async function handleSearch() {
       )
       results.value = searchResults.map(normalizeIndexedResult)
     } else {
-      // 回退到传统搜索
       const paths = searchPath.value
         .split(';')
         .map(p => p.trim())
@@ -409,7 +612,6 @@ async function handleSearch() {
   }
 }
 
-// 统一索引搜索结果格式
 function normalizeIndexedResult(record: FileIndexRecord): UnifiedFileResult {
   return {
     name: record.name,
@@ -421,7 +623,6 @@ function normalizeIndexedResult(record: FileIndexRecord): UnifiedFileResult {
   }
 }
 
-// 统一 walkdir 搜索结果格式
 function normalizeWalkdirResult(result: FileSearchResult): UnifiedFileResult {
   return {
     name: result.name,
@@ -433,35 +634,28 @@ function normalizeWalkdirResult(result: FileSearchResult): UnifiedFileResult {
   }
 }
 
-// 打开文件
+function selectFile(file: UnifiedFileResult) {
+  selectedFile.value = selectedFile.value?.path === file.path ? null : file
+}
+
 async function openFile(path: string) {
   try {
     await apiOpenFile(path)
   } catch (error: any) {
     console.error('打开文件失败:', error)
-    if (error.toString().includes('command open_file not found')) {
-      await message('打开文件功能需要后端支持', { title: '功能未实现', kind: 'warning' })
-    } else {
-      await message(`打开文件失败: ${error}`, { title: '错误', kind: 'error' })
-    }
+    await message(`打开文件失败: ${error}`, { title: '错误', kind: 'error' })
   }
 }
 
-// 在文件夹中打开
 async function openInFolder(path: string) {
   try {
     await apiOpenFileInFolder(path)
   } catch (error: any) {
     console.error('打开文件夹失败:', error)
-    if (error.toString().includes('command open_file_in_folder not found')) {
-      await message('打开文件夹功能需要后端支持', { title: '功能未实现', kind: 'warning' })
-    } else {
-      await message(`打开文件夹失败: ${error}`, { title: '错误', kind: 'error' })
-    }
+    await message(`打开文件夹失败: ${error}`, { title: '错误', kind: 'error' })
   }
 }
 
-// 浏览选择路径
 async function browsePath() {
   try {
     const selected = await open({
@@ -481,12 +675,10 @@ async function browsePath() {
   }
 }
 
-// 格式化数字（添加千分位）
 function formatNumber(num: number): string {
   return num.toLocaleString('zh-CN')
 }
 
-// 格式化文件大小
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B'
 
@@ -499,54 +691,51 @@ function formatFileSize(bytes: number): string {
   return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + units[i]
 }
 
-// 格式化日期时间
 function formatDateTime(dateStr: string): string {
   if (!dateStr || dateStr === '未知') return '-'
   return dateStr
 }
 
-// 获取显示路径（截取目录部分）
 function getDisplayPath(fullPath: string): string {
   const lastSep = Math.max(fullPath.lastIndexOf('\\'), fullPath.lastIndexOf('/'))
   if (lastSep === -1) return fullPath
   return fullPath.substring(0, lastSep)
 }
 
-// 获取文件图标
 function getFileIcon(file: UnifiedFileResult): string {
-  if (file.isDir) return '\u{1F4C1}'
+  if (file.isDir) return '📁'
 
   const ext = file.fileType.toLowerCase()
+  const category = fileTypeMap[ext]
 
-  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico'].includes(ext)) {
-    return '\u{1F5BC}'
+  switch (category) {
+    case 'image': return '🖼️'
+    case 'video': return '🎬'
+    case 'audio': return '🎵'
+    case 'document': return '📄'
+    case 'code': return '💻'
+    case 'archive': return '📦'
+    default: return '📃'
   }
-  if (['mp4', 'avi', 'mkv', 'mov', 'wmv', 'flv', 'webm'].includes(ext)) {
-    return '\u{1F3AC}'
-  }
-  if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a'].includes(ext)) {
-    return '\u{1F3B5}'
-  }
-  if (['doc', 'docx', 'pdf', 'txt', 'rtf', 'odt'].includes(ext)) {
-    return '\u{1F4C4}'
-  }
-  if (['xls', 'xlsx', 'csv'].includes(ext)) {
-    return '\u{1F4CA}'
-  }
-  if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(ext)) {
-    return '\u{1F4E6}'
-  }
-  if (['js', 'ts', 'vue', 'jsx', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'cs', 'go', 'rs', 'rb', 'php', 'html', 'css', 'scss', 'less', 'json', 'xml', 'yaml', 'yml', 'md', 'sql'].includes(ext)) {
-    return '\u{1F4BB}'
-  }
-  if (['exe', 'msi', 'bat', 'cmd', 'sh'].includes(ext)) {
-    return '\u{2699}'
-  }
-
-  return '\u{1F4C3}'
 }
 
-// Lifecycle
+function getFileColorClass(file: UnifiedFileResult): string {
+  if (file.isDir) return 'color-folder'
+
+  const ext = file.fileType.toLowerCase()
+  const category = fileTypeMap[ext]
+
+  switch (category) {
+    case 'image': return 'color-image'
+    case 'video': return 'color-video'
+    case 'audio': return 'color-audio'
+    case 'document': return 'color-document'
+    case 'code': return 'color-code'
+    case 'archive': return 'color-archive'
+    default: return 'color-default'
+  }
+}
+
 onMounted(() => {
   initialize()
   nextTick(() => {
@@ -555,11 +744,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  // 清理事件监听器
   unlistenProgress?.()
   unlistenCompleted?.()
   unlistenError?.()
-  // 清理防抖定时器
   if (searchDebounceTimer) {
     clearTimeout(searchDebounceTimer)
   }
@@ -572,252 +759,254 @@ onUnmounted(() => {
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
+  position: relative;
 }
 
-/* Search Section */
-.search-section {
-  flex-shrink: 0;
+/* 管理员提示 */
+.admin-notice {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.search-row {
-  display: flex;
+  align-items: flex-start;
   gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+  border-radius: 12px;
+  position: relative;
 }
 
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.notice-icon {
+  font-size: 18px;
+  flex-shrink: 0;
 }
 
-.keyword-group {
+.notice-content {
   flex: 1;
+  min-width: 0;
 }
 
-.input-label,
-.option-label {
+.notice-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warning);
+  margin-bottom: 4px;
+}
+
+.notice-desc {
   font-size: 12px;
-  font-weight: 500;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  line-height: 1.5;
 }
 
-.input-wrapper {
+.notice-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 4px;
   display: flex;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.notice-dismiss:hover {
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  color: var(--warning);
+}
+
+/* 搜索头部 */
+.search-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.search-bar {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
 }
 
 .search-input {
-  flex: 1;
-  background: var(--input-bg);
+  width: 100%;
+  padding: 12px 14px 12px 44px;
+  background: var(--bg-surface);
   border: 1px solid var(--border-default);
-  border-radius: 8px;
-  padding: 10px 14px;
+  border-radius: 12px;
   color: var(--text-primary);
   font-size: 14px;
   transition: all 0.2s;
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--bg-base) 50%, transparent);
 }
 
 .search-input:focus {
   outline: none;
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 3px var(--accent-glow), inset 0 1px 2px transparent;
+  background: var(--bg-base);
 }
 
 .search-input::placeholder {
   color: var(--text-dim);
 }
 
-.search-btn {
-  background: var(--accent-glow);
-  border: 1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);
-  border-radius: 8px;
-  padding: 10px 20px;
-  color: var(--text-primary);
-  font-size: 14px;
+.search-status {
+  position: absolute;
+  right: 12px;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
   font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
-.search-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent-primary) 30%, transparent);
-  border-color: color-mix(in srgb, var(--accent-primary) 50%, transparent);
+.status-badge.indexing {
+  background: color-mix(in srgb, var(--info) 15%, transparent);
+  color: var(--info);
 }
 
-.search-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.search-icon::before {
-  content: '';
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  background: currentColor;
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
-  mask-size: contain;
-  mask-repeat: no-repeat;
-}
-
-/* Status Indicator */
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 4px;
-}
-
-.status-indicator.ready {
-  color: var(--text-dim);
+.status-badge.ready {
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: var(--success);
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: var(--info);
-  flex-shrink: 0;
+  background: currentColor;
 }
 
 .status-dot.pulsing {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
-.status-dot.ready-dot {
-  background: var(--success);
-  animation: none;
-}
-
-.status-text {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.status-text.indexing {
-  color: var(--info);
-}
-
-.status-text.preparing {
-  color: var(--text-secondary);
-}
-
-.ready-text {
-  color: var(--text-dim);
-}
-
-/* Mini Progress Bar */
-.mini-progress {
-  flex: 1;
-  max-width: 120px;
-  height: 4px;
-  background: var(--bg-hover);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-left: 8px;
-}
-
-.mini-progress-bar {
-  height: 100%;
-  background: var(--info);
-  border-radius: 2px;
-  transition: width 0.3s ease;
-}
-
-
 @keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(0.85);
-  }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
 }
 
-/* Advanced Options */
-.advanced-options {
-  margin-top: 4px;
-}
-
-.toggle-options-btn {
+.search-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: none;
-  padding: 4px 0;
-  font-size: 12px;
-  color: var(--text-dim);
-  cursor: pointer;
-  transition: color 0.2s;
+  gap: 8px;
 }
 
-.toggle-options-btn:hover {
+.view-toggle {
+  display: flex;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
   color: var(--text-secondary);
 }
 
-.toggle-icon {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  transition: transform 0.2s;
+.toggle-btn.active {
+  background: var(--bg-base);
+  color: var(--accent-primary);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--bg-base) 30%, transparent);
 }
 
-.toggle-icon::before {
-  content: '';
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: currentColor;
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E");
-  mask-size: contain;
-  mask-repeat: no-repeat;
-}
-
-.toggle-icon.expanded {
-  transform: rotate(90deg);
-}
-
-.options-content {
+.options-btn {
   display: flex;
-  gap: 16px;
-  align-items: flex-end;
-  padding: 8px 0;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.option-group {
+.options-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+}
+
+/* 高级选项面板 */
+.advanced-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.option-item {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.path-group {
+.option-item.path-option {
   flex: 1;
   min-width: 200px;
 }
 
+.option-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .option-select {
-  background: var(--input-bg);
+  padding: 8px 12px;
+  background: var(--bg-base);
   border: 1px solid var(--border-default);
-  border-radius: 6px;
-  padding: 6px 10px;
+  border-radius: 8px;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -827,19 +1016,19 @@ onUnmounted(() => {
   border-color: var(--accent-primary);
 }
 
-.path-input-wrapper {
+.path-input-group {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 
 .path-input {
   flex: 1;
-  background: var(--input-bg);
+  padding: 8px 12px;
+  background: var(--bg-base);
   border: 1px solid var(--border-default);
-  border-radius: 6px;
-  padding: 6px 10px;
+  border-radius: 8px;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   transition: all 0.2s;
 }
 
@@ -853,277 +1042,447 @@ onUnmounted(() => {
 }
 
 .browse-btn {
-  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
   border: 1px solid var(--border-default);
-  border-radius: 6px;
-  padding: 6px 10px;
+  background: var(--bg-base);
   color: var(--text-secondary);
-  font-size: 12px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .browse-btn:hover {
   background: var(--bg-hover);
-  border-color: var(--accent-primary);
   color: var(--text-primary);
+  border-color: var(--accent-primary);
 }
 
-.folder-icon::before {
-  content: '';
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  background: currentColor;
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
-  mask-size: contain;
-  mask-repeat: no-repeat;
+/* 分类筛选 */
+.category-filters {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-/* Stats Bar */
-.stats-bar {
+.category-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.category-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.category-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+}
+
+.category-btn.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  transform: scale(1.02);
+}
+
+.category-icon {
+  font-size: 14px;
+}
+
+/* 索引进度 */
+.index-progress {
+  padding: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.progress-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.progress-percent {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), var(--info));
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* 结果统计 */
+.results-stats {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 0;
-  margin-top: 8px;
   font-size: 13px;
   color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-default);
 }
 
-.stats-text strong {
+.stats-count strong {
   color: var(--accent-primary);
 }
 
-.search-time {
+.stats-time {
   color: var(--text-dim);
   font-size: 12px;
 }
 
-/* Result Section */
-.result-section {
-  margin-top: 8px;
+/* 结果容器 - 列表视图 */
+.results-container {
   flex: 1;
-  display: flex;
-  flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.result-table-wrapper {
+.results-table-wrapper {
   flex: 1;
   overflow: auto;
-  border-radius: 8px;
-  border: 1px solid var(--border-default);
-  min-height: 0;
-}
-
-.result-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.result-table thead {
   background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+}
+
+.results-table {
+  width: 100%;
+  min-width: 500px;
+  border-collapse: collapse;
+}
+
+.results-table thead {
+  background: var(--bg-hover);
   position: sticky;
   top: 0;
   z-index: 1;
 }
 
-.result-table th {
-  padding: 10px 12px;
+.results-table th {
+  padding: 12px 16px;
   text-align: left;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   border-bottom: 1px solid var(--border-default);
-  white-space: nowrap;
 }
 
-.result-table tbody tr {
-  border-bottom: 1px solid var(--border-default);
-  transition: background 0.15s;
+.results-table tbody tr {
+  border-bottom: 1px solid color-mix(in srgb, var(--border-default) 50%, transparent);
   cursor: pointer;
+  transition: all 0.15s;
 }
 
-.result-table tbody tr:hover {
-  background: var(--bg-hover);
+.results-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
 }
 
-.result-table td {
-  padding: 8px 12px;
-  color: var(--text-primary);
+.results-table tbody tr.selected {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-primary) 30%, transparent);
 }
 
-/* Column widths */
-.col-icon {
+.results-table td {
+  padding: 12px 16px;
+}
+
+.col-name { width: auto; }
+.col-size { width: 80px; }
+.col-time { width: 130px; }
+.col-actions { width: 80px; }
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.file-icon-wrapper {
   width: 40px;
-  text-align: center;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  flex-shrink: 0;
 }
 
-.col-name {
-  min-width: 180px;
-  max-width: 250px;
-}
-
-.col-path {
-  min-width: 200px;
-}
-
-.col-size {
-  width: 80px;
-  text-align: right;
-}
-
-.col-time {
-  width: 140px;
-}
-
-.col-actions {
-  width: 140px;
-}
-
-/* File info */
 .file-icon {
-  font-size: 18px;
+  font-size: 20px;
+}
+
+/* 文件颜色类 */
+.color-folder { background: color-mix(in srgb, var(--warning) 15%, transparent); }
+.color-image { background: color-mix(in srgb, #9333ea 15%, transparent); }
+.color-video { background: color-mix(in srgb, var(--error) 15%, transparent); }
+.color-audio { background: color-mix(in srgb, #ec4899 15%, transparent); }
+.color-document { background: color-mix(in srgb, var(--info) 15%, transparent); }
+.color-code { background: color-mix(in srgb, var(--success) 15%, transparent); }
+.color-archive { background: color-mix(in srgb, var(--warning) 15%, transparent); }
+.color-default { background: var(--bg-hover); }
+
+.file-details {
+  min-width: 0;
+  flex: 1;
 }
 
 .file-name {
+  font-size: 14px;
   font-weight: 500;
-  display: block;
+  color: var(--text-primary);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .file-path {
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 11px;
-  color: var(--text-secondary);
-  display: block;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.file-size {
   font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 12px;
+}
+
+.file-size, .file-time {
+  font-size: 13px;
   color: var(--text-secondary);
   white-space: nowrap;
 }
 
-.file-time {
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-/* Action buttons */
-.action-buttons {
+.action-btns {
   display: flex;
-  gap: 6px;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.results-table tbody tr:hover .action-btns {
+  opacity: 1;
 }
 
 .action-btn {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: var(--bg-hover);
   color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
 .action-btn:hover {
-  background: var(--bg-hover);
-  border-color: var(--accent-primary);
+  background: var(--bg-base);
   color: var(--text-primary);
 }
 
-.open-btn:hover {
-  background: color-mix(in srgb, var(--info) 15%, transparent);
-  border-color: var(--info);
-  color: var(--info);
+.action-btn.primary:hover {
+  background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+  color: var(--accent-primary);
 }
 
-.folder-btn:hover {
-  background: color-mix(in srgb, var(--warning) 15%, transparent);
-  border-color: var(--warning);
-  color: var(--warning);
+/* 网格视图 */
+.results-grid {
+  flex: 1;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 4px;
 }
 
-/* Empty, Initial & Loading States */
-.empty-state,
-.initial-state,
-.loading-state {
+.grid-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.grid-item:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--bg-base) 50%, transparent);
+  transform: translateY(-2px);
+}
+
+.grid-item.selected {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-primary), 0 4px 12px color-mix(in srgb, var(--accent-primary) 20%, transparent);
+}
+
+.grid-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  margin-bottom: 12px;
+  transition: transform 0.2s;
+}
+
+.grid-item:hover .grid-icon-wrapper {
+  transform: scale(1.1);
+}
+
+.grid-icon {
+  font-size: 28px;
+}
+
+.grid-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.grid-size {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.grid-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.grid-item:hover .grid-actions {
+  opacity: 1;
+}
+
+.grid-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: var(--bg-base);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.grid-action-btn:hover {
+  background: var(--accent-primary);
+  color: white;
+}
+
+/* 空状态 */
+.empty-state {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
-  color: var(--text-muted);
-  font-size: 14px;
-  gap: 8px;
-  flex: 1;
+  padding: 40px 20px;
+  color: var(--text-dim);
 }
 
-.empty-icon::before,
-.initial-icon::before {
-  content: '';
-  display: block;
-  width: 48px;
-  height: 48px;
-  margin-bottom: 8px;
-  background: var(--text-dim);
-  mask-size: contain;
-  mask-repeat: no-repeat;
-  mask-position: center;
+.empty-state.initial .empty-icon {
+  color: var(--text-dim);
 }
 
-.empty-icon::before {
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3Cpath d='M8 11h6'/%3E%3C/svg%3E");
+.empty-icon {
+  color: var(--text-dim);
+  margin-bottom: 16px;
+  opacity: 0.5;
 }
 
-.initial-icon::before {
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
-}
-
-.empty-text,
-.initial-text,
-.loading-text {
+.empty-title {
   font-size: 16px;
+  font-weight: 500;
   color: var(--text-secondary);
+  margin-bottom: 6px;
 }
 
-.empty-hint,
-.initial-hint {
+.empty-desc {
   font-size: 13px;
   color: var(--text-dim);
 }
 
-/* Loading Spinner */
+/* 加载状态 */
+.loading-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg-base) 80%, transparent);
+  backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
 .loading-spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--text-dim);
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-default);
   border-top-color: var(--accent-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-}
-
-.loading-spinner.large {
-  width: 36px;
-  height: 36px;
-  border-width: 3px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 @keyframes spin {
@@ -1131,46 +1490,254 @@ onUnmounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* Scrollbar */
-.result-table-wrapper::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.loading-text {
+  font-size: 14px;
+  color: var(--text-secondary);
 }
 
-.result-table-wrapper::-webkit-scrollbar-track {
-  background: color-mix(in srgb, var(--bg-surface) 30%, transparent);
-  border-radius: 4px;
+/* 详情面板 */
+.detail-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 280px;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+  box-shadow: -4px 0 20px color-mix(in srgb, var(--bg-base) 30%, transparent);
 }
 
-.result-table-wrapper::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--accent-primary) 30%, transparent);
-  border-radius: 4px;
-  transition: background 0.2s;
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-default);
 }
 
-.result-table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--accent-primary) 50%, transparent);
+.detail-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .options-content {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
-  }
+.detail-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
 
-  .col-path {
-    display: none;
-  }
+.detail-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
 
+.detail-content {
+  flex: 1;
+  overflow: auto;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.detail-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}
+
+.detail-icon {
+  font-size: 40px;
+}
+
+.detail-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  word-break: break-all;
+  margin-bottom: 4px;
+}
+
+.detail-type {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 24px;
+}
+
+.detail-info {
+  width: 100%;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 13px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.info-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: right;
+  word-break: break-all;
+}
+
+.info-value.path-value {
+  font-size: 11px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-actions {
+  padding: 16px;
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-hover);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: none;
+  background: var(--accent-primary);
+  color: white;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.detail-action-btn:hover {
+  filter: brightness(1.1);
+}
+
+.detail-action-btn.secondary {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
+
+.detail-action-btn.secondary:hover {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+}
+
+/* 面板过渡动画 */
+.slide-enter-active,
+.slide-leave-active {
+  transition: transform 0.25s ease;
+}
+
+.slide-enter-from,
+.slide-leave-to {
+  transform: translateX(100%);
+}
+
+/* 滚动条 */
+.results-table-wrapper::-webkit-scrollbar,
+.results-grid::-webkit-scrollbar,
+.detail-content::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.results-table-wrapper::-webkit-scrollbar-track,
+.results-grid::-webkit-scrollbar-track,
+.detail-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.results-table-wrapper::-webkit-scrollbar-thumb,
+.results-grid::-webkit-scrollbar-thumb,
+.detail-content::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-dim) 30%, transparent);
+  border-radius: 3px;
+}
+
+.results-table-wrapper::-webkit-scrollbar-thumb:hover,
+.results-grid::-webkit-scrollbar-thumb:hover,
+.detail-content::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-dim) 50%, transparent);
+}
+
+/* 响应式 */
+@media (max-width: 700px) {
   .col-time {
     display: none;
   }
 
-  .action-buttons {
+  .detail-panel {
+    width: 100%;
+  }
+
+  .results-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+}
+
+@media (max-width: 500px) {
+  .search-header {
     flex-direction: column;
-    gap: 4px;
+    align-items: stretch;
+  }
+
+  .search-actions {
+    justify-content: flex-end;
+  }
+
+  .col-size {
+    display: none;
+  }
+
+  .category-filters {
+    gap: 6px;
+  }
+
+  .category-btn {
+    padding: 6px 12px;
+    font-size: 12px;
   }
 }
 </style>

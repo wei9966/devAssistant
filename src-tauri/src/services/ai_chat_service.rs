@@ -416,6 +416,13 @@ impl AiChatService {
   - "今天完成了什么" → 查询 status='done' 且 completed_at 是今天
   - "最近的番茄钟" → 查询 pomodoro_sessions
 
+  ★★★ 特别重要 - 任务列表查询 ★★★
+  - "今天有什么任务" / "我有哪些任务" / "待办任务" / "任务列表"
+    → 查询所有未完成的任务：SELECT id, title, priority, status, due_date FROM tasks WHERE status IN ('todo', 'active') ORDER BY priority ASC, created_at DESC
+    → 不要限制创建日期或截止日期！用户想看的是所有待办任务，不是某一天创建或截止的
+  - "高优先级任务" → SELECT * FROM tasks WHERE status IN ('todo', 'active') AND priority=1
+  - "所有任务" → SELECT * FROM tasks ORDER BY status, priority
+
 ★ 操作类需求（使用专门的操作函数，不要用 query_data）：
   - "帮我创建一个任务：xxx" → 使用 create_task
   - "新建任务 xxx" → 使用 create_task
@@ -1964,11 +1971,27 @@ impl AiChatService {
 
         let row_count = rows.len();
 
-        // 如果没有查询到数据，直接返回友好的空结果消息（跳过后续润色）
+        // 如果没有查询到数据，根据查询类型给出更友好的提示
         if row_count == 0 {
             log::info!("[AI Chat] ℹ️ 查询无结果: {}", description);
+            let desc_lower = description.to_lowercase();
+            let empty_message = if desc_lower.contains("任务") || desc_lower.contains("task") {
+                if desc_lower.contains("待办") || desc_lower.contains("todo") || desc_lower.contains("今天") {
+                    "🎉 太棒了！当前没有待办任务，你可以好好休息一下，或者创建一个新任务开始新的工作！".to_string()
+                } else if desc_lower.contains("完成") || desc_lower.contains("done") {
+                    "暂时没有已完成的任务记录。完成一些任务后再来查看吧！".to_string()
+                } else {
+                    "当前没有符合条件的任务。你可以创建一个新任务开始工作！".to_string()
+                }
+            } else if desc_lower.contains("番茄") || desc_lower.contains("pomodoro") || desc_lower.contains("专注") {
+                "暂时没有番茄钟记录。开启一个番茄钟，专注工作吧！🍅".to_string()
+            } else if desc_lower.contains("sql") {
+                "没有找到相关的 SQL 记录。".to_string()
+            } else {
+                "抱歉，没有找到相关的数据。你可以换个关键词或条件试试。".to_string()
+            };
             return Ok(ChatResponse {
-                content: format!("抱歉，没有找到相关的数据。你可以换个关键词或条件试试。"),
+                content: empty_message,
                 response_type: "text".to_string(),
                 data: None,
                 context: None,
@@ -2395,7 +2418,7 @@ impl AiChatService {
             Some((id, title)) => {
                 let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
                 conn.execute(
-                    "UPDATE tasks SET status = 'done', completed_at = ?1, updated_at = ?1 WHERE id = ?2",
+                    "UPDATE tasks SET status = 'done', completed_at = ?1 WHERE id = ?2",
                     rusqlite::params![&now, id]
                 )?;
 
@@ -2870,7 +2893,7 @@ impl AiChatService {
                     "todo" => {
                         // 重置为待办状态
                         conn.execute(
-                            "UPDATE tasks SET status = 'todo', updated_at = datetime('now', 'localtime') WHERE id = ?1",
+                            "UPDATE tasks SET status = 'todo' WHERE id = ?1",
                             [task_id],
                         )?;
                         content.push_str(&format!("📊 **状态**：{} → ⏳ 待办\n",

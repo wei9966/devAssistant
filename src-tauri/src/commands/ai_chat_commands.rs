@@ -325,10 +325,9 @@ pub async fn ai_assistant_chat(
         .content
         .clone();
 
-    // 解析用户消息中的代词
-    let resolved_message = {
-        let mut ctx = CONVERSATION_CONTEXT.lock().map_err(|e| e.to_string())?;
-        ctx.process_message(&user_message).map_err(|e| e.to_string())?;
+    // 解析用户消息中的代词（失败时使用原始消息）
+    let resolved_message = if let Ok(mut ctx) = CONVERSATION_CONTEXT.lock() {
+        let _ = ctx.process_message(&user_message); // 忽略处理错误
 
         // 尝试解析代词
         let mut resolved = user_message.clone();
@@ -356,6 +355,9 @@ pub async fn ai_assistant_chat(
             }
         }
         resolved
+    } else {
+        log::warn!("[AI Chat] ⚠️ 无法获取对话上下文锁进行代词解析，使用原始消息");
+        user_message.clone()
     };
 
     // 第一步：同步获取配置和系统提示词（在锁内完成）
@@ -387,14 +389,15 @@ pub async fn ai_assistant_chat(
         (cfg, provider, model, prompt)
     }; // 锁在这里释放
 
-    // 获取对话上下文提示并追加到系统提示词
-    {
-        let ctx = CONVERSATION_CONTEXT.lock().map_err(|e| e.to_string())?;
+    // 获取对话上下文提示并追加到系统提示词（失败不影响主流程）
+    if let Ok(ctx) = CONVERSATION_CONTEXT.lock() {
         let context_hint = ctx.generate_context_hint();
         if !context_hint.is_empty() && !context_hint.contains("没有活跃的对话上下文") {
             system_prompt.push_str(&format!("\n\n【对话上下文】\n{}", context_hint));
             log::info!("[AI Chat] 📋 对话上下文已注入到系统提示词");
         }
+    } else {
+        log::warn!("[AI Chat] ⚠️ 无法获取对话上下文锁，跳过上下文提示注入");
     }
 
     if !config.enabled {
@@ -570,9 +573,8 @@ pub async fn ai_assistant_chat(
                     }
                 }
 
-                // 记录多步操作结果到对话上下文
-                {
-                    let mut ctx = CONVERSATION_CONTEXT.lock().map_err(|e| e.to_string())?;
+                // 记录多步操作结果到对话上下文（失败不影响响应）
+                if let Ok(mut ctx) = CONVERSATION_CONTEXT.lock() {
                     for step_result in &multi_result.steps {
                         if step_result.success {
                             match step_result.function.as_str() {
@@ -605,6 +607,8 @@ pub async fn ai_assistant_chat(
                         }
                     }
                     log::info!("[AI Chat] 📝 多步操作结果已记录到对话上下文");
+                } else {
+                    log::warn!("[AI Chat] ⚠️ 无法获取对话上下文锁，跳过多步操作上下文记录");
                 }
 
                 // 构建响应
@@ -849,9 +853,8 @@ pub async fn ai_assistant_chat(
                     }
                 }
 
-                // 记录操作结果到对话上下文
-                {
-                    let mut ctx = CONVERSATION_CONTEXT.lock().map_err(|e| e.to_string())?;
+                // 记录操作结果到对话上下文（失败不影响响应）
+                if let Ok(mut ctx) = CONVERSATION_CONTEXT.lock() {
                     match current_function_call.name.as_str() {
                         "create_task" => {
                             if let Some(task_data) = exec_result.data.as_ref() {
@@ -900,6 +903,8 @@ pub async fn ai_assistant_chat(
                         }
                         _ => {}
                     }
+                } else {
+                    log::warn!("[AI Chat] ⚠️ 无法获取对话上下文锁，跳过上下文更新");
                 }
 
                 // 跳出循环
@@ -1030,9 +1035,8 @@ pub async fn ai_assistant_chat(
 
     let duration_ms = start.elapsed().as_millis() as i64;
 
-    // 第五步：记录日志
-    {
-        let conn = db.0.lock().map_err(|e| e.to_string())?;
+    // 第五步：记录日志（失败不影响响应）
+    if let Ok(conn) = db.0.lock() {
         let _ = AiService::save_log(
             &conn,
             "ai_chat",
@@ -1046,6 +1050,8 @@ pub async fn ai_assistant_chat(
             "success",
             None,
         );
+    } else {
+        log::warn!("[AI Chat] ⚠️ 无法获取数据库锁来记录日志，跳过");
     }
 
     Ok(result)

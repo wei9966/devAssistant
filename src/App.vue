@@ -73,7 +73,17 @@
                 <div class="main-content">
                   <!-- Tauri窗口拖拽区域 -->
                   <div data-tauri-drag-region class="drag-region">
-                    <NotificationBell />
+                    <div class="header-actions">
+                      <button class="ai-chat-btn" @click="showAiChatDrawer = true" title="AI 助手">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="ai-icon">
+                          <path d="M12 3C7.5 3 3.75 6 3.75 9.75C3.75 13.5 7.5 16.5 12 16.5C12.5 16.5 13 16.45 13.5 16.38V21L18 16.5C20.25 14.25 21.75 12 21.75 9.75C21.75 6 18 3 12 3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                          <circle cx="8" cy="9.75" r="1" fill="currentColor"/>
+                          <circle cx="12" cy="9.75" r="1" fill="currentColor"/>
+                          <circle cx="16" cy="9.75" r="1" fill="currentColor"/>
+                        </svg>
+                      </button>
+                      <NotificationBell />
+                    </div>
                   </div>
 
                   <div class="content-wrapper">
@@ -125,6 +135,9 @@
               :has-pending-appeal="hasPendingAppeal"
               @appeal-submitted="handleAppealSubmitted"
             />
+
+            <!-- AI 助手抽屉 -->
+            <AiChatDrawer v-model:show="showAiChatDrawer" />
           </n-dialog-provider>
         </n-notification-provider>
       </n-message-provider>
@@ -155,14 +168,14 @@ import {
   SettingsOutline as SettingsIcon,
   PieChartOutline as ReportIcon,
   TimerOutline as TimerIcon,
-  ConstructOutline as ToolboxIcon,
-  ChatboxOutline as AiChatIcon
+  ConstructOutline as ToolboxIcon
 } from '@vicons/ionicons5'
 import { invoke } from '@tauri-apps/api/core'
 import CyberpunkLauncher from '@/components/appLauncher/CyberpunkLauncher.vue'
 import QuickTaskModal from '@/components/QuickTaskModal.vue'
 import CyberpunkSqlModal from '@/components/sql/CyberpunkSqlModal.vue'
 import NotificationBell from '@/components/notification/NotificationBell.vue'
+import AiChatDrawer from '@/components/aiChat/AiChatDrawer.vue'
 import UpdateDialog from '@/components/UpdateDialog.vue'
 import BannedOverlay from '@/components/BannedOverlay.vue'
 import {
@@ -218,6 +231,9 @@ const showQuickTaskModal = ref(false)
 
 // 赛博朋克SQL模态框状态
 const showCyberpunkSql = ref(false)
+
+// AI 助手抽屉状态
+const showAiChatDrawer = ref(false)
 
 // 更新弹框状态
 const showUpdateDialog = ref(false)
@@ -462,11 +478,6 @@ const menuOptions: MenuOption[] = [
     label: '应用启动器',
     key: 'app-launcher',
     icon: () => h(LauncherIcon)
-  },
-  {
-    label: 'AI 助手',
-    key: 'ai-chat',
-    icon: () => h(AiChatIcon)
   },
   {
     label: '报表中心',
@@ -866,6 +877,40 @@ onUnmounted(() => {
 .drag-region > * {
   -webkit-app-region: no-drag;
   app-region: no-drag;
+}
+
+/* 右上角操作按钮区域 */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* AI 助手按钮 */
+.ai-chat-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.ai-chat-btn:hover {
+  background: var(--accent-primary);
+  color: white;
+  transform: scale(1.05);
+  box-shadow: var(--shadow-glow);
+}
+
+.ai-chat-btn .ai-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .content-wrapper {

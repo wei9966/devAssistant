@@ -326,7 +326,11 @@
             "core:window:allow-show",
             "core:window:allow-set-focus",
             "core:window:allow-start-dragging",
-            "dialog:allow-message"
+            "core:window:allow-maximize",
+            "core:window:allow-unmaximize",
+            "core:window:allow-is-maximized",
+            "dialog:allow-message",
+            "dialog:allow-open"
           ]
         }
       ]

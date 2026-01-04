@@ -26,6 +26,8 @@ pub struct MftFileInfo {
     pub file_name: String,
     /// 是否为目录
     pub is_directory: bool,
+    /// 驱动器盘符
+    pub drive_letter: char,
 }
 
 /// MFT 读取器
@@ -148,7 +150,7 @@ mod windows_impl {
             }
 
             let volume_path = format!("\\\\.\\{}:", drive_letter);
-            Self::read_volume(&volume_path)
+            Self::read_volume(&volume_path, drive_letter)
         }
 
         /// 读取所有 NTFS 驱动器
@@ -225,7 +227,7 @@ mod windows_impl {
         }
 
         /// 读取指定卷的 MFT
-        fn read_volume(volume_path: &str) -> Result<Vec<MftFileInfo>, String> {
+        fn read_volume(volume_path: &str, drive_letter: char) -> Result<Vec<MftFileInfo>, String> {
             unsafe {
                 // 打开卷
                 let volume_path_wide: Vec<u16> = OsStr::new(volume_path)
@@ -251,7 +253,7 @@ mod windows_impl {
                     ));
                 }
 
-                let result = Self::enumerate_usn_data(handle);
+                let result = Self::enumerate_usn_data(handle, drive_letter);
 
                 CloseHandle(handle);
 
@@ -260,7 +262,7 @@ mod windows_impl {
         }
 
         /// 枚举 USN 数据
-        unsafe fn enumerate_usn_data(handle: HANDLE) -> Result<Vec<MftFileInfo>, String> {
+        unsafe fn enumerate_usn_data(handle: HANDLE, drive_letter: char) -> Result<Vec<MftFileInfo>, String> {
             let mut files = Vec::new();
 
             // 输出缓冲区 (64KB)
@@ -317,7 +319,7 @@ mod windows_impl {
                     }
 
                     // 根据版本解析记录
-                    if let Some(file_info) = Self::parse_usn_record(record_ptr, &header) {
+                    if let Some(file_info) = Self::parse_usn_record(record_ptr, &header, drive_letter) {
                         files.push(file_info);
                     }
 
@@ -338,16 +340,17 @@ mod windows_impl {
         unsafe fn parse_usn_record(
             record_ptr: *const u8,
             header: &UsnRecordHeader,
+            drive_letter: char,
         ) -> Option<MftFileInfo> {
             match header.major_version {
-                2 => Self::parse_usn_record_v2(record_ptr),
-                3 => Self::parse_usn_record_v3(record_ptr),
+                2 => Self::parse_usn_record_v2(record_ptr, drive_letter),
+                3 => Self::parse_usn_record_v3(record_ptr, drive_letter),
                 _ => None,
             }
         }
 
         /// 解析 USN_RECORD_V2
-        unsafe fn parse_usn_record_v2(record_ptr: *const u8) -> Option<MftFileInfo> {
+        unsafe fn parse_usn_record_v2(record_ptr: *const u8, drive_letter: char) -> Option<MftFileInfo> {
             let record = ptr::read_unaligned(record_ptr as *const UsnRecordV2);
 
             // 提取文件名
@@ -368,11 +371,12 @@ mod windows_impl {
                 parent_ref_number: record.parent_file_reference_number,
                 file_name,
                 is_directory: (record.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0,
+                drive_letter,
             })
         }
 
         /// 解析 USN_RECORD_V3
-        unsafe fn parse_usn_record_v3(record_ptr: *const u8) -> Option<MftFileInfo> {
+        unsafe fn parse_usn_record_v3(record_ptr: *const u8, drive_letter: char) -> Option<MftFileInfo> {
             let record = ptr::read_unaligned(record_ptr as *const UsnRecordV3);
 
             // 提取文件名
@@ -398,6 +402,7 @@ mod windows_impl {
                 parent_ref_number: parent_ref,
                 file_name,
                 is_directory: (record.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0,
+                drive_letter,
             })
         }
 
@@ -407,10 +412,11 @@ mod windows_impl {
         pub fn build_full_paths(files: &[MftFileInfo]) -> Vec<(String, bool)> {
             use std::collections::HashMap;
 
-            // 构建引用号到文件信息的映射
-            let ref_map: HashMap<u64, &MftFileInfo> = files
+            // 按驱动器分组构建引用号映射
+            // 键: (drive_letter, file_ref_number)
+            let ref_map: HashMap<(char, u64), &MftFileInfo> = files
                 .iter()
-                .map(|f| (f.file_ref_number & 0x0000FFFFFFFFFFFF, f))
+                .map(|f| ((f.drive_letter, f.file_ref_number & 0x0000FFFFFFFFFFFF), f))
                 .collect();
 
             let mut result = Vec::with_capacity(files.len());
@@ -426,10 +432,11 @@ mod windows_impl {
         /// 解析单个文件的完整路径
         fn resolve_path(
             file: &MftFileInfo,
-            ref_map: &std::collections::HashMap<u64, &MftFileInfo>,
+            ref_map: &std::collections::HashMap<(char, u64), &MftFileInfo>,
         ) -> String {
             let mut path_parts = vec![file.file_name.clone()];
             let mut current_parent = file.parent_ref_number & 0x0000FFFFFFFFFFFF;
+            let drive_letter = file.drive_letter;
 
             // 限制递归深度，防止循环引用
             let mut depth = 0;
@@ -441,7 +448,7 @@ mod windows_impl {
                     break;
                 }
 
-                if let Some(parent_file) = ref_map.get(&current_parent) {
+                if let Some(parent_file) = ref_map.get(&(drive_letter, current_parent)) {
                     path_parts.push(parent_file.file_name.clone());
                     current_parent = parent_file.parent_ref_number & 0x0000FFFFFFFFFFFF;
                 } else {
@@ -451,9 +458,9 @@ mod windows_impl {
                 depth += 1;
             }
 
-            // 反转并连接路径
+            // 反转并连接路径，添加盘符前缀
             path_parts.reverse();
-            path_parts.join("\\")
+            format!("{}:\\{}", drive_letter, path_parts.join("\\"))
         }
     }
 }
