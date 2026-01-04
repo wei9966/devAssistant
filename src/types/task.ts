@@ -93,6 +93,7 @@ export const QUADRANT_LABELS: Record<TaskQuadrant, string> = {
 };
 
 // 四象限配置（用于UI展示）
+// 注意：使用 CSS 变量以支持主题切换
 export const QUADRANT_CONFIG: Record<TaskQuadrant, {
   label: string;
   shortLabel: string;
@@ -104,33 +105,33 @@ export const QUADRANT_CONFIG: Record<TaskQuadrant, {
   urgent_important: {
     label: '紧急且重要',
     shortLabel: '紧急重要',
-    color: '#f43f5e',
-    bgColor: 'rgba(244, 63, 94, 0.15)',
-    borderColor: 'rgba(244, 63, 94, 0.3)',
+    color: 'var(--error)',
+    bgColor: 'var(--error-bg)',
+    borderColor: 'var(--error-border)',
     description: '立即处理，优先级最高',
   },
   urgent_not_important: {
     label: '紧急不重要',
     shortLabel: '紧急',
-    color: '#f59e0b',
-    bgColor: 'rgba(245, 158, 11, 0.15)',
-    borderColor: 'rgba(245, 158, 11, 0.3)',
+    color: 'var(--warning)',
+    bgColor: 'var(--warning-bg)',
+    borderColor: 'var(--warning-border)',
     description: '尽快处理或委派他人',
   },
   not_urgent_important: {
     label: '不紧急但重要',
     shortLabel: '重要',
-    color: '#6366f1',
-    bgColor: 'rgba(99, 102, 241, 0.15)',
-    borderColor: 'rgba(99, 102, 241, 0.3)',
+    color: 'var(--accent-primary)',
+    bgColor: 'var(--accent-glow)',
+    borderColor: 'var(--accent-primary)',
     description: '计划安排，重点关注',
   },
   not_urgent_not_important: {
     label: '不紧急不重要',
     shortLabel: '一般',
-    color: '#64748b',
-    bgColor: 'rgba(100, 116, 139, 0.15)',
-    borderColor: 'rgba(100, 116, 139, 0.3)',
+    color: 'var(--text-muted)',
+    bgColor: 'var(--bg-elevated)',
+    borderColor: 'var(--border-default)',
     description: '低优先级，有时间再处理',
   },
 };
