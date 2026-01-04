@@ -25,6 +25,7 @@ use services::tips_service::TipsService;
 use services::ai_service::AiService;
 use services::todo_prediction_service::TodoPredictionService;
 use services::tool_service::ToolService;
+use commands::file_index_commands::FileIndexState;
 use chrono::{Duration, Local, Timelike};
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
@@ -222,6 +223,10 @@ fn main() {
 
     // 初始化工具服务
     let tool_service = Mutex::new(ToolService::new());
+
+    // 初始化文件索引状态
+    let file_index_state = FileIndexState::new();
+    log_runtime("文件索引服务已初始化");
 
     // 获取数据库路径
     let db_path = match dirs::data_local_dir() {
@@ -715,12 +720,14 @@ fn main() {
         .manage(context_manager_state)
         .manage(batch_processor_state)
         .manage(tool_service)
+        .manage(file_index_state)
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_http::init())
         .setup(move |app| {
             // ========== 系统托盘设置 ==========
             let app_handle = app.handle().clone();
@@ -1071,6 +1078,32 @@ fn main() {
                             }
                         }
                     }
+                }
+            });
+
+            // 自动初始化文件索引
+            let app_handle_for_index = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                // 延迟启动，确保其他服务先初始化完成
+                tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
+                log_runtime("[文件索引] 启动自动初始化...");
+
+                // 从 app_handle 获取 FileIndexState
+                if let Some(file_index_state) = app_handle_for_index.try_state::<FileIndexState>() {
+                    match commands::file_index_commands::auto_init_file_index(
+                        app_handle_for_index.clone(),
+                        &file_index_state,
+                    ).await {
+                        Ok(msg) => {
+                            log_runtime(&format!("[文件索引] 自动初始化完成: {}", msg));
+                        }
+                        Err(e) => {
+                            log_runtime(&format!("[文件索引] 自动初始化失败: {}", e));
+                        }
+                    }
+                } else {
+                    log_runtime("[文件索引] 无法获取 FileIndexState，跳过自动初始化");
                 }
             });
 
@@ -1429,12 +1462,28 @@ fn main() {
             commands::tool_commands::open_tool_window,
             commands::tool_commands::get_all_tools,
             commands::tool_commands::get_tool_by_id,
+            commands::tool_commands::set_tool_pinned,
             commands::tool_commands::pin_tool,
             commands::tool_commands::unpin_tool,
             commands::tool_commands::get_pinned_tools,
             commands::tool_commands::record_tool_usage,
             commands::tool_commands::get_recent_tools,
             commands::tool_commands::open_tool_container,
+            // 文件搜索相关命令
+            commands::file_search_commands::search_files,
+            commands::file_search_commands::open_file,
+            commands::file_search_commands::open_file_in_folder,
+            commands::file_search_commands::get_all_drives,
+            // 文件索引相关命令
+            commands::file_index_commands::check_file_index_admin_privilege,
+            commands::file_index_commands::get_file_index_status,
+            commands::file_index_commands::start_file_indexing,
+            commands::file_index_commands::search_indexed_files,
+            commands::file_index_commands::get_file_index_stats,
+            commands::file_index_commands::clear_file_index,
+            commands::file_index_commands::start_file_watching,
+            commands::file_index_commands::stop_file_watching,
+            commands::file_index_commands::get_available_drives,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");

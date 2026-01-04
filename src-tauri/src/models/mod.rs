@@ -1,6 +1,7 @@
 pub mod app_launcher;
 pub mod app_launcher_settings;
 pub mod clipboard;
+pub mod file_index;
 pub mod pomodoro;
 pub mod screen_context;
 pub mod sql_record;
@@ -33,3 +34,7 @@ pub use task::{
 pub use tool::{PinnedTool, ToolCategory, ToolItem, ToolUsageRecord};
 pub use weekly_plan::{WeeklyPlan, WeeklyPlanStatus};
 pub use work_log::WorkLog;
+pub use file_index::{
+    FileIndex, FileIndexQueryParams, IndexStats, DriveStats, IndexTaskStatus, IndexProgress,
+    CREATE_FILE_INDEX_TABLE_SQL, CREATE_FILE_INDEX_INDEXES_SQL, CREATE_INDEX_METADATA_TABLE_SQL,
+};
