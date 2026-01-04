@@ -72,6 +72,18 @@ impl ToolService {
                 category: ToolCategory::Utility,
                 shortcut: None,
             },
+            // 文件搜索
+            ToolItem {
+                id: "file-search".to_string(),
+                name: "文件搜索".to_string(),
+                icon: "🔍".to_string(),
+                description: "快速搜索电脑文件，类似 Everything".to_string(),
+                component: "FileSearch".to_string(),
+                is_pinnable: true,
+                multi_instance: false,
+                category: ToolCategory::Utility,
+                shortcut: None,
+            },
         ]
     }
 

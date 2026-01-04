@@ -61,6 +61,7 @@ import {
   BuildOutline,
   ServerOutline,
   CodeSlashOutline,
+  DocumentOutline,
 } from '@vicons/ionicons5'
 import { openToolContainer } from '@/api/toolApi'
 
@@ -92,6 +93,13 @@ const tools = ref<Tool[]>([
     description: '检查端口占用情况，快速杀掉占用进程',
     icon: ServerOutline,
     color: '#6366f1',
+  },
+  {
+    id: 'file-search',
+    name: '文件搜索',
+    description: '快速搜索电脑文件，类似 Everything',
+    icon: DocumentOutline,
+    color: '#f59e0b',
   },
 ])
 

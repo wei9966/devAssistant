@@ -40,11 +40,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, shallowRef } from 'vue'
+import { ref, computed, onMounted, onUnmounted, markRaw, type Component } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
-import { defineAsyncComponent } from 'vue'
+
+// 同步导入工具组件（避免开发模式下异步加载慢的问题）
+import PortCheckerTool from '../tool-port-checker/PortCheckerTool.vue'
+import TextConverterTool from '../tool-text-converter/TextConverterTool.vue'
+import FileSearchTool from '../tool-file-search/FileSearchTool.vue'
+
+// 获取当前窗口实例
+const appWindow = getCurrentWindow()
 
 // 工具信息接口
 interface ToolInfo {
@@ -60,10 +67,11 @@ const toolId = ref<string>('')
 const isPinned = ref(false)
 const currentTool = ref<ToolInfo | null>(null)
 
-// 工具组件映射
-const toolComponents: Record<string, any> = {
-  'PortChecker': defineAsyncComponent(() => import('../tool-port-checker/PortCheckerTool.vue')),
-  'TextConverter': defineAsyncComponent(() => import('../tool-text-converter/TextConverterTool.vue'))
+// 工具组件映射（使用 markRaw 避免 Vue 响应式代理）
+const toolComponents: Record<string, Component> = {
+  'PortChecker': markRaw(PortCheckerTool),
+  'TextConverter': markRaw(TextConverterTool),
+  'FileSearch': markRaw(FileSearchTool)
 }
 
 // 当前工具组件
@@ -85,6 +93,12 @@ const defaultToolInfo: Record<string, ToolInfo> = {
     name: '文本转换器',
     icon: '📝',
     component: 'TextConverter'
+  },
+  'file-search': {
+    id: 'file-search',
+    name: '文件搜索',
+    icon: '🔍',
+    component: 'FileSearch'
   }
 }
 
@@ -113,33 +127,72 @@ async function togglePin() {
   }
 }
 
-// 关闭窗口
+// 关闭窗口（不检查置顶状态，直接关闭）
 async function closeWindow() {
   try {
-    const win = getCurrentWindow()
-    await win.hide()
+    await appWindow.hide()
   } catch (e) {
     console.error('关闭窗口失败:', e)
   }
 }
 
+// 尝试关闭窗口（检查置顶状态）
+async function tryCloseWindow() {
+  // 如果已置顶，不自动关闭
+  if (isPinned.value) {
+    return
+  }
+  await closeWindow()
+}
+
 // 键盘事件
 function handleKeyDown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
-    closeWindow()
+    tryCloseWindow()
   }
+}
+
+// 窗口失焦处理
+async function handleWindowBlur() {
+  // 如果已置顶，不自动关闭
+  if (isPinned.value) {
+    return
+  }
+  await closeWindow()
 }
 
 // 事件监听器
 let unlistenLoadTool: UnlistenFn | null = null
+let unlistenFocusChanged: UnlistenFn | null = null
+
+// 保存当前工具 ID 到 localStorage
+function saveCurrentToolId(id: string) {
+  try {
+    localStorage.setItem('tool-container-current-tool', id)
+  } catch (e) {
+    console.error('保存工具 ID 失败:', e)
+  }
+}
+
+// 从 localStorage 读取工具 ID
+function getSavedToolId(): string | null {
+  try {
+    return localStorage.getItem('tool-container-current-tool')
+  } catch (e) {
+    return null
+  }
+}
 
 // 初始化
 onMounted(async () => {
-  // 从 URL 参数获取 toolId
+  // 优先从 URL 参数获取 toolId，其次从 localStorage，最后使用默认值
   const params = new URLSearchParams(window.location.search)
-  toolId.value = params.get('toolId') || 'port-checker'
+  const urlToolId = params.get('toolId')
+  const savedToolId = getSavedToolId()
+  toolId.value = urlToolId || savedToolId || 'port-checker'
 
   await loadToolInfo(toolId.value)
+  saveCurrentToolId(toolId.value)
   containerRef.value?.focus()
 
   // 监听切换工具事件（来自后端）
@@ -148,6 +201,14 @@ onMounted(async () => {
     if (newToolId && newToolId !== toolId.value) {
       toolId.value = newToolId
       await loadToolInfo(newToolId)
+      saveCurrentToolId(newToolId)
+    }
+  })
+
+  // 监听窗口焦点变化（失焦时自动关闭，除非已置顶）
+  unlistenFocusChanged = await appWindow.onFocusChanged(({ payload: focused }) => {
+    if (!focused) {
+      handleWindowBlur()
     }
   })
 })
@@ -156,6 +217,9 @@ onMounted(async () => {
 onUnmounted(() => {
   if (unlistenLoadTool) {
     unlistenLoadTool()
+  }
+  if (unlistenFocusChanged) {
+    unlistenFocusChanged()
   }
 })
 </script>

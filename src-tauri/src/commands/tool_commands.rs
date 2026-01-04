@@ -108,6 +108,33 @@ pub fn get_tool_by_id(
     Ok(service.get_tool_by_id(&tool_id))
 }
 
+/// 设置工具固定状态
+///
+/// # Arguments
+/// * `tool_id` - 工具ID
+/// * `pinned` - 是否固定
+///
+/// # Returns
+/// 返回是否成功设置
+///
+/// # Example
+/// ```javascript
+/// await invoke('set_tool_pinned', { toolId: 'port-checker', pinned: true });
+/// ```
+#[tauri::command]
+pub fn set_tool_pinned(
+    tool_service: State<Mutex<ToolService>>,
+    tool_id: String,
+    pinned: bool,
+) -> Result<bool, String> {
+    let service = tool_service.lock().unwrap();
+    if pinned {
+        service.pin_tool(tool_id)
+    } else {
+        service.unpin_tool(&tool_id)
+    }
+}
+
 /// 固定工具
 ///
 /// # Arguments

@@ -32,6 +32,10 @@ pub mod vlm_service;
 pub mod weekly_plan_service;
 pub mod work_log_service;
 pub mod tool_service;
+pub mod file_search_service;
+pub mod file_index_service;
+pub mod file_watcher;
+pub mod mft_reader;
 
 // 以下模块暂时注释，因为依赖其他额外的crate或有编码问题
 // pub mod git_service;
@@ -70,3 +74,7 @@ pub use user_activity_service::UserActivityService;
 pub use vlm_service::{ScreenshotAnalysisResponse, VlmConfig, VlmConfigResponse, VlmService};
 pub use weekly_plan_service::WeeklyPlanService;
 pub use work_log_service::WorkLogService;
+pub use file_search_service::{FileSearchResult, FileSearchService};
+pub use file_index_service::{FileIndexRecord, FileIndexService, IndexStats};
+pub use file_watcher::{FileChangeEvent, FileWatcher};
+pub use mft_reader::{MftFileInfo, MftReader};

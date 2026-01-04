@@ -8,3 +8,5 @@
 8. 此项目不需要执行npm run dev 相关命令进行项目启动测验
 9. 不要进行项目编译测试，用户会进行项目编译看有无问题的
 10.新写的代码前端注意样式问题，不要写硬编码的样式，要根据主题来进行样式设置
+11.工具箱中的所有新工具必须使用 ToolContainerApp.vue 来包裹，需要在 toolComponents 和 defaultToolInfo 中注册
+12.前端样式必须使用CSS变量来适配主题（如 var(--text-primary)、var(--bg-surface) 等），禁止使用硬编码颜色值

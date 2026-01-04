@@ -32,3 +32,5 @@ pub mod weekly_plan_commands;
 pub mod window_commands;
 pub mod work_log_commands;
 pub mod tool_commands;
+pub mod file_search_commands;
+pub mod file_index_commands;

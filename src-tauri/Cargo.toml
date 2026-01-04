@@ -35,6 +35,7 @@ arboard = "3.4"
 sysinfo = "0.30"
 reqwest = { version = "0.12", features = ["json"] }
 rayon = "1.10"  # 并行处理库，用于加速文件扫描
+walkdir = "2.4"  # 文件系统遍历库，用于文件搜索
 xcap = "0.0.14"
 img_hash = "3.2"
 base64 = "0.22"
@@ -50,8 +51,8 @@ whoami = "1.5"
 winreg = "0.52"
 clipboard-win = "5.4"
 mslnk = "0.1"
-winapi = { version = "0.3", features = ["shellapi", "winuser", "windef", "wingdi", "handleapi", "errhandlingapi", "sysinfoapi", "psapi", "processthreadsapi"] }
-windows = { version = "0.58", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_Foundation", "Win32_System_SystemServices"] }
+winapi = { version = "0.3", features = ["shellapi", "winuser", "windef", "wingdi", "handleapi", "errhandlingapi", "sysinfoapi", "psapi", "processthreadsapi", "fileapi", "ioapiset", "winbase", "securitybaseapi", "winnt", "winerror", "minwinbase"] }
+windows = { version = "0.58", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_Foundation", "Win32_System_SystemServices", "Win32_System_Threading"] }
 encoding_rs = "0.8"  # 用于处理 Windows PowerShell 输出的 GBK 编码
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
@@ -61,6 +62,7 @@ tauri-plugin-fs = "2.0"
 tauri-plugin-global-shortcut = "2.0"
 tauri-plugin-updater = "2.0"
 tauri-plugin-process = "2.0"
+tauri-plugin-http = { version = "2.0", features = ["rustls-tls"] }
 
 [profile.release]
 panic = "abort"
