@@ -7,6 +7,7 @@ use crate::services::pomodoro_service::PomodoroService;
 use crate::services::report_service::{DailyReport, ReportService};
 use crate::services::sql_service::{SqlRecord, SqlService};
 use crate::services::task_service::TaskService;
+use crate::services::time_parser_service::TimeParserService;
 use anyhow::{anyhow, Result};
 use chrono::{Local, NaiveDate, Datelike};
 use rusqlite::Connection;
@@ -210,8 +211,16 @@ impl AiFunctionsService {
             priority,
         )?;
 
+        // 智能解析截止日期（支持自然语言如"下周五"、"3天后"等）
+        let parsed_due_date = due_date.and_then(|d| {
+            Self::smart_parse_date(d).or_else(|| {
+                // 如果无法解析，仍尝试保留原值（让数据库层处理）
+                Some(d.to_string())
+            })
+        });
+
         // 更新象限和截止日期
-        if quadrant.is_some() || due_date.is_some() {
+        if quadrant.is_some() || parsed_due_date.is_some() {
             let quad = quadrant.map(TaskQuadrant::from_str);
             TaskService::update_task(
                 conn,
@@ -223,7 +232,7 @@ impl AiFunctionsService {
                 None,
                 None,
                 quad,
-                due_date,
+                parsed_due_date.as_deref(),
                 None,
                 None,
                 None,
@@ -315,6 +324,14 @@ impl AiFunctionsService {
             }
         }
 
+        // 智能解析截止日期（支持自然语言如"下周五"、"3天后"等）
+        let parsed_due_date = due_date.and_then(|d| {
+            Self::smart_parse_date(d).or_else(|| {
+                // 如果无法解析，仍尝试保留原值
+                Some(d.to_string())
+            })
+        });
+
         // 更新其他字段
         let quad = quadrant.map(TaskQuadrant::from_str);
         TaskService::update_task(
@@ -327,7 +344,7 @@ impl AiFunctionsService {
             None,
             None,
             quad,
-            due_date,
+            parsed_due_date.as_deref(),
             None,
             None,
             None,
@@ -520,8 +537,9 @@ impl AiFunctionsService {
         _style: Option<&str>,
         _include_time_stats: Option<bool>,
     ) -> Result<DailyReportResponse> {
+        // 智能解析日期（支持"昨天"、"前天"等自然语言）
         let target_date = if let Some(d) = date {
-            d.to_string()
+            Self::smart_parse_date(d).unwrap_or_else(|| d.to_string())
         } else {
             Local::now().format("%Y-%m-%d").to_string()
         };
@@ -656,6 +674,45 @@ impl AiFunctionsService {
     }
 
     // ==================== Helper Functions ====================
+
+    /// 智能解析日期
+    /// 支持标准格式（YYYY-MM-DD）和自然语言（今天、明天、下周五、3天后等）
+    fn smart_parse_date(date_str: &str) -> Option<String> {
+        let date_str = date_str.trim();
+
+        // 1. 尝试标准日期格式 YYYY-MM-DD
+        if NaiveDate::parse_from_str(date_str, "%Y-%m-%d").is_ok() {
+            return Some(date_str.to_string());
+        }
+
+        // 2. 尝试解析自然语言时间表达
+        if let Some(parsed_date) = TimeParserService::parse_natural_time(date_str) {
+            let formatted = parsed_date.format("%Y-%m-%d").to_string();
+            log::info!("[AI Functions] 🕐 时间解析: \"{}\" → {}", date_str, formatted);
+            return Some(formatted);
+        }
+
+        // 3. 尝试其他常见格式
+        // MM-DD 格式（自动补全年份）
+        if let Ok(parsed) = NaiveDate::parse_from_str(
+            &format!("{}-{}", Local::now().year(), date_str),
+            "%Y-%m-%d"
+        ) {
+            // 如果日期已过，使用明年
+            let today = Local::now().date_naive();
+            let result = if parsed < today {
+                NaiveDate::from_ymd_opt(today.year() + 1, parsed.month(), parsed.day())
+                    .unwrap_or(parsed)
+            } else {
+                parsed
+            };
+            return Some(result.format("%Y-%m-%d").to_string());
+        }
+
+        // 4. 无法解析，返回 None（调用者可以选择原样保留或报错）
+        log::warn!("[AI Functions] ⚠️ 无法解析日期: \"{}\"", date_str);
+        None
+    }
 
     /// 解析日期范围
     fn parse_date_range(range: &str) -> Result<(String, String)> {

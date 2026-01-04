@@ -6,11 +6,32 @@ export interface ChatMessage {
   content: string;
 }
 
+// 任务上下文（用于代词解析）
+export interface TaskContext {
+  id: number;
+  title: string;
+}
+
+// 番茄钟上下文
+export interface PomodoroContext {
+  id: number;
+  taskId?: number;
+  taskTitle?: string;
+}
+
+// 操作上下文 - 记录最近操作的实体，用于代词解析（如"它"、"这个任务"）
+export interface OperationContext {
+  lastTask?: TaskContext;
+  lastPomodoro?: PomodoroContext;
+  recentTasks?: TaskContext[];
+}
+
 // 聊天响应类型
 export interface ChatResponse {
   content: string;
   responseType: string;
   data?: any;
+  context?: OperationContext;  // 操作上下文，用于后续对话的代词解析
 }
 
 // 仪表盘统计数据
@@ -53,10 +74,11 @@ export const aiChatApi = {
    * 发送对话消息
    * @param messages 消息列表
    * @param sessionId 可选的会话ID，用于关联处理日志
+   * @param context 可选的操作上下文，用于代词解析
    * @returns 聊天响应
    */
-  async chat(messages: ChatMessage[], sessionId?: string): Promise<ChatResponse> {
-    return await invoke('ai_assistant_chat', { messages, sessionId });
+  async chat(messages: ChatMessage[], sessionId?: string, context?: OperationContext): Promise<ChatResponse> {
+    return await invoke('ai_assistant_chat', { messages, sessionId, context });
   },
 
   /**

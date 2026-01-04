@@ -3,7 +3,7 @@ import { ref, computed, onUnmounted } from 'vue';
 import dayjs from 'dayjs';
 import { aiChatApi } from '@/api/aiChatApi';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
-import type { ChatMessage as ApiChatMessage, ChatSession as ApiChatSession } from '@/api/aiChatApi';
+import type { ChatMessage as ApiChatMessage, ChatSession as ApiChatSession, OperationContext } from '@/api/aiChatApi';
 
 // AI 思考状态类型
 export interface ThinkingStatus {
@@ -52,6 +52,8 @@ export const useAiChatStore = defineStore('aiChat', () => {
   const dashboardStats = ref<DashboardStats | null>(null);
   const sidebarOpen = ref(true);
   const thinkingStatus = ref<ThinkingStatus | null>(null);
+  // 操作上下文 - 用于代词解析（如"它"、"这个任务"、"刚才那个"）
+  const operationContext = ref<OperationContext | null>(null);
 
   // 事件监听器取消函数
   let unlistenThinking: UnlistenFn | null = null;
@@ -139,15 +141,22 @@ export const useAiChatStore = defineStore('aiChat', () => {
         content: msg.content || '',
       }));
 
-      // 调用后端 API，传递 sessionId 用于关联处理日志
-      const response = await aiChatApi.chat(chatHistory, sessionId);
+      // 调用后端 API，传递 sessionId 和操作上下文用于代词解析
+      const response = await aiChatApi.chat(chatHistory, sessionId, operationContext.value || undefined);
 
       // 调试：打印收到的响应
       console.log('[AI Chat] Response:', {
         responseType: response.responseType,
         hasData: !!response.data,
         dataKeys: response.data ? Object.keys(response.data) : [],
+        hasContext: !!response.context,
       });
+
+      // 更新操作上下文（用于后续对话的代词解析）
+      if (response.context) {
+        operationContext.value = response.context;
+        console.log('[AI Chat] 操作上下文已更新:', response.context);
+      }
 
       // 解析响应并添加 AI 消息
       const aiMessage: ChatMessage = {
@@ -221,6 +230,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
   function clearMessages(): void {
     messages.value = [];
     error.value = null;
+    operationContext.value = null;  // 清空操作上下文
 
     // 更新当前会话的消息计数
     if (currentSessionId.value) {
@@ -279,6 +289,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
     error.value = null;
     currentAction.value = '正在加载会话...';
     thinkingStatus.value = null;  // 清除思考状态
+    operationContext.value = null;  // 切换会话时清空操作上下文
 
     try {
       // 调用后端 API 加载会话消息
@@ -384,6 +395,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
       sessions.value.unshift(newSession);
       currentSessionId.value = newSession.id;
       messages.value = [];
+      operationContext.value = null;  // 新会话清空操作上下文
     } catch (err) {
       error.value = err instanceof Error ? err.message : '创建会话失败';
       console.error('创建会话失败:', err);
@@ -549,6 +561,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
     dashboardStats,
     sidebarOpen,
     thinkingStatus,
+    operationContext,
 
     // 计算属性
     chatHistory,

@@ -1168,6 +1168,8 @@ fn main() {
             commands::ai_chat_commands::ai_clear_session_messages,
             commands::ai_chat_commands::ai_get_process_logs,
             commands::ai_chat_commands::ai_clear_process_logs,
+            commands::ai_chat_commands::ai_reset_conversation_context,
+            commands::ai_chat_commands::ai_get_conversation_stats,
             // VLM 相关命令
             commands::vlm_commands::vlm_save_config,
             commands::vlm_commands::vlm_get_config,

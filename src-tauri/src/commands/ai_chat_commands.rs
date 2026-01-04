@@ -1,19 +1,24 @@
 use crate::db::connection::DbConnection;
-use crate::services::ai_chat_service::{AiChatService, ChatResponse, DashboardStats};
+use crate::services::ai_chat_service::{
+    AiChatService, ChatResponse, DashboardStats, OperationContext,
+    ParsedFunctionCall, MultiStepResult, safe_truncate,
+    TaskContext, PomodoroContext,
+};
 use crate::services::ai_service::AiService;
+use crate::services::context_memory_service::ContextMemoryService;
+use crate::services::conversation_context_service::{
+    ConversationContextService, EntityType, ConversationTopic
+};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
 use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
-/// 安全截断字符串，确保不会切到 UTF-8 字符中间
-fn safe_truncate(s: &str, max_chars: usize) -> String {
-    if s.chars().count() <= max_chars {
-        s.to_string()
-    } else {
-        format!("{}...", s.chars().take(max_chars).collect::<String>())
-    }
-}
+// 全局对话上下文（跨请求保持）
+static CONVERSATION_CONTEXT: Lazy<Mutex<ConversationContextService>> =
+    Lazy::new(|| Mutex::new(ConversationContextService::new()));
 
 /// AI 对话消息结构
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,6 +120,182 @@ fn emit_thinking_status(app: &AppHandle, status: &str, detail: Option<&str>, ste
     });
 }
 
+/// 判断是否应该跳过 AI 润色，直接返回结果
+///
+/// 跳过润色的场景：
+/// 1. 错误响应（response_type 为 "text" 且无数据）
+/// 2. 空查询结果（没有找到数据）
+/// 3. 简单的操作确认（创建/删除/更新/完成任务的确认消息）
+/// 4. 结果条数少于3条的简单查询
+/// 5. 日报/周报（已经由 AI 生成，在前面已处理）
+fn should_skip_polishing(response: &ChatResponse) -> bool {
+    // 1. 错误响应：response_type 是 "text" 且 data 为 None
+    if response.response_type == "text" && response.data.is_none() {
+        return true;
+    }
+
+    // 2. 内容包含错误标记
+    if response.content.contains("❌") || response.content.contains("抱歉") {
+        return true;
+    }
+
+    // 3. 空查询结果
+    if response.response_type == "query_result" && response.content.contains("没有找到") {
+        return true;
+    }
+
+    // 4. 简单操作确认（已经有友好的确认信息）
+    // 这些操作类型通常已经返回了友好的文本，不需要再润色
+    let simple_operations = [
+        "task_created",      // 创建任务
+        "task_updated",      // 更新任务
+        "task_completed",    // 完成任务
+        "pomodoro_started",  // 启动番茄钟
+    ];
+
+    if simple_operations.contains(&response.response_type.as_str()) {
+        return true;
+    }
+
+    // 5. 简单查询（结果少于3条）
+    if let Some(data) = &response.data {
+        // 检查任务列表
+        if response.response_type == "tasks" {
+            if let Some(total) = data.get("total").and_then(|v| v.as_i64()) {
+                if total < 3 {
+                    return true;
+                }
+            }
+        }
+
+        // 检查查询结果
+        if response.response_type == "query_result" {
+            if let Some(rows) = data.get("rows").and_then(|v| v.as_array()) {
+                if rows.len() < 3 {
+                    return true;
+                }
+            }
+        }
+    }
+
+    // 其他情况需要润色
+    false
+}
+
+/// 获取跳过润色的原因（用于日志）
+fn get_skip_reason(response: &ChatResponse) -> String {
+    if response.response_type == "text" && response.data.is_none() {
+        return "错误响应或简单回复".to_string();
+    }
+    if response.content.contains("❌") || response.content.contains("抱歉") {
+        return "包含错误标记".to_string();
+    }
+    if response.response_type == "query_result" && response.content.contains("没有找到") {
+        return "空查询结果".to_string();
+    }
+
+    let simple_operations = ["task_created", "task_updated", "task_completed", "pomodoro_started"];
+    if simple_operations.contains(&response.response_type.as_str()) {
+        return format!("简单操作确认 ({})", response.response_type);
+    }
+
+    if let Some(data) = &response.data {
+        if response.response_type == "tasks" {
+            if let Some(total) = data.get("total").and_then(|v| v.as_i64()) {
+                if total < 3 {
+                    return format!("简单查询（{}条结果）", total);
+                }
+            }
+        }
+        if response.response_type == "query_result" {
+            if let Some(rows) = data.get("rows").and_then(|v| v.as_array()) {
+                if rows.len() < 3 {
+                    return format!("简单查询（{}条结果）", rows.len());
+                }
+            }
+        }
+    }
+
+    "未知原因".to_string()
+}
+
+/// 为简单操作生成模板化响应，无需 AI 润色
+///
+/// 对于简单的操作确认，使用预定义的友好模板，避免消耗 AI Token
+fn generate_simple_response(response: &ChatResponse) -> Option<String> {
+    // 获取数据
+    let data = response.data.as_ref()?;
+
+    match response.response_type.as_str() {
+        // 任务创建
+        "task_created" => {
+            let title = data.get("title")?.as_str()?;
+            let task_id = data.get("task_id")?.as_i64()?;
+            Some(format!("好的，已经帮你创建了任务「{}」（ID: {}）。需要我帮你启动番茄钟吗？", title, task_id))
+        }
+
+        // 任务更新
+        "task_updated" => {
+            let title = data.get("title")?.as_str()?;
+            Some(format!("好的，已经更新了任务「{}」。", title))
+        }
+
+        // 任务完成
+        "task_completed" => {
+            let title = data.get("title")?.as_str()?;
+            Some(format!("太棒了！任务「{}」已标记为完成。继续加油！", title))
+        }
+
+        // 启动番茄钟
+        "pomodoro_started" => {
+            let duration = data.get("duration")?.as_i64()?;
+            let task_title = data.get("task_title").and_then(|v| v.as_str());
+
+            if let Some(title) = task_title {
+                Some(format!("好的，已经为任务「{}」启动了 {} 分钟的番茄钟。专注工作吧！", title, duration))
+            } else {
+                Some(format!("好的，已经启动了 {} 分钟的番茄钟。专注工作吧！", duration))
+            }
+        }
+
+        // 简单任务查询（1-2条）
+        "tasks" => {
+            let total = data.get("total")?.as_i64()?;
+            if total == 1 {
+                let tasks = data.get("tasks")?.as_array()?;
+                let task = tasks.get(0)?;
+                let title = task.get("title")?.as_str()?;
+                let status = task.get("status")?.as_str()?;
+                let status_text = match status {
+                    "todo" => "待办",
+                    "active" => "进行中",
+                    "done" => "已完成",
+                    _ => status,
+                };
+                Some(format!("找到了一个任务：「{}」，状态是{}。", title, status_text))
+            } else if total == 2 {
+                Some(format!("找到了{}个任务。", total))
+            } else {
+                None
+            }
+        }
+
+        // 简单查询结果（1-2条）
+        "query_result" => {
+            let rows = data.get("rows")?.as_array()?;
+            if rows.len() == 1 {
+                Some("查询到了1条结果。".to_string())
+            } else if rows.len() == 2 {
+                Some("查询到了2条结果。".to_string())
+            } else {
+                None
+            }
+        }
+
+        _ => None,
+    }
+}
+
 /// AI 对话主命令 - 处理用户消息并返回 AI 响应
 #[tauri::command]
 pub async fn ai_assistant_chat(
@@ -123,6 +304,8 @@ pub async fn ai_assistant_chat(
     messages: Vec<ChatMessage>,
     #[allow(non_snake_case)]
     sessionId: Option<String>,
+    // 操作上下文，用于代词解析（如"它"、"这个任务"）
+    context: Option<OperationContext>,
 ) -> Result<ChatResponse, String> {
     use crate::services::ai_service::ChatMessage as AiChatMessage;
 
@@ -142,13 +325,46 @@ pub async fn ai_assistant_chat(
         .content
         .clone();
 
+    // 解析用户消息中的代词
+    let resolved_message = {
+        let mut ctx = CONVERSATION_CONTEXT.lock().map_err(|e| e.to_string())?;
+        ctx.process_message(&user_message).map_err(|e| e.to_string())?;
+
+        // 尝试解析代词
+        let mut resolved = user_message.clone();
+        let pronouns = ["它", "这个", "那个", "那个任务", "这个任务", "刚才的", "上一个"];
+        for pronoun in &pronouns {
+            if user_message.contains(pronoun) {
+                if let Some(entity) = ctx.resolve_reference(pronoun) {
+                    // 如果是任务，将代词替换为任务信息
+                    if entity.entity_type == EntityType::Task {
+                        if let Some(id) = entity.id {
+                            let replacement = format!("任务ID{}({})", id, entity.name);
+                            resolved = resolved.replace(pronoun, &replacement);
+                            log::info!("[AI Chat] 🔗 代词解析: \"{}\" -> \"{}\"", pronoun, replacement);
+                        }
+                    }
+                    // 如果是番茄钟
+                    else if entity.entity_type == EntityType::Pomodoro {
+                        if let Some(id) = entity.id {
+                            let replacement = format!("番茄钟ID{}", id);
+                            resolved = resolved.replace(pronoun, &replacement);
+                            log::info!("[AI Chat] 🔗 代词解析: \"{}\" -> \"{}\"", pronoun, replacement);
+                        }
+                    }
+                }
+            }
+        }
+        resolved
+    };
+
     // 第一步：同步获取配置和系统提示词（在锁内完成）
-    let (config, provider_str, model_str, system_prompt) = {
+    let (config, provider_str, model_str, mut system_prompt) = {
         let conn = db.0.lock().map_err(|e| e.to_string())?;
         let cfg = AiService::load_config(&conn).map_err(|e| e.to_string())?;
         let provider = cfg.provider.to_string();
         let model = cfg.get_model().to_string();
-        let prompt = AiChatService::build_system_prompt(&conn).map_err(|e| e.to_string())?;
+        let prompt = AiChatService::build_system_prompt(&conn, context.as_ref()).map_err(|e| e.to_string())?;
 
         // 记录初始请求
         step_number += 1;
@@ -170,6 +386,16 @@ pub async fn ai_assistant_chat(
 
         (cfg, provider, model, prompt)
     }; // 锁在这里释放
+
+    // 获取对话上下文提示并追加到系统提示词
+    {
+        let ctx = CONVERSATION_CONTEXT.lock().map_err(|e| e.to_string())?;
+        let context_hint = ctx.generate_context_hint();
+        if !context_hint.is_empty() && !context_hint.contains("没有活跃的对话上下文") {
+            system_prompt.push_str(&format!("\n\n【对话上下文】\n{}", context_hint));
+            log::info!("[AI Chat] 📋 对话上下文已注入到系统提示词");
+        }
+    }
 
     if !config.enabled {
         return Err("AI 功能未启用".to_string());
@@ -193,6 +419,9 @@ pub async fn ai_assistant_chat(
 
     // 第三步：异步调用 AI API（不持有锁）
     log::info!("[AI Chat] 📝 用户消息: {}", user_message);
+    if resolved_message != user_message {
+        log::info!("[AI Chat] 🔗 解析后消息: {}", resolved_message);
+    }
     log::info!("[AI Chat] 🤖 调用 AI API (provider: {}, model: {})", provider_str, model_str);
 
     // 发送思考状态
@@ -229,8 +458,167 @@ pub async fn ai_assistant_chat(
     }
 
     // 第四步：解析响应并执行 Function Call（如果需要）
-    // 使用智能体模式：支持自动纠错和重试
-    let result = if let Ok(mut current_function_call) = AiChatService::parse_function_call(&ai_response) {
+    // 支持单步和多步操作
+    let result = if let Ok(parsed_call) = AiChatService::parse_function_call_extended(&ai_response) {
+        match parsed_call {
+            // 多步操作：按顺序执行所有步骤
+            ParsedFunctionCall::Multi(multi_step) => {
+                log::info!("[AI Chat] 🔗 执行多步操作，共 {} 步", multi_step.steps.len());
+                emit_thinking_status(&app, &format!("正在执行 {} 个连续操作...", multi_step.steps.len()), None, 3, Some(4));
+
+                // 执行多步操作
+                let multi_result = {
+                    let conn = db.0.lock().map_err(|e| e.to_string())?;
+                    AiChatService::execute_multi_step_operations(&conn, &multi_step)
+                        .map_err(|e| e.to_string())?
+                };
+
+                log::info!("[AI Chat] 📊 多步操作完成: {}/{} 成功", multi_result.success_count, multi_result.total_count);
+
+                // 发送完成状态
+                emit_thinking_status(&app, "多步操作完成", Some(&format!("{}/{} 成功", multi_result.success_count, multi_result.total_count)), 4, Some(4));
+
+                // 保存多步操作日志
+                {
+                    let conn = db.0.lock().map_err(|e| e.to_string())?;
+                    step_number += 1;
+                    let result_json = serde_json::to_string(&serde_json::json!({
+                        "total_steps": multi_result.total_count,
+                        "success_count": multi_result.success_count,
+                        "all_success": multi_result.all_success,
+                    })).unwrap_or_default();
+
+                    save_process_log(
+                        &conn,
+                        &request_id,
+                        sessionId.as_deref(),
+                        step_number,
+                        "multi_step_exec",
+                        None,
+                        None,
+                        None,
+                        Some("multi_step"),
+                        Some(&serde_json::to_string(&multi_step.steps).unwrap_or_default()),
+                        Some(&result_json),
+                        if !multi_result.all_success { Some("部分步骤失败") } else { None },
+                        None,
+                    );
+                }
+
+                // 从最后一个成功步骤提取上下文，用于后续对话引用
+                let multi_step_context = multi_result.steps.iter().rev()
+                    .find(|step| step.success)
+                    .and_then(|step| {
+                        step.data.as_ref().map(|data| {
+                            let mut ctx = OperationContext::default();
+                            // 提取任务上下文
+                            if let (Some(task_id), Some(task_title)) = (
+                                data.get("task_id").and_then(|v| v.as_i64()),
+                                data.get("task_title").and_then(|v| v.as_str())
+                            ) {
+                                ctx.last_task = Some(TaskContext {
+                                    id: task_id,
+                                    title: task_title.to_string(),
+                                });
+                            }
+                            // 提取番茄钟上下文
+                            if let Some(pomodoro_id) = data.get("pomodoro_id").and_then(|v| v.as_i64()) {
+                                ctx.last_pomodoro = Some(PomodoroContext {
+                                    id: pomodoro_id,
+                                    task_id: data.get("task_id").and_then(|v| v.as_i64()),
+                                    task_title: data.get("task_title").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                                });
+                            }
+                            ctx
+                        })
+                    });
+
+                // 保存多步操作的上下文记忆
+                // 遍历所有成功的步骤，提取并保存记忆
+                {
+                    let conn = db.0.lock().map_err(|e| e.to_string())?;
+                    for step_result in &multi_result.steps {
+                        if step_result.success {
+                            // 构建临时 ChatResponse 用于提取上下文
+                            let step_response = ChatResponse {
+                                content: step_result.content.clone(),
+                                response_type: step_result.function.clone(),
+                                data: step_result.data.clone(),
+                                context: None,
+                            };
+
+                            let contexts = AiChatService::extract_context_from_response(
+                                &user_message,
+                                Some(&step_result.function),
+                                &step_response,
+                            );
+
+                            for (context_type, key, value, importance) in &contexts {
+                                if let Err(e) = ContextMemoryService::save_context(
+                                    &conn,
+                                    context_type,
+                                    key,
+                                    value,
+                                    *importance,
+                                ) {
+                                    log::warn!("[AI Chat] 多步操作保存上下文记忆失败: {} - {}", key, e);
+                                } else {
+                                    log::info!("[AI Chat] 💾 多步操作保存上下文记忆: {} (type={}, importance={})", key, context_type, importance);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 记录多步操作结果到对话上下文
+                {
+                    let mut ctx = CONVERSATION_CONTEXT.lock().map_err(|e| e.to_string())?;
+                    for step_result in &multi_result.steps {
+                        if step_result.success {
+                            match step_result.function.as_str() {
+                                "create_task" => {
+                                    if let Some(data) = &step_result.data {
+                                        if let Some(task) = data.get("task") {
+                                            let task_id = task.get("id").and_then(|v| v.as_i64());
+                                            let task_title = task.get("title").and_then(|v| v.as_str()).unwrap_or("未命名任务");
+                                            ctx.add_operation_result(EntityType::Task, task_id, task_title.to_string(), None);
+                                        } else if let Some(task_id) = data.get("task_id").and_then(|v| v.as_i64()) {
+                                            let task_title = data.get("title").and_then(|v| v.as_str()).unwrap_or("未命名任务");
+                                            ctx.add_operation_result(EntityType::Task, Some(task_id), task_title.to_string(), None);
+                                        }
+                                    }
+                                    ctx.context_mut().update_topic(ConversationTopic::TaskManagement);
+                                }
+                                "start_pomodoro" => {
+                                    if let Some(data) = &step_result.data {
+                                        if let Some(session) = data.get("session") {
+                                            let session_id = session.get("id").and_then(|v| v.as_i64());
+                                            ctx.add_operation_result(EntityType::Pomodoro, session_id, "番茄钟".to_string(), None);
+                                        } else if let Some(pomodoro_id) = data.get("pomodoro_id").and_then(|v| v.as_i64()) {
+                                            ctx.add_operation_result(EntityType::Pomodoro, Some(pomodoro_id), "番茄钟".to_string(), None);
+                                        }
+                                    }
+                                    ctx.context_mut().update_topic(ConversationTopic::PomodoroFocus);
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    log::info!("[AI Chat] 📝 多步操作结果已记录到对话上下文");
+                }
+
+                // 构建响应
+                let summary = multi_result.summary.clone();
+                ChatResponse {
+                    content: summary,
+                    response_type: "multi_step_result".to_string(),
+                    data: Some(serde_json::to_value(&multi_result).unwrap_or_default()),
+                    context: multi_step_context,
+                }
+            }
+
+            // 单步操作：使用智能体模式，支持自动纠错和重试
+            ParsedFunctionCall::Single(mut current_function_call) => {
         const MAX_RETRIES: u32 = 10;
         let mut retry_count = 0u32;
         let mut current_ai_response = ai_response.clone();
@@ -310,6 +698,7 @@ pub async fn ai_assistant_chat(
                         content: "抱歉，我尝试了几次都没能正确理解你的问题。能换个方式描述一下吗？比如告诉我你想查询什么具体信息。".to_string(),
                         response_type: "text".to_string(),
                         data: None,
+                        context: None,
                     };
                 }
 
@@ -425,36 +814,157 @@ pub async fn ai_assistant_chat(
                             content: new_response,
                             response_type: "text".to_string(),
                             data: None,
+                            context: None,
                         };
                     }
                 }
             } else {
-                // 执行成功，跳出循环
+                // 执行成功，保存上下文记忆
+                // 这是关键的集成点：让 AI 真正能够学习和记忆
+                if exec_result.response_type != "error" && exec_result.response_type != "text" {
+                    // 提取上下文信息
+                    let contexts = AiChatService::extract_context_from_response(
+                        &user_message,
+                        Some(&current_function_call.name),
+                        &exec_result,
+                    );
+
+                    // 保存到数据库
+                    if !contexts.is_empty() {
+                        let conn = db.0.lock().map_err(|e| e.to_string())?;
+                        for (context_type, key, value, importance) in &contexts {
+                            if let Err(e) = ContextMemoryService::save_context(
+                                &conn,
+                                context_type,
+                                key,
+                                value,
+                                *importance,
+                            ) {
+                                log::warn!("[AI Chat] 保存上下文记忆失败: {} - {}", key, e);
+                            } else {
+                                log::info!("[AI Chat] 💾 保存上下文记忆: {} (type={}, importance={})", key, context_type, importance);
+                            }
+                        }
+                        log::info!("[AI Chat] ✅ 已保存 {} 条上下文记忆", contexts.len());
+                    }
+                }
+
+                // 记录操作结果到对话上下文
+                {
+                    let mut ctx = CONVERSATION_CONTEXT.lock().map_err(|e| e.to_string())?;
+                    match current_function_call.name.as_str() {
+                        "create_task" => {
+                            if let Some(task_data) = exec_result.data.as_ref() {
+                                if let Some(task) = task_data.get("task") {
+                                    let task_id = task.get("id").and_then(|v| v.as_i64());
+                                    let task_title = task.get("title").and_then(|v| v.as_str()).unwrap_or("未命名任务");
+                                    ctx.add_operation_result(EntityType::Task, task_id, task_title.to_string(), None);
+                                    log::info!("[AI Chat] 📝 记录任务到对话上下文: {} (ID: {:?})", task_title, task_id);
+                                }
+                            } else if let Some(task_id) = exec_result.data.as_ref().and_then(|d| d.get("task_id")).and_then(|v| v.as_i64()) {
+                                let task_title = exec_result.data.as_ref().and_then(|d| d.get("title")).and_then(|v| v.as_str()).unwrap_or("未命名任务");
+                                ctx.add_operation_result(EntityType::Task, Some(task_id), task_title.to_string(), None);
+                                log::info!("[AI Chat] 📝 记录任务到对话上下文: {} (ID: {})", task_title, task_id);
+                            }
+                            ctx.context_mut().update_topic(ConversationTopic::TaskManagement);
+                        }
+                        "start_pomodoro" => {
+                            if let Some(data) = exec_result.data.as_ref() {
+                                if let Some(session) = data.get("session") {
+                                    let session_id = session.get("id").and_then(|v| v.as_i64());
+                                    ctx.add_operation_result(EntityType::Pomodoro, session_id, "番茄钟".to_string(), None);
+                                    log::info!("[AI Chat] 🍅 记录番茄钟到对话上下文 (ID: {:?})", session_id);
+                                } else if let Some(pomodoro_id) = data.get("pomodoro_id").and_then(|v| v.as_i64()) {
+                                    ctx.add_operation_result(EntityType::Pomodoro, Some(pomodoro_id), "番茄钟".to_string(), None);
+                                    log::info!("[AI Chat] 🍅 记录番茄钟到对话上下文 (ID: {})", pomodoro_id);
+                                }
+                            }
+                            ctx.context_mut().update_topic(ConversationTopic::PomodoroFocus);
+                        }
+                        "get_tasks" | "update_task" | "complete_task" | "delete_task" => {
+                            // 更新任务信息到上下文
+                            if let Some(data) = exec_result.data.as_ref() {
+                                if let Some(task) = data.get("task") {
+                                    let task_id = task.get("id").and_then(|v| v.as_i64());
+                                    let task_title = task.get("title").and_then(|v| v.as_str()).unwrap_or("未命名任务");
+                                    ctx.add_operation_result(EntityType::Task, task_id, task_title.to_string(), None);
+                                }
+                            }
+                            ctx.context_mut().update_topic(ConversationTopic::TaskManagement);
+                        }
+                        "query_data" | "search_sql" => {
+                            ctx.context_mut().update_topic(ConversationTopic::SqlSearch);
+                        }
+                        "generate_daily_report" | "generate_weekly_report" => {
+                            ctx.context_mut().update_topic(ConversationTopic::ReportGeneration);
+                        }
+                        _ => {}
+                    }
+                }
+
+                // 跳出循环
                 break exec_result;
             }
         };
 
-        // 判断是否需要跳过润色：错误结果或无数据结果直接返回
-        let should_skip_polishing = {
-            // 1. 如果 response_type 是 "text" 且 data 为 None，说明是错误或简单回复
-            let is_error_response = function_result.response_type == "text" && function_result.data.is_none();
+        // 特殊处理：如果需要 AI 生成（如日报生成）
+        if function_result.response_type == "need_ai_generation" {
+            log::info!("[AI Chat] 🤖 检测到需要 AI 生成内容");
+            emit_thinking_status(&app, "正在生成智能日报...", None, 4, Some(4));
 
-            // 2. 如果内容包含错误标记
-            let has_error_marker = function_result.content.contains("❌")
-                || function_result.content.contains("抱歉");
+            // function_result.content 包含了 AI 提示词
+            let generation_prompt = function_result.content.clone();
 
-            // 3. 如果是查询结果但没有找到数据
-            let is_empty_query = function_result.response_type == "query_result"
-                && function_result.content.contains("没有找到");
+            // 直接使用提示词调用 AI（不带对话历史，只用提示词生成）
+            let generated_content = ai_service.chat(vec![
+                AiChatMessage::user(generation_prompt)
+            ])
+                .await
+                .map_err(|e| e.to_string())?;
 
-            is_error_response || has_error_marker || is_empty_query
-        };
+            log::info!("[AI Chat] ✅ AI 生成完成: {}", safe_truncate(&generated_content, 150));
 
-        if should_skip_polishing {
-            log::info!("[AI Chat] ⏭️ 跳过润色：结果为错误或空数据，直接返回");
-            emit_thinking_status(&app, "完成", None, 4, Some(4));
-            function_result
+            // 保存到工作日志
+            if let Some(data) = &function_result.data {
+                if let Some(date_str) = data["date"].as_str() {
+                    use crate::services::work_log_service::WorkLogService;
+
+                    let conn = db.0.lock().map_err(|e| e.to_string())?;
+                    if let Err(e) = WorkLogService::save_work_log(&conn, date_str, "daily", &generated_content, true) {
+                        log::warn!("[AI Chat] 保存日报到工作日志失败: {}", e);
+                    } else {
+                        log::info!("[AI Chat] ✅ AI 生成的日报已保存到工作日志，日期: {}", date_str);
+                    }
+                }
+            }
+
+            ChatResponse {
+                content: generated_content,
+                response_type: "daily_report".to_string(),
+                data: function_result.data,
+                context: function_result.context,
+            }
         } else {
+            // 判断是否需要跳过润色：错误结果、简单操作或少量数据直接返回
+            let should_skip = should_skip_polishing(&function_result);
+
+            if should_skip {
+                log::info!("[AI Chat] ⏭️ 跳过润色：{}", get_skip_reason(&function_result));
+                emit_thinking_status(&app, "完成", None, 4, Some(4));
+
+                // 尝试生成简单模板响应（如果适用）
+                if let Some(simple_response) = generate_simple_response(&function_result) {
+                    log::info!("[AI Chat] 📝 使用模板响应");
+                    ChatResponse {
+                        content: simple_response,
+                        response_type: function_result.response_type.clone(),
+                        data: function_result.data.clone(),
+                        context: function_result.context.clone(),
+                    }
+                } else {
+                    function_result
+                }
+            } else {
             // 发送润色状态
             emit_thinking_status(&app, "正在整理回复...", None, 4, Some(4));
 
@@ -501,8 +1011,12 @@ pub async fn ai_assistant_chat(
                 content: polished_response,
                 response_type: function_result.response_type,
                 data: function_result.data,
+                context: function_result.context,  // 保留操作上下文
+            }
             }
         }
+            } // 结束 ParsedFunctionCall::Single 分支
+        } // 结束 match parsed_call
     } else {
         // 普通文本回复
         emit_thinking_status(&app, "完成", None, 4, Some(4));
@@ -510,6 +1024,7 @@ pub async fn ai_assistant_chat(
             content: ai_response,
             response_type: "text".to_string(),
             data: None,
+            context: None,
         }
     };
 
@@ -861,4 +1376,21 @@ pub async fn ai_clear_process_logs(
     };
 
     Ok(deleted as i64)
+}
+
+/// 重置对话上下文
+#[tauri::command]
+pub async fn ai_reset_conversation_context() -> Result<String, String> {
+    let mut ctx = CONVERSATION_CONTEXT.lock().map_err(|e| e.to_string())?;
+    ctx.reset();
+    log::info!("[AI Chat] 🔄 对话上下文已重置");
+    Ok("对话上下文已重置".to_string())
+}
+
+/// 获取对话上下文统计信息
+#[tauri::command]
+pub async fn ai_get_conversation_stats() -> Result<serde_json::Value, String> {
+    let ctx = CONVERSATION_CONTEXT.lock().map_err(|e| e.to_string())?;
+    let stats = ctx.get_stats();
+    serde_json::to_value(stats).map_err(|e| e.to_string())
 }

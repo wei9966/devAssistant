@@ -172,6 +172,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     create_ai_chat_process_logs_table(conn)?;
     create_ai_chat_process_logs_indexes(conn)?;
 
+    // 创建 AI 上下文记忆表
+    create_ai_context_memory_table(conn)?;
+    create_ai_context_memory_indexes(conn)?;
+
     Ok(())
 }
 
@@ -2435,6 +2439,40 @@ fn create_ai_chat_process_logs_indexes(conn: &Connection) -> Result<()> {
     )?;
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_ai_chat_process_logs_created_at ON ai_chat_process_logs(created_at DESC)",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 AI 上下文记忆表
+fn create_ai_context_memory_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS ai_context_memory (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            context_type TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            importance INTEGER DEFAULT 1,
+            last_used_at TEXT,
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建 AI 上下文记忆表索引
+fn create_ai_context_memory_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_context_memory_type ON ai_context_memory(context_type)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_context_memory_key ON ai_context_memory(key)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_context_memory_importance ON ai_context_memory(importance DESC)",
         [],
     )?;
     Ok(())
