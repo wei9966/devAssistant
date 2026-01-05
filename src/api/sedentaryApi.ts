@@ -12,9 +12,24 @@ export interface SedentaryStatus {
   lastReminderTime: number | null
 }
 
+// 后端返回的配置格式（蛇形命名）
+interface SedentaryConfigRaw {
+  enabled: boolean
+  reminder_interval_minutes: number
+  idle_threshold_seconds?: number
+  tips: string[]
+}
+
 export const sedentaryApi = {
   // 获取配置
-  getConfig: () => invoke<SedentaryConfig>('get_sedentary_config'),
+  getConfig: async (): Promise<SedentaryConfig> => {
+    const raw = await invoke<SedentaryConfigRaw>('get_sedentary_config')
+    return {
+      enabled: raw.enabled,
+      reminderIntervalMinutes: raw.reminder_interval_minutes,
+      tips: raw.tips
+    }
+  },
 
   // 保存配置
   saveConfig: (config: SedentaryConfig) =>
