@@ -23,11 +23,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { NBadge } from 'naive-ui'
 import { notificationApi } from '@/api/notificationApi'
 
-const router = useRouter()
+// 定义事件
+const emit = defineEmits<{
+  (e: 'click'): void
+}>()
+
 const unreadCount = ref(0)
 let refreshTimer: number | null = null
 
@@ -54,7 +57,7 @@ async function loadUnreadCount() {
 }
 
 function handleClick() {
-  router.push({ name: 'notification-center' })
+  emit('click')
 }
 
 // 暴露刷新方法供外部调用
@@ -75,7 +78,7 @@ defineExpose({
 }
 
 .notification-bell:hover {
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--accent-glow, rgba(99, 102, 241, 0.1));
 }
 
 .bell-icon {
@@ -84,12 +87,12 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgb(148, 163, 184);
+  color: var(--text-muted, #94a3b8);
   transition: color 0.2s ease;
 }
 
 .notification-bell:hover .bell-icon {
-  color: rgb(167, 139, 250);
+  color: var(--accent-secondary, #a78bfa);
 }
 
 .icon {

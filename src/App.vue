@@ -82,7 +82,7 @@
                           <circle cx="16" cy="9.75" r="1" fill="currentColor"/>
                         </svg>
                       </button>
-                      <NotificationBell />
+                      <NotificationBell @click="showNotificationDrawer = true" />
                     </div>
                   </div>
 
@@ -138,6 +138,9 @@
 
             <!-- AI 助手抽屉 -->
             <AiChatDrawer v-model:show="showAiChatDrawer" />
+
+            <!-- 通知中心抽屉 -->
+            <NotificationDrawer v-model:show="showNotificationDrawer" />
           </n-dialog-provider>
         </n-notification-provider>
       </n-message-provider>
@@ -164,7 +167,6 @@ import {
   DocumentTextOutline as SqlIcon,
   BookOutline as LogIcon,
   RocketOutline as LauncherIcon,
-  NotificationsOutline as NotificationIcon,
   SettingsOutline as SettingsIcon,
   PieChartOutline as ReportIcon,
   TimerOutline as TimerIcon,
@@ -175,6 +177,7 @@ import CyberpunkLauncher from '@/components/appLauncher/CyberpunkLauncher.vue'
 import QuickTaskModal from '@/components/QuickTaskModal.vue'
 import CyberpunkSqlModal from '@/components/sql/CyberpunkSqlModal.vue'
 import NotificationBell from '@/components/notification/NotificationBell.vue'
+import NotificationDrawer from '@/components/notification/NotificationDrawer.vue'
 import AiChatDrawer from '@/components/aiChat/AiChatDrawer.vue'
 import UpdateDialog from '@/components/UpdateDialog.vue'
 import BannedOverlay from '@/components/BannedOverlay.vue'
@@ -234,6 +237,9 @@ const showCyberpunkSql = ref(false)
 
 // AI 助手抽屉状态
 const showAiChatDrawer = ref(false)
+
+// 通知中心抽屉状态
+const showNotificationDrawer = ref(false)
 
 // 更新弹框状态
 const showUpdateDialog = ref(false)
@@ -483,11 +489,6 @@ const menuOptions: MenuOption[] = [
     label: '报表中心',
     key: 'report-center',
     icon: () => h(ReportIcon)
-  },
-  {
-    label: '通知中心',
-    key: 'notification-center',
-    icon: () => h(NotificationIcon)
   },
   {
     label: '工具箱',
