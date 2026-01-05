@@ -263,7 +263,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { NDatePicker, NButton, NIcon, NDrawer, NDrawerContent, NSpin, useMessage } from 'naive-ui'
 import { RefreshOutline } from '@vicons/ionicons5'
-import { getStatsRange, getTodaySessions, aiAnalyzeSession, updateAiAnalysis } from '@/api/pomodoroApi'
+import { getStatsRange, getSessionsRange, aiAnalyzeSession, updateAiAnalysis } from '@/api/pomodoroApi'
 import type { PomodoroSession, PomodoroDailyStats, AppUsageItem } from '@/types/pomodoro'
 import dayjs from 'dayjs'
 
@@ -449,9 +449,8 @@ async function loadData() {
     // 获取日期范围统计
     dailyStats.value = await getStatsRange(startDate, endDate)
 
-    // 获取今日会话（用于详细记录）
-    // TODO: 需要后端添加按日期范围获取会话的API
-    sessions.value = await getTodaySessions()
+    // 获取日期范围内的会话记录
+    sessions.value = await getSessionsRange(startDate, endDate)
   } catch (error) {
     console.error('加载番茄钟数据失败:', error)
     message.error('加载数据失败')

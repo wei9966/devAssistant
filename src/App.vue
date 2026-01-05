@@ -141,6 +141,14 @@
 
             <!-- 通知中心抽屉 -->
             <NotificationDrawer v-model:show="showNotificationDrawer" />
+
+            <!-- 久坐提醒弹框 -->
+            <SedentaryReminderModal
+              v-model:show="showSedentaryReminder"
+              :work-duration="sedentaryWorkDuration"
+              :tips="sedentaryTips"
+              @close="handleSedentaryClose"
+            />
           </n-dialog-provider>
         </n-notification-provider>
       </n-message-provider>
@@ -181,6 +189,9 @@ import NotificationDrawer from '@/components/notification/NotificationDrawer.vue
 import AiChatDrawer from '@/components/aiChat/AiChatDrawer.vue'
 import UpdateDialog from '@/components/UpdateDialog.vue'
 import BannedOverlay from '@/components/BannedOverlay.vue'
+import SedentaryReminderModal from '@/components/sedentary/SedentaryReminderModal.vue'
+import { sedentaryApi } from '@/api/sedentaryApi'
+import { listen } from '@tauri-apps/api/event'
 import {
   checkForUpdate,
   setSkippedVersion,
@@ -252,6 +263,16 @@ const currentUpdate = shallowRef<any>(null)
 const showBannedOverlay = ref(false)
 const bannedReason = ref('')
 const hasPendingAppeal = ref(false)
+
+// 久坐提醒状态
+const showSedentaryReminder = ref(false)
+const sedentaryWorkDuration = ref(0)
+const sedentaryTips = ref<string[]>([
+  '该休息一下啦！起来喝杯水吧',
+  '久坐不利于健康，起来活动活动吧',
+  '眺望远方，让眼睛休息一下',
+  '做几个伸展运动，放松一下肩颈',
+])
 
 // 打开赛博朋克启动器
 const openCyberpunkLauncher = () => {
@@ -567,6 +588,33 @@ const handleAppealSubmitted = () => {
   hasPendingAppeal.value = true
 }
 
+// 初始化久坐提醒服务
+const initSedentaryReminder = async () => {
+  try {
+    const config = await sedentaryApi.getConfig()
+    if (config.tips && config.tips.length > 0) {
+      sedentaryTips.value = config.tips
+    }
+    if (config.enabled) {
+      await sedentaryApi.start()
+    }
+  } catch (error) {
+    console.error('初始化久坐提醒失败:', error)
+  }
+}
+
+// 处理久坐提醒关闭
+const handleSedentaryClose = async () => {
+  try {
+    await sedentaryApi.resetTimer()
+  } catch (error) {
+    console.error('重置久坐计时器失败:', error)
+  }
+}
+
+// 久坐提醒事件监听器
+let unlistenSedentary: (() => void) | null = null
+
 onMounted(() => {
   // 从后端加载主题设置
   loadThemeFromBackend()
@@ -600,6 +648,19 @@ onMounted(() => {
   updateCheckInterval = window.setInterval(() => {
     checkAppUpdate(true) // 定时器触发时强制检查
   }, UPDATE_CHECK_INTERVAL)
+
+  // 初始化久坐提醒（延迟3秒，等待应用初始化完成）
+  setTimeout(() => {
+    initSedentaryReminder()
+  }, 3000)
+
+  // 监听久坐提醒事件
+  listen<{ work_duration: number }>('sedentary-reminder', (event) => {
+    sedentaryWorkDuration.value = event.payload.work_duration
+    showSedentaryReminder.value = true
+  }).then(unlisten => {
+    unlistenSedentary = unlisten
+  })
 })
 
 onUnmounted(() => {
@@ -614,6 +675,10 @@ onUnmounted(() => {
   window.removeEventListener('open-cyberpunk-launcher', handleOpenLauncher)
   window.removeEventListener('open-quick-task-modal', handleOpenQuickTask)
   window.removeEventListener('open-cyberpunk-sql', handleOpenSqlModal)
+  // 移除久坐提醒事件监听
+  if (unlistenSedentary) {
+    unlistenSedentary()
+  }
 })
 </script>
 

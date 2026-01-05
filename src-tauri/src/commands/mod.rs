@@ -35,3 +35,4 @@ pub mod work_log_commands;
 pub mod tool_commands;
 pub mod file_search_commands;
 pub mod file_index_commands;
+pub mod sedentary_commands;
