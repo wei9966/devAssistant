@@ -1123,10 +1123,11 @@ fn main() {
                                         let app_handle_clone = app_handle_for_sedentary.clone();
 
                                         // 启动服务
-                                        if let Err(e) = service.start(move |tip| {
+                                        if let Err(e) = service.start(move |tip, work_duration| {
                                             if let Err(e) = app_handle_clone.emit("sedentary-reminder", serde_json::json!({
                                                 "tip": tip,
                                                 "timestamp": chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+                                                "work_duration": work_duration,
                                             })) {
                                                 log::error!("[久坐提醒] 发送事件失败: {}", e);
                                             }

@@ -192,6 +192,7 @@ import BannedOverlay from '@/components/BannedOverlay.vue'
 import SedentaryReminderModal from '@/components/sedentary/SedentaryReminderModal.vue'
 import { sedentaryApi } from '@/api/sedentaryApi'
 import { listen } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
   checkForUpdate,
   setSkippedVersion,
@@ -655,9 +656,26 @@ onMounted(() => {
   }, 3000)
 
   // 监听久坐提醒事件
-  listen<{ work_duration: number }>('sedentary-reminder', (event) => {
+  listen<{ work_duration: number }>('sedentary-reminder', async (event) => {
     sedentaryWorkDuration.value = event.payload.work_duration
     showSedentaryReminder.value = true
+
+    // 将窗口置顶并获取焦点，确保用户能看到提醒
+    try {
+      const currentWindow = getCurrentWindow()
+      await currentWindow.setAlwaysOnTop(true)
+      await currentWindow.setFocus()
+      // 短暂延迟后取消置顶，允许用户切换到其他应用
+      setTimeout(async () => {
+        try {
+          await currentWindow.setAlwaysOnTop(false)
+        } catch (e) {
+          console.error('取消窗口置顶失败:', e)
+        }
+      }, 1000)
+    } catch (e) {
+      console.error('设置窗口置顶失败:', e)
+    }
   }).then(unlisten => {
     unlistenSedentary = unlisten
   })

@@ -219,9 +219,10 @@ impl SedentaryReminderService {
     }
 
     /// 启动后台监控
+    /// callback 参数: (tip: String, work_duration_seconds: u64)
     pub fn start<F>(&self, callback: F) -> Result<()>
     where
-        F: Fn(String) + Send + 'static,
+        F: Fn(String, u64) + Send + 'static,
     {
         if self.is_running.load(Ordering::SeqCst) {
             log::warn!("[久坐提醒] 服务已在运行中");
@@ -323,16 +324,19 @@ impl SedentaryReminderService {
                     let mut count = today_reminder_count.lock().unwrap();
                     *count += 1;
 
+                    // 保存工作时间用于发送（在重置之前）
+                    let work_duration = *work_seconds;
+
                     log::info!("[久坐提醒] 连续工作 {} 分钟，发送提醒: {}",
-                        *work_seconds / 60,
+                        work_duration / 60,
                         tip
                     );
 
                     // 重置连续工作时间
                     *work_seconds = 0;
 
-                    // 调用回调发送提醒
-                    callback(tip);
+                    // 调用回调发送提醒，传递工作时间
+                    callback(tip, work_duration);
                 }
             }
 

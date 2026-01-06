@@ -86,11 +86,12 @@ pub fn start_sedentary_reminder(
 
     // 启动服务，设置回调发送事件到前端
     service
-        .start(move |tip| {
+        .start(move |tip, work_duration| {
             // 发送久坐提醒事件到前端
             if let Err(e) = app_handle.emit("sedentary-reminder", SedentaryReminderEvent {
                 tip,
                 timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+                work_duration,
             }) {
                 log::error!("[久坐提醒] 发送事件失败: {}", e);
             }
@@ -161,6 +162,7 @@ pub fn reset_sedentary_timer(sedentary_state: State<SedentaryState>) -> Result<(
 pub struct SedentaryReminderEvent {
     pub tip: String,
     pub timestamp: String,
+    pub work_duration: u64, // 连续工作时间（秒）
 }
 
 #[cfg(test)]
