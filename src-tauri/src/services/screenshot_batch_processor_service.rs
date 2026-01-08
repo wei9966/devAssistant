@@ -405,7 +405,7 @@ impl ScreenshotBatchProcessor {
         &self,
         screenshot_ids: Vec<i64>,
     ) -> Result<BatchAnalysisResult> {
-        let start_time = std::time::Instant::now();
+        let _start_time = std::time::Instant::now();
 
         log::info!("手动触发批量处理 {} 张截图", screenshot_ids.len());
 

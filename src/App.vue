@@ -616,6 +616,9 @@ const handleSedentaryClose = async () => {
 // 久坐提醒事件监听器
 let unlistenSedentary: (() => void) | null = null
 
+// 手动截图事件监听器
+let unlistenManualScreenshot: (() => void) | null = null
+
 onMounted(() => {
   // 从后端加载主题设置
   loadThemeFromBackend()
@@ -679,6 +682,19 @@ onMounted(() => {
   }).then(unlisten => {
     unlistenSedentary = unlisten
   })
+
+  // 监听手动截图事件（来自全局快捷键）
+  listen('manual-screenshot', async () => {
+    try {
+      console.log('收到手动截图快捷键事件')
+      const savedId = await invoke<number>('context_manual_capture_and_save')
+      console.log('✓ 手动截图已保存，ID:', savedId)
+    } catch (error) {
+      console.error('手动截图失败:', error)
+    }
+  }).then(unlisten => {
+    unlistenManualScreenshot = unlisten
+  })
 })
 
 onUnmounted(() => {
@@ -696,6 +712,10 @@ onUnmounted(() => {
   // 移除久坐提醒事件监听
   if (unlistenSedentary) {
     unlistenSedentary()
+  }
+  // 移除手动截图事件监听
+  if (unlistenManualScreenshot) {
+    unlistenManualScreenshot()
   }
 })
 </script>

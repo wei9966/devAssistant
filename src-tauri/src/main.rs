@@ -1148,31 +1148,8 @@ fn main() {
                 }
             });
 
-            // 自动初始化文件索引
-            let app_handle_for_index = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                // 延迟启动，确保其他服务先初始化完成
-                tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-
-                log_runtime("[文件索引] 启动自动初始化...");
-
-                // 从 app_handle 获取 FileIndexState
-                if let Some(file_index_state) = app_handle_for_index.try_state::<FileIndexState>() {
-                    match commands::file_index_commands::auto_init_file_index(
-                        app_handle_for_index.clone(),
-                        &file_index_state,
-                    ).await {
-                        Ok(msg) => {
-                            log_runtime(&format!("[文件索引] 自动初始化完成: {}", msg));
-                        }
-                        Err(e) => {
-                            log_runtime(&format!("[文件索引] 自动初始化失败: {}", e));
-                        }
-                    }
-                } else {
-                    log_runtime("[文件索引] 无法获取 FileIndexState，跳过自动初始化");
-                }
-            });
+            // 文件索引改为手动触发，不再自动初始化
+            // 用户可通过界面上的索引按钮手动触发索引
 
             Ok(())
         })
@@ -1400,6 +1377,7 @@ fn main() {
             commands::context_commands::context_stop_capture,
             commands::context_commands::context_get_status,
             commands::context_commands::context_capture_once,
+            commands::context_commands::context_manual_capture_and_save,
             commands::context_commands::context_update_config,
             commands::context_commands::context_get_config,
             commands::context_commands::context_reset_daily_stats,
@@ -1441,6 +1419,7 @@ fn main() {
             commands::system_commands::log_update_info,
             commands::system_commands::get_device_info,
             commands::system_commands::get_app_version,
+            commands::system_commands::restart_as_admin,
             // 提示词相关命令
             commands::prompt_commands::get_prompt_config,
             commands::prompt_commands::save_prompt_config,

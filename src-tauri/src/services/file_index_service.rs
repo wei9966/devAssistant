@@ -67,11 +67,12 @@ impl FileIndexService {
     pub fn init_db(&self) -> Result<(), String> {
         let conn = self.get_connection()?;
 
-        // 创建文件索引表
+        // 创建文件索引表（添加 name_lower 列用于快速搜索）
         conn.execute(
             "CREATE TABLE IF NOT EXISTS file_index (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
+                name_lower TEXT NOT NULL,
                 path TEXT NOT NULL UNIQUE,
                 size INTEGER NOT NULL DEFAULT 0,
                 modified_time TEXT,
@@ -84,9 +85,37 @@ impl FileIndexService {
         )
         .map_err(|e| format!("创建文件索引表失败: {}", e))?;
 
+        // 创建 FTS5 全文搜索虚拟表（用于快速模糊搜索）
+        conn.execute(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS file_index_fts USING fts5(
+                name,
+                path,
+                content='file_index',
+                content_rowid='id',
+                tokenize='unicode61 remove_diacritics 1'
+            )",
+            [],
+        )
+        .map_err(|e| format!("创建 FTS5 索引失败: {}", e))?;
+
+        // 创建触发器以保持 FTS 索引同步
+        conn.execute_batch(
+            "CREATE TRIGGER IF NOT EXISTS file_index_ai AFTER INSERT ON file_index BEGIN
+                INSERT INTO file_index_fts(rowid, name, path) VALUES (new.id, new.name, new.path);
+            END;
+            CREATE TRIGGER IF NOT EXISTS file_index_ad AFTER DELETE ON file_index BEGIN
+                INSERT INTO file_index_fts(file_index_fts, rowid, name, path) VALUES('delete', old.id, old.name, old.path);
+            END;
+            CREATE TRIGGER IF NOT EXISTS file_index_au AFTER UPDATE ON file_index BEGIN
+                INSERT INTO file_index_fts(file_index_fts, rowid, name, path) VALUES('delete', old.id, old.name, old.path);
+                INSERT INTO file_index_fts(rowid, name, path) VALUES (new.id, new.name, new.path);
+            END;"
+        )
+        .map_err(|e| format!("创建 FTS 触发器失败: {}", e))?;
+
         // 创建索引以加速搜索
         conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_file_index_name ON file_index(name)",
+            "CREATE INDEX IF NOT EXISTS idx_file_index_name_lower ON file_index(name_lower)",
             [],
         )
         .map_err(|e| format!("创建名称索引失败: {}", e))?;
@@ -137,13 +166,15 @@ impl FileIndexService {
 
         {
             let mut stmt = tx.prepare(
-                "INSERT OR REPLACE INTO file_index (name, path, size, modified_time, is_dir, file_type, drive, indexed_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))"
+                "INSERT OR REPLACE INTO file_index (name, name_lower, path, size, modified_time, is_dir, file_type, drive, indexed_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))"
             ).map_err(|e| format!("准备插入语句失败: {}", e))?;
 
             for file in &files {
+                let name_lower = file.name.to_lowercase();
                 match stmt.execute(params![
                     file.name,
+                    name_lower,
                     file.path,
                     file.size as i64,
                     file.modified_time,
@@ -165,23 +196,257 @@ impl FileIndexService {
         Ok(inserted_count)
     }
 
-    /// 搜索文件（模糊匹配文件名）
+    /// 启用高性能写入模式（用于批量索引前调用）
+    pub fn enable_fast_write_mode(&self) -> Result<(), String> {
+        let conn = self.get_connection()?;
+        conn.execute_batch(
+            "PRAGMA synchronous = OFF;
+             PRAGMA journal_mode = MEMORY;
+             PRAGMA temp_store = MEMORY;
+             PRAGMA cache_size = -64000;"
+        ).map_err(|e| format!("设置高性能模式失败: {}", e))?;
+        Ok(())
+    }
+
+    /// 恢复正常写入模式（批量索引后调用）
+    pub fn disable_fast_write_mode(&self) -> Result<(), String> {
+        let conn = self.get_connection()?;
+        conn.execute_batch(
+            "PRAGMA synchronous = NORMAL;
+             PRAGMA journal_mode = WAL;"
+        ).map_err(|e| format!("恢复正常模式失败: {}", e))?;
+        Ok(())
+    }
+
+    /// 高性能批量插入（使用多值 INSERT 语法）
+    ///
+    /// 这个方法在同一个数据库连接上：
+    /// 1. 设置高性能 PRAGMA
+    /// 2. 使用多值 INSERT 语法批量插入（一条 SQL 插入多行）
+    ///
+    /// # Arguments
+    /// * `files` - 要插入的文件记录列表
+    ///
+    /// # Returns
+    /// 成功插入的记录数量
+    pub fn batch_insert_optimized(&self, files: Vec<FileIndexRecord>) -> Result<usize, String> {
+        if files.is_empty() {
+            return Ok(0);
+        }
+
+        let mut conn = self.get_connection()?;
+
+        // 在同一连接上设置高性能 PRAGMA
+        conn.execute_batch(
+            "PRAGMA synchronous = OFF;
+             PRAGMA journal_mode = MEMORY;
+             PRAGMA temp_store = MEMORY;
+             PRAGMA cache_size = -64000;
+             PRAGMA locking_mode = EXCLUSIVE;"
+        ).map_err(|e| format!("设置高性能模式失败: {}", e))?;
+
+        let tx = conn.transaction()
+            .map_err(|e| format!("开始事务失败: {}", e))?;
+
+        let mut inserted_count = 0;
+
+        // 使用多值 INSERT 语法，每次插入 500 行
+        // SQLite 对 INSERT 语句有参数数量限制（默认 999），每行 8 个参数，500 * 8 = 4000 > 999
+        // 所以我们使用 100 行每批，100 * 8 = 800 < 999
+        const MULTI_INSERT_BATCH: usize = 100;
+
+        for chunk in files.chunks(MULTI_INSERT_BATCH) {
+            // 构建多值 INSERT 语句
+            let placeholders: Vec<String> = chunk.iter().map(|_| {
+                "(?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))".to_string()
+            }).collect();
+
+            let sql = format!(
+                "INSERT OR REPLACE INTO file_index (name, name_lower, path, size, modified_time, is_dir, file_type, drive, indexed_at) VALUES {}",
+                placeholders.join(", ")
+            );
+
+            // 收集所有参数
+            let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::with_capacity(chunk.len() * 8);
+            for file in chunk {
+                let name_lower = file.name.to_lowercase();
+                params_vec.push(Box::new(file.name.clone()));
+                params_vec.push(Box::new(name_lower));
+                params_vec.push(Box::new(file.path.clone()));
+                params_vec.push(Box::new(file.size as i64));
+                params_vec.push(Box::new(file.modified_time.clone()));
+                params_vec.push(Box::new(file.is_dir as i32));
+                params_vec.push(Box::new(file.file_type.clone()));
+                params_vec.push(Box::new(file.drive.clone()));
+            }
+
+            // 转换为引用切片
+            let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
+
+            match tx.execute(&sql, params_refs.as_slice()) {
+                Ok(count) => inserted_count += count,
+                Err(e) => {
+                    log::warn!("批量插入失败: {}", e);
+                    // 回退到单条插入
+                    let mut stmt = tx.prepare_cached(
+                        "INSERT OR REPLACE INTO file_index (name, name_lower, path, size, modified_time, is_dir, file_type, drive, indexed_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))"
+                    ).map_err(|e| format!("准备插入语句失败: {}", e))?;
+
+                    for file in chunk {
+                        let name_lower = file.name.to_lowercase();
+                        if stmt.execute(params![
+                            file.name,
+                            name_lower,
+                            file.path,
+                            file.size as i64,
+                            file.modified_time,
+                            file.is_dir as i32,
+                            file.file_type,
+                            file.drive
+                        ]).is_ok() {
+                            inserted_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        tx.commit()
+            .map_err(|e| format!("提交事务失败: {}", e))?;
+
+        Ok(inserted_count)
+    }
+
+    /// 重建 FTS 索引（在清空后重建索引时调用）
+    pub fn rebuild_fts_index(&self) -> Result<(), String> {
+        let conn = self.get_connection()?;
+        conn.execute("INSERT INTO file_index_fts(file_index_fts) VALUES('rebuild')", [])
+            .map_err(|e| format!("重建 FTS 索引失败: {}", e))?;
+        Ok(())
+    }
+
+    /// 禁用 FTS 触发器（批量插入前调用，避免每条记录都触发 FTS 更新）
+    pub fn disable_fts_triggers(&self) -> Result<(), String> {
+        let conn = self.get_connection()?;
+        conn.execute_batch(
+            "DROP TRIGGER IF EXISTS file_index_ai;
+             DROP TRIGGER IF EXISTS file_index_ad;
+             DROP TRIGGER IF EXISTS file_index_au;"
+        ).map_err(|e| format!("禁用 FTS 触发器失败: {}", e))?;
+        log::info!("已禁用 FTS 触发器以加速批量插入");
+        Ok(())
+    }
+
+    /// 重新启用 FTS 触发器（批量插入后调用）
+    pub fn enable_fts_triggers(&self) -> Result<(), String> {
+        let conn = self.get_connection()?;
+        conn.execute_batch(
+            "CREATE TRIGGER IF NOT EXISTS file_index_ai AFTER INSERT ON file_index BEGIN
+                INSERT INTO file_index_fts(rowid, name, path) VALUES (new.id, new.name, new.path);
+            END;
+            CREATE TRIGGER IF NOT EXISTS file_index_ad AFTER DELETE ON file_index BEGIN
+                INSERT INTO file_index_fts(file_index_fts, rowid, name, path) VALUES('delete', old.id, old.name, old.path);
+            END;
+            CREATE TRIGGER IF NOT EXISTS file_index_au AFTER UPDATE ON file_index BEGIN
+                INSERT INTO file_index_fts(file_index_fts, rowid, name, path) VALUES('delete', old.id, old.name, old.path);
+                INSERT INTO file_index_fts(rowid, name, path) VALUES (new.id, new.name, new.path);
+            END;"
+        ).map_err(|e| format!("启用 FTS 触发器失败: {}", e))?;
+        log::info!("已重新启用 FTS 触发器");
+        Ok(())
+    }
+
+    /// 从主表重建完整的 FTS 索引（批量插入后调用）
+    ///
+    /// 对于外部内容 FTS5 表，使用 'rebuild' 命令重建索引
+    pub fn rebuild_fts_from_main_table(&self) -> Result<(), String> {
+        let conn = self.get_connection()?;
+
+        log::info!("开始重建 FTS 索引...");
+
+        // 获取总记录数用于日志
+        let total_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM file_index",
+            [],
+            |row| row.get(0)
+        ).map_err(|e| format!("获取记录数失败: {}", e))?;
+
+        log::info!("FTS 索引需要处理 {} 条记录", total_count);
+
+        if total_count == 0 {
+            log::info!("没有记录需要索引");
+            return Ok(());
+        }
+
+        // 对于外部内容 FTS5 表，使用 'rebuild' 命令重建整个索引
+        // 这是 SQLite FTS5 文档推荐的方式
+        conn.execute(
+            "INSERT INTO file_index_fts(file_index_fts) VALUES('rebuild')",
+            []
+        ).map_err(|e| format!("重建 FTS 索引失败: {}", e))?;
+
+        log::info!("FTS 索引重建完成，共 {} 条记录", total_count);
+        Ok(())
+    }
+
+    /// 搜索文件（使用 FTS5 全文搜索，毫秒级响应）
     ///
     /// # Arguments
     /// * `keyword` - 搜索关键词
     /// * `max_results` - 最大结果数量
     ///
     /// # Returns
-    /// 匹配的文件记录列表，按修改时间降序排列
+    /// 匹配的文件记录列表，按相关性排序
     pub fn search(&self, keyword: &str, max_results: usize) -> Result<Vec<FileIndexRecord>, String> {
         let conn = self.get_connection()?;
 
+        // 为 FTS5 构建搜索词（支持前缀匹配）
+        let fts_keyword = format!("\"{}\"*", keyword.replace("\"", "\"\""));
+
+        // 使用 FTS5 搜索，JOIN 回主表获取完整信息
+        let mut stmt = conn.prepare(
+            "SELECT f.id, f.name, f.path, f.size, f.modified_time, f.is_dir, f.file_type, f.drive, f.indexed_at
+             FROM file_index f
+             INNER JOIN file_index_fts fts ON f.id = fts.rowid
+             WHERE file_index_fts MATCH ?
+             ORDER BY rank
+             LIMIT ?"
+        ).map_err(|e| format!("准备 FTS 搜索语句失败: {}", e))?;
+
+        let records = stmt.query_map(params![fts_keyword, max_results as i64], |row| {
+            Ok(FileIndexRecord {
+                id: Some(row.get(0)?),
+                name: row.get(1)?,
+                path: row.get(2)?,
+                size: row.get::<_, i64>(3)? as u64,
+                modified_time: row.get::<_, Option<String>>(4)?.unwrap_or_default(),
+                is_dir: row.get::<_, i32>(5)? != 0,
+                file_type: row.get::<_, Option<String>>(6)?.unwrap_or_default(),
+                drive: row.get(7)?,
+                indexed_at: row.get(8)?,
+            })
+        });
+
+        match records {
+            Ok(iter) => iter.collect::<Result<Vec<_>, _>>()
+                .map_err(|e| format!("读取搜索结果失败: {}", e)),
+            Err(_) => {
+                // FTS 搜索失败，回退到传统 LIKE 搜索（使用 name_lower 列）
+                self.search_fallback(keyword, max_results)
+            }
+        }
+    }
+
+    /// 回退搜索方法（当 FTS 不可用时使用）
+    fn search_fallback(&self, keyword: &str, max_results: usize) -> Result<Vec<FileIndexRecord>, String> {
+        let conn = self.get_connection()?;
         let search_pattern = format!("%{}%", keyword.to_lowercase());
 
         let mut stmt = conn.prepare(
             "SELECT id, name, path, size, modified_time, is_dir, file_type, drive, indexed_at
              FROM file_index
-             WHERE LOWER(name) LIKE ?
+             WHERE name_lower LIKE ?
              ORDER BY modified_time DESC
              LIMIT ?"
         ).map_err(|e| format!("准备搜索语句失败: {}", e))?;
@@ -205,7 +470,7 @@ impl FileIndexService {
             .map_err(|e| format!("读取搜索结果失败: {}", e))
     }
 
-    /// 按驱动器搜索
+    /// 按驱动器搜索（使用 FTS5）
     ///
     /// # Arguments
     /// * `keyword` - 搜索关键词
@@ -213,16 +478,56 @@ impl FileIndexService {
     /// * `max_results` - 最大结果数量
     ///
     /// # Returns
-    /// 匹配的文件记录列表，按修改时间降序排列
+    /// 匹配的文件记录列表
     pub fn search_in_drive(&self, keyword: &str, drive: &str, max_results: usize) -> Result<Vec<FileIndexRecord>, String> {
         let conn = self.get_connection()?;
 
+        // 为 FTS5 构建搜索词
+        let fts_keyword = format!("\"{}\"*", keyword.replace("\"", "\"\""));
+
+        // 使用 FTS5 搜索并过滤驱动器
+        let mut stmt = conn.prepare(
+            "SELECT f.id, f.name, f.path, f.size, f.modified_time, f.is_dir, f.file_type, f.drive, f.indexed_at
+             FROM file_index f
+             INNER JOIN file_index_fts fts ON f.id = fts.rowid
+             WHERE file_index_fts MATCH ? AND f.drive = ?
+             ORDER BY rank
+             LIMIT ?"
+        ).map_err(|e| format!("准备 FTS 搜索语句失败: {}", e))?;
+
+        let records = stmt.query_map(params![fts_keyword, drive, max_results as i64], |row| {
+            Ok(FileIndexRecord {
+                id: Some(row.get(0)?),
+                name: row.get(1)?,
+                path: row.get(2)?,
+                size: row.get::<_, i64>(3)? as u64,
+                modified_time: row.get::<_, Option<String>>(4)?.unwrap_or_default(),
+                is_dir: row.get::<_, i32>(5)? != 0,
+                file_type: row.get::<_, Option<String>>(6)?.unwrap_or_default(),
+                drive: row.get(7)?,
+                indexed_at: row.get(8)?,
+            })
+        });
+
+        match records {
+            Ok(iter) => iter.collect::<Result<Vec<_>, _>>()
+                .map_err(|e| format!("读取搜索结果失败: {}", e)),
+            Err(_) => {
+                // 回退到传统搜索
+                self.search_in_drive_fallback(keyword, drive, max_results)
+            }
+        }
+    }
+
+    /// 回退的驱动器搜索方法
+    fn search_in_drive_fallback(&self, keyword: &str, drive: &str, max_results: usize) -> Result<Vec<FileIndexRecord>, String> {
+        let conn = self.get_connection()?;
         let search_pattern = format!("%{}%", keyword.to_lowercase());
 
         let mut stmt = conn.prepare(
             "SELECT id, name, path, size, modified_time, is_dir, file_type, drive, indexed_at
              FROM file_index
-             WHERE LOWER(name) LIKE ? AND drive = ?
+             WHERE name_lower LIKE ? AND drive = ?
              ORDER BY modified_time DESC
              LIMIT ?"
         ).map_err(|e| format!("准备搜索语句失败: {}", e))?;
@@ -252,12 +557,14 @@ impl FileIndexService {
     /// * `file` - 要添加的文件记录
     pub fn add_file(&self, file: FileIndexRecord) -> Result<(), String> {
         let conn = self.get_connection()?;
+        let name_lower = file.name.to_lowercase();
 
         conn.execute(
-            "INSERT OR REPLACE INTO file_index (name, path, size, modified_time, is_dir, file_type, drive, indexed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))",
+            "INSERT OR REPLACE INTO file_index (name, name_lower, path, size, modified_time, is_dir, file_type, drive, indexed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))",
             params![
                 file.name,
+                name_lower,
                 file.path,
                 file.size as i64,
                 file.modified_time,
@@ -291,13 +598,15 @@ impl FileIndexService {
     /// * `file` - 更新后的文件记录
     pub fn update_file(&self, file: FileIndexRecord) -> Result<(), String> {
         let conn = self.get_connection()?;
+        let name_lower = file.name.to_lowercase();
 
         conn.execute(
             "UPDATE file_index
-             SET name = ?, size = ?, modified_time = ?, is_dir = ?, file_type = ?, indexed_at = datetime('now', 'localtime')
+             SET name = ?, name_lower = ?, size = ?, modified_time = ?, is_dir = ?, file_type = ?, indexed_at = datetime('now', 'localtime')
              WHERE path = ?",
             params![
                 file.name,
+                name_lower,
                 file.size as i64,
                 file.modified_time,
                 file.is_dir as i32,
@@ -360,11 +669,15 @@ impl FileIndexService {
     pub fn clear_index(&self) -> Result<(), String> {
         let conn = self.get_connection()?;
 
+        // 清空主表（触发器会自动同步 FTS 表）
         conn.execute("DELETE FROM file_index", [])
             .map_err(|e| format!("清空索引失败: {}", e))?;
 
         conn.execute("DELETE FROM file_index_meta", [])
             .map_err(|e| format!("清空索引元信息失败: {}", e))?;
+
+        // 重建 FTS 索引以释放空间
+        let _ = conn.execute("INSERT INTO file_index_fts(file_index_fts) VALUES('rebuild')", []);
 
         Ok(())
     }

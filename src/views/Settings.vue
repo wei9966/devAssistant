@@ -209,6 +209,20 @@
                     </div>
                   </div>
 
+                  <div class="setting-item">
+                    <div class="setting-info">
+                      <div class="setting-label">手动截图</div>
+                      <div class="setting-desc">手动触发屏幕采集（VLM视图）</div>
+                    </div>
+                    <div class="shortcut-input">
+                      <n-input
+                        v-model:value="shortcuts.manualScreenshot"
+                        placeholder="如: Ctrl+Shift+P"
+                        @keydown="handleShortcutKeyDown($event, 'manualScreenshot')"
+                      />
+                    </div>
+                  </div>
+
                   <div class="shortcut-tips">
                     <n-alert type="info" :bordered="false">
                       <template #icon>
@@ -961,6 +975,7 @@ const shortcuts = ref({
   quickTask: 'Ctrl+Shift+T',
   clipboardHistory: 'Ctrl+Shift+C',
   copyImagePath: 'Ctrl+Shift+V',
+  manualScreenshot: 'Ctrl+Shift+P',
 });
 
 // 保存原始设置用于重置（放在 settings 和 shortcuts 定义之后）
@@ -1274,6 +1289,7 @@ async function loadShortcuts() {
       quick_task: string;
       clipboard_history: string;
       copy_image_path: string;
+      manual_screenshot: string;
     }>('get_shortcut_config');
 
     shortcuts.value = {
@@ -1283,6 +1299,7 @@ async function loadShortcuts() {
       quickTask: config.quick_task,
       clipboardHistory: config.clipboard_history,
       copyImagePath: config.copy_image_path,
+      manualScreenshot: config.manual_screenshot,
     };
 
     // 保存原始快捷键用于重置
@@ -1305,6 +1322,7 @@ async function saveShortcuts() {
         quick_task: shortcuts.value.quickTask,
         clipboard_history: shortcuts.value.clipboardHistory,
         copy_image_path: shortcuts.value.copyImagePath,
+        manual_screenshot: shortcuts.value.manualScreenshot,
       },
     });
     message.success('快捷键已更新');

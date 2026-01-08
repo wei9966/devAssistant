@@ -28,6 +28,10 @@ pub struct MftFileInfo {
     pub is_directory: bool,
     /// 驱动器盘符
     pub drive_letter: char,
+    /// 文件大小（字节）- 从 MFT $DATA 属性直接获取
+    pub size: u64,
+    /// 修改时间（格式化字符串）- 从 MFT $STANDARD_INFORMATION 属性直接获取
+    pub modified_time: String,
 }
 
 /// MFT 读取器
@@ -139,18 +143,56 @@ mod windows_impl {
 
         /// 读取指定驱动器的所有文件
         ///
+        /// 使用直接解析 $MFT 文件的方式，从 MFT 记录中提取文件大小和修改时间，
+        /// 避免逐文件调用 metadata()，大幅提升索引速度。
+        ///
         /// # Arguments
         /// * `drive_letter` - 驱动器盘符 (如 'C')
         ///
         /// # Returns
-        /// 返回文件信息列表
+        /// 返回文件信息列表（包含 size 和 modified_time）
         pub fn read_drive(drive_letter: char) -> Result<Vec<MftFileInfo>, String> {
             if !Self::check_admin_privilege() {
                 return Err("需要管理员权限才能读取 MFT".to_string());
             }
 
-            let volume_path = format!("\\\\.\\{}:", drive_letter);
-            Self::read_volume(&volume_path, drive_letter)
+            // 优先使用新的直接解析方式
+            match Self::read_drive_direct(drive_letter) {
+                Ok(files) => {
+                    log::info!("驱动器 {}: 使用直接 MFT 解析成功读取 {} 个文件", drive_letter, files.len());
+                    Ok(files)
+                }
+                Err(e) => {
+                    log::warn!("直接 MFT 解析失败: {}, 回退到 USN 枚举方式", e);
+                    // 回退到旧方式
+                    let volume_path = format!("\\\\.\\{}:", drive_letter);
+                    Self::read_volume(&volume_path, drive_letter)
+                }
+            }
+        }
+
+        /// 使用直接解析 $MFT 文件的方式读取
+        fn read_drive_direct(drive_letter: char) -> Result<Vec<MftFileInfo>, String> {
+            use crate::services::mft_parser::{mft_direct_reader::MftDirectReader, MftParser};
+
+            let reader = MftDirectReader::new();
+            let extended_files = reader.read_drive(drive_letter, None)?;
+
+            // 转换为 MftFileInfo 格式
+            let files: Vec<MftFileInfo> = extended_files
+                .into_iter()
+                .map(|f| MftFileInfo {
+                    file_ref_number: f.file_ref_number,
+                    parent_ref_number: f.parent_ref_number,
+                    file_name: f.file_name,
+                    is_directory: f.is_directory,
+                    drive_letter: f.drive_letter,
+                    size: f.size,
+                    modified_time: MftParser::filetime_to_string(f.modification_time),
+                })
+                .collect();
+
+            Ok(files)
         }
 
         /// 读取所有 NTFS 驱动器
@@ -372,6 +414,8 @@ mod windows_impl {
                 file_name,
                 is_directory: (record.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0,
                 drive_letter,
+                size: 0, // USN 记录不包含文件大小，需要后续获取
+                modified_time: "未知".to_string(), // USN 记录不包含修改时间
             })
         }
 
@@ -403,6 +447,8 @@ mod windows_impl {
                 file_name,
                 is_directory: (record.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0,
                 drive_letter,
+                size: 0, // USN 记录不包含文件大小，需要后续获取
+                modified_time: "未知".to_string(), // USN 记录不包含修改时间
             })
         }
 

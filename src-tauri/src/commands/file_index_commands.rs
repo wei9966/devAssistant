@@ -206,6 +206,17 @@ pub async fn start_file_indexing(
     tokio::task::spawn_blocking(move || {
         let runtime = tokio::runtime::Handle::current();
 
+        // 确保数据库表存在（可能被删除或首次创建）
+        if let Err(e) = service.init_db() {
+            log::error!("初始化文件索引数据库失败: {}", e);
+            runtime.block_on(async {
+                let mut is_indexing = is_indexing_flag.lock().await;
+                *is_indexing = false;
+            });
+            return Err(format!("初始化数据库失败: {}", e));
+        }
+        log::info!("数据库表已确认存在");
+
         // 设置线程为低优先级，减少对用户操作的影响
         #[cfg(windows)]
         {
@@ -236,10 +247,11 @@ pub async fn start_file_indexing(
 
         emit_progress("reading", 5, "正在检测可用驱动器...", 0, 0);
 
-        // 读取 MFT - 改为逐个驱动器读取以支持进度更新
+        // 读取 MFT - 使用多线程并行读取多个驱动器
         #[cfg(windows)]
-        let files = {
-            let mut all_files = Vec::new();
+        let files: Vec<crate::services::mft_reader::MftFileInfo> = {
+            use rayon::prelude::*;
+            use std::sync::atomic::{AtomicUsize, Ordering};
 
             // 获取要读取的驱动器列表
             let drive_letters: Vec<char> = if let Some(ref specified_drives) = drives {
@@ -264,34 +276,36 @@ pub async fn start_file_indexing(
                 return Err("未找到可用驱动器".to_string());
             }
 
-            log::info!("准备读取 {} 个驱动器: {:?}", total_drives, drive_letters);
+            log::info!("准备并行读取 {} 个驱动器: {:?}", total_drives, drive_letters);
+            emit_progress("reading", 10, &format!("正在并行读取 {} 个驱动器...", total_drives), 0, total_drives);
 
-            for (i, drive_char) in drive_letters.iter().enumerate() {
-                let progress = 5 + ((i * 25) / total_drives.max(1)) as u32;
-                emit_progress(
-                    "reading",
-                    progress,
-                    &format!("正在读取驱动器 {}:... ({}/{})", drive_char, i + 1, total_drives),
-                    i,
-                    total_drives,
-                );
+            // 使用原子计数器跟踪进度
+            let completed_drives = AtomicUsize::new(0);
 
-                match MftReader::read_drive(*drive_char) {
-                    Ok(files) => {
-                        log::info!("驱动器 {}: 读取到 {} 个文件", drive_char, files.len());
-                        all_files.extend(files);
+            // 并行读取所有驱动器
+            let all_results: Vec<Vec<crate::services::mft_reader::MftFileInfo>> = drive_letters
+                .par_iter()
+                .map(|drive_char| {
+                    match MftReader::read_drive(*drive_char) {
+                        Ok(files) => {
+                            let count = completed_drives.fetch_add(1, Ordering::SeqCst) + 1;
+                            log::info!("驱动器 {}: 读取到 {} 个文件 ({}/{})", drive_char, files.len(), count, total_drives);
+                            files
+                        }
+                        Err(e) => {
+                            completed_drives.fetch_add(1, Ordering::SeqCst);
+                            log::warn!("读取驱动器 {} 失败: {}", drive_char, e);
+                            Vec::new()
+                        }
                     }
-                    Err(e) => {
-                        log::warn!("读取驱动器 {} 失败: {}", drive_char, e);
-                        // 继续读取其他驱动器
-                    }
-                }
+                })
+                .collect();
 
-                // 短暂休眠让出 CPU
-                std::thread::sleep(std::time::Duration::from_millis(10));
-            }
+            // 合并所有结果
+            let total_files: usize = all_results.iter().map(|v| v.len()).sum();
+            log::info!("所有驱动器读取完成，共 {} 个文件", total_files);
 
-            all_files
+            all_results.into_iter().flatten().collect()
         };
 
         #[cfg(not(windows))]
@@ -315,62 +329,100 @@ pub async fn start_file_indexing(
             *msg = Some(format!("正在构建路径 ({} 个文件)...", total_files));
         });
 
-        // 构建完整路径
+        // 构建完整路径 - 使用 HashMap 保留文件信息，使用 Rayon 并行处理
         #[cfg(windows)]
-        let paths = MftReader::build_full_paths(&files);
+        let files_with_paths: Vec<(crate::services::mft_reader::MftFileInfo, String)> = {
+            use std::collections::HashMap;
+            use std::sync::Arc;
+            use rayon::prelude::*;
+
+            // 构建引用号到文件信息的映射（使用 Arc 共享）
+            let ref_map: Arc<HashMap<(char, u64), crate::services::mft_reader::MftFileInfo>> = Arc::new(
+                files
+                    .iter()
+                    .map(|f| ((f.drive_letter, f.file_ref_number & 0x0000FFFFFFFFFFFF), f.clone()))
+                    .collect()
+            );
+
+            // 使用 Rayon 并行构建路径
+            files.par_iter().map(|file| {
+                // 构建完整路径
+                let mut path_parts = vec![file.file_name.clone()];
+                let mut current_parent = file.parent_ref_number & 0x0000FFFFFFFFFFFF;
+                let drive_letter = file.drive_letter;
+
+                let mut depth = 0;
+                const MAX_DEPTH: usize = 100;
+
+                while depth < MAX_DEPTH {
+                    if current_parent == 5 {
+                        break;
+                    }
+                    if let Some(parent_file) = ref_map.get(&(drive_letter, current_parent)) {
+                        path_parts.push(parent_file.file_name.clone());
+                        current_parent = parent_file.parent_ref_number & 0x0000FFFFFFFFFFFF;
+                    } else {
+                        break;
+                    }
+                    depth += 1;
+                }
+
+                path_parts.reverse();
+                let full_path = format!("{}:\\{}", drive_letter, path_parts.join("\\"));
+                (file.clone(), full_path)
+            }).collect()
+        };
 
         #[cfg(not(windows))]
-        let paths: Vec<(String, bool)> = Vec::new();
+        let files_with_paths: Vec<(crate::services::mft_reader::MftFileInfo, String)> = Vec::new();
 
-        emit_progress("indexing", 50, &format!("正在建立索引 ({} 个文件)...", paths.len()), 0, paths.len());
+        emit_progress("indexing", 50, &format!("正在建立索引 ({} 个文件)...", files_with_paths.len()), 0, files_with_paths.len());
 
         runtime.block_on(async {
             let mut msg = progress_message.lock().await;
-            *msg = Some(format!("正在建立索引 ({} 个文件)...", paths.len()));
+            *msg = Some(format!("正在建立索引 ({} 个文件)...", files_with_paths.len()));
         });
+
+        // 禁用 FTS 触发器（关键优化：避免每条记录都触发 FTS 更新）
+        if let Err(e) = service.disable_fts_triggers() {
+            log::warn!("禁用 FTS 触发器失败: {}", e);
+        }
 
         // 清空旧索引
         if let Err(e) = service.clear_index() {
             log::warn!("清空索引失败: {}", e);
         }
 
-        // 批量插入索引 - 使用较小批次降低内存压力
-        let batch_size = 5000;
-        let total_paths = paths.len();
+        // 批量插入索引 - 使用大批次和优化的插入方法
+        let batch_size = 100000; // 使用更大的批次
+        let total_files_count = files_with_paths.len();
         let mut processed = 0;
 
-        for chunk in paths.chunks(batch_size) {
+        // 使用 Rayon 并行准备数据
+        use rayon::prelude::*;
+
+        for chunk in files_with_paths.chunks(batch_size) {
+            // 并行转换数据
             let records: Vec<FileIndexRecord> = chunk
-                .iter()
-                .filter_map(|(path, is_dir)| {
+                .par_iter()
+                .filter_map(|(file_info, path)| {
                     let path_obj = std::path::Path::new(path);
                     let file_name = path_obj.file_name()?.to_string_lossy().to_string();
                     let drive = extract_drive_letter(path)?;
-                    let file_type = if *is_dir {
+                    let file_type = if file_info.is_directory {
                         String::new()
                     } else {
                         path_obj.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default()
                     };
 
-                    // 获取文件元数据（可选，耗时）
-                    let (size, modified_time) = if let Ok(metadata) = std::fs::metadata(path) {
-                        let size = if *is_dir { 0 } else { metadata.len() };
-                        let modified = metadata.modified().ok().map(|t| {
-                            let datetime: chrono::DateTime<chrono::Local> = t.into();
-                            datetime.format("%Y-%m-%d %H:%M:%S").to_string()
-                        }).unwrap_or_else(|| "未知".to_string());
-                        (size, modified)
-                    } else {
-                        (0, "未知".to_string())
-                    };
-
+                    // 直接使用 MFT 解析得到的 size 和 modified_time，无需额外磁盘 I/O
                     Some(FileIndexRecord {
                         id: None,
                         name: file_name,
-                        path: path.clone(),
-                        size,
-                        modified_time,
-                        is_dir: *is_dir,
+                        path: path.to_string(),
+                        size: file_info.size,
+                        modified_time: file_info.modified_time.clone(),
+                        is_dir: file_info.is_directory,
                         file_type,
                         drive,
                         indexed_at: None,
@@ -378,22 +430,34 @@ pub async fn start_file_indexing(
                 })
                 .collect();
 
-            if let Err(e) = service.batch_insert(records) {
+            // 使用优化的批量插入（在同一连接上设置 PRAGMA）
+            if let Err(e) = service.batch_insert_optimized(records) {
                 log::warn!("批量插入失败: {}", e);
             }
 
             processed += chunk.len();
-            let progress = 50 + ((processed * 50) / total_paths) as u32;
+            let progress = 50 + ((processed * 46) / total_files_count.max(1)) as u32;
             emit_progress(
                 "indexing",
                 progress,
-                &format!("正在建立索引 ({}/{})...", processed, total_paths),
+                &format!("正在建立索引 ({}/{})...", processed, total_files_count),
                 processed,
-                total_paths,
+                total_files_count,
             );
+        }
 
-            // 每批次后短暂休眠，让出 CPU 时间给其他任务
-            std::thread::sleep(Duration::from_millis(20));
+        // 从主表重建 FTS 索引（分批处理）
+        emit_progress("indexing", 96, "正在构建搜索索引...", total_files_count, total_files_count);
+        if let Err(e) = service.rebuild_fts_from_main_table() {
+            log::error!("重建 FTS 索引失败: {}", e);
+            let _ = app.emit("file-index:error", format!("构建搜索索引失败: {}", e));
+        } else {
+            log::info!("FTS 搜索索引构建成功");
+        }
+
+        // 重新启用 FTS 触发器（用于后续增量更新）
+        if let Err(e) = service.enable_fts_triggers() {
+            log::warn!("重新启用 FTS 触发器失败: {}", e);
         }
 
         // 完成
@@ -404,10 +468,10 @@ pub async fn start_file_indexing(
             *msg = None;
         });
 
-        emit_progress("completed", 100, &format!("索引完成，共 {} 个文件", total_paths), total_paths, total_paths);
-        let _ = app.emit("file-index:completed", total_paths);
+        emit_progress("completed", 100, &format!("索引完成，共 {} 个文件", total_files_count), total_files_count, total_files_count);
+        let _ = app.emit("file-index:completed", total_files_count);
 
-        log::info!("文件索引完成，共 {} 个文件", total_paths);
+        log::info!("文件索引完成，共 {} 个文件", total_files_count);
         Ok(true)
     })
     .await
@@ -441,6 +505,11 @@ pub async fn search_indexed_files(
     let drive_clone = drive.clone();
 
     tokio::task::spawn_blocking(move || {
+        // 确保数据库表存在
+        if let Err(e) = service.init_db() {
+            log::warn!("搜索前初始化数据库失败: {}", e);
+        }
+
         if let Some(d) = drive_clone {
             service.search_in_drive(&keyword_clone, &d, max)
         } else {
@@ -462,6 +531,10 @@ pub async fn get_file_index_stats(
     let service = state.service.clone();
 
     tokio::task::spawn_blocking(move || {
+        // 确保数据库表存在
+        if let Err(e) = service.init_db() {
+            log::warn!("获取统计前初始化数据库失败: {}", e);
+        }
         service.get_stats()
     })
     .await
@@ -574,7 +647,7 @@ pub async fn start_file_watching(
                                 let record = FileIndexRecord {
                                     id: None,
                                     name: file_name.to_string_lossy().to_string(),
-                                    path: path.clone(),
+                                    path: path.to_string(),
                                     size: if metadata.is_dir() { 0 } else { metadata.len() },
                                     modified_time: metadata.modified().ok().map(|t| {
                                         let datetime: chrono::DateTime<chrono::Local> = t.into();
@@ -610,7 +683,7 @@ pub async fn start_file_watching(
                                 let record = FileIndexRecord {
                                     id: None,
                                     name: file_name.to_string_lossy().to_string(),
-                                    path: path.clone(),
+                                    path: path.to_string(),
                                     size: if metadata.is_dir() { 0 } else { metadata.len() },
                                     modified_time: metadata.modified().ok().map(|t| {
                                         let datetime: chrono::DateTime<chrono::Local> = t.into();
@@ -770,6 +843,14 @@ pub fn start_background_indexing(
         return Err("需要管理员权限才能读取 NTFS MFT".to_string());
     }
 
+    // 确保数据库表存在（可能被删除或首次创建）
+    if let Err(e) = service.init_db() {
+        log::error!("后台索引: 初始化文件索引数据库失败: {}", e);
+        emit_progress(&app, "error", 0, &format!("初始化数据库失败: {}", e), 0, 0);
+        return Err(format!("初始化数据库失败: {}", e));
+    }
+    log::info!("后台索引: 数据库表已确认存在");
+
     emit_progress(&app, "reading", 5, "正在读取文件系统...", 0, 0);
 
     // 读取 MFT
@@ -819,47 +900,94 @@ pub fn start_background_indexing(
     log::info!("后台索引: 开始构建路径 ({} 个文件)", total_files);
     emit_progress(&app, "building", 25, &format!("正在构建路径 ({} 个文件)...", total_files), 0, total_files);
 
-    // 构建完整路径
+    // 构建完整路径 - 使用 Rayon 并行处理
     #[cfg(windows)]
-    let paths = MftReader::build_full_paths(&files);
+    let files_with_paths: Vec<(crate::services::mft_reader::MftFileInfo, String)> = {
+        use std::collections::HashMap;
+        use std::sync::Arc;
+        use rayon::prelude::*;
+
+        // 构建引用号到文件信息的映射（使用 Arc 共享）
+        let ref_map: Arc<HashMap<(char, u64), crate::services::mft_reader::MftFileInfo>> = Arc::new(
+            files
+                .iter()
+                .map(|f| ((f.drive_letter, f.file_ref_number & 0x0000FFFFFFFFFFFF), f.clone()))
+                .collect()
+        );
+
+        // 使用 Rayon 并行构建路径
+        files.par_iter().map(|file| {
+            let mut path_parts = vec![file.file_name.clone()];
+            let mut current_parent = file.parent_ref_number & 0x0000FFFFFFFFFFFF;
+            let drive_letter = file.drive_letter;
+
+            let mut depth = 0;
+            const MAX_DEPTH: usize = 100;
+
+            while depth < MAX_DEPTH {
+                if current_parent == 5 {
+                    break;
+                }
+                if let Some(parent_file) = ref_map.get(&(drive_letter, current_parent)) {
+                    path_parts.push(parent_file.file_name.clone());
+                    current_parent = parent_file.parent_ref_number & 0x0000FFFFFFFFFFFF;
+                } else {
+                    break;
+                }
+                depth += 1;
+            }
+
+            path_parts.reverse();
+            let full_path = format!("{}:\\{}", drive_letter, path_parts.join("\\"));
+            (file.clone(), full_path)
+        }).collect()
+    };
 
     #[cfg(not(windows))]
-    let paths: Vec<(String, bool)> = Vec::new();
+    let files_with_paths: Vec<(crate::services::mft_reader::MftFileInfo, String)> = Vec::new();
 
-    emit_progress(&app, "indexing", 35, &format!("正在建立索引 ({} 个文件)...", paths.len()), 0, paths.len());
+    let total_files_count = files_with_paths.len();
+    emit_progress(&app, "indexing", 35, &format!("正在建立索引 ({} 个文件)...", total_files_count), 0, total_files_count);
+
+    // 禁用 FTS 触发器（关键优化：避免每条记录都触发 FTS 更新）
+    if let Err(e) = service.disable_fts_triggers() {
+        log::warn!("后台索引: 禁用 FTS 触发器失败: {}", e);
+    }
 
     // 清空旧索引
     if let Err(e) = service.clear_index() {
         log::warn!("后台索引: 清空索引失败: {}", e);
     }
 
-    // 后台索引使用更小的批次和更长的休眠间隔
-    let batch_size = 3000;
-    let total_paths = paths.len();
+    // 使用大批次和优化的插入方法
+    let batch_size = 100000; // 使用更大的批次
     let mut processed = 0;
-    let progress_report_interval = total_paths / 20; // 每处理 5% 发送一次进度
 
-    for chunk in paths.chunks(batch_size) {
+    // 使用 Rayon 并行准备数据
+    use rayon::prelude::*;
+
+    for chunk in files_with_paths.chunks(batch_size) {
+        // 并行转换数据
         let records: Vec<FileIndexRecord> = chunk
-            .iter()
-            .filter_map(|(path, is_dir)| {
+            .par_iter()
+            .filter_map(|(file_info, path)| {
                 let path_obj = std::path::Path::new(path);
                 let file_name = path_obj.file_name()?.to_string_lossy().to_string();
                 let drive = extract_drive_letter(path)?;
-                let file_type = if *is_dir {
+                let file_type = if file_info.is_directory {
                     String::new()
                 } else {
                     path_obj.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default()
                 };
 
-                // 后台索引跳过元数据获取以加快速度
+                // 直接使用 MFT 解析得到的 size 和 modified_time
                 Some(FileIndexRecord {
                     id: None,
                     name: file_name,
-                    path: path.clone(),
-                    size: 0, // 跳过元数据获取
-                    modified_time: "未知".to_string(),
-                    is_dir: *is_dir,
+                    path: path.to_string(),
+                    size: file_info.size,
+                    modified_time: file_info.modified_time.clone(),
+                    is_dir: file_info.is_directory,
                     file_type,
                     drive,
                     indexed_at: None,
@@ -867,39 +995,49 @@ pub fn start_background_indexing(
             })
             .collect();
 
-        if let Err(e) = service.batch_insert(records) {
+        // 使用优化的批量插入（在同一连接上设置 PRAGMA）
+        if let Err(e) = service.batch_insert_optimized(records) {
             log::warn!("后台索引: 批量插入失败: {}", e);
         }
 
         processed += chunk.len();
-
-        // 发送进度事件
-        if progress_report_interval == 0 || processed % progress_report_interval < batch_size {
-            let percent = 35 + ((processed * 60) / total_paths.max(1)) as u32;
-            emit_progress(
-                &app,
-                "indexing",
-                percent.min(95),
-                &format!("正在建立索引 ({}/{})...", processed, total_paths),
-                processed,
-                total_paths
-            );
-        }
-
-        // 后台索引使用更长的休眠间隔（50ms），进一步降低 CPU 占用
-        std::thread::sleep(Duration::from_millis(50));
+        let percent = 35 + ((processed * 60) / total_files_count.max(1)) as u32;
+        emit_progress(
+            &app,
+            "indexing",
+            percent.min(95),
+            &format!("正在建立索引 ({}/{})...", processed, total_files_count),
+            processed,
+            total_files_count
+        );
     }
 
-    log::info!("后台索引完成，共 {} 个文件", total_paths);
+    // 从主表重建 FTS 索引（分批处理）
+    emit_progress(&app, "indexing", 96, "正在构建搜索索引...", total_files_count, total_files_count);
+    if let Err(e) = service.rebuild_fts_from_main_table() {
+        log::error!("后台索引: 重建 FTS 索引失败: {}", e);
+        if let Some(ref app_handle) = app {
+            let _ = app_handle.emit("file-index:error", format!("构建搜索索引失败: {}", e));
+        }
+    } else {
+        log::info!("后台索引: FTS 搜索索引构建成功");
+    }
+
+    // 重新启用 FTS 触发器（用于后续增量更新）
+    if let Err(e) = service.enable_fts_triggers() {
+        log::warn!("后台索引: 重新启用 FTS 触发器失败: {}", e);
+    }
+
+    log::info!("后台索引完成，共 {} 个文件", total_files_count);
 
     // 发送完成事件
-    emit_progress(&app, "completed", 100, &format!("索引完成，共 {} 个文件", total_paths), total_paths, total_paths);
+    emit_progress(&app, "completed", 100, &format!("索引完成，共 {} 个文件", total_files_count), total_files_count, total_files_count);
 
     if let Some(ref app_handle) = app {
-        let _ = app_handle.emit("file-index:completed", total_paths);
+        let _ = app_handle.emit("file-index:completed", total_files_count);
     }
 
-    Ok(total_paths)
+    Ok(total_files_count)
 }
 
 /// 自动初始化文件索引
@@ -988,78 +1126,10 @@ pub async fn auto_init_file_index(
             return Ok("非 Windows 系统，跳过文件监控".to_string());
         }
     } else {
-        // 没有索引，检查是否有管理员权限
-        log_runtime("[文件索引] 未检测到索引，检查管理员权限...");
-
-        #[cfg(windows)]
-        {
-            let has_admin = MftReader::check_admin_privilege();
-            log_runtime(&format!("[文件索引] 管理员权限: {}", has_admin));
-
-            if has_admin {
-                log_runtime("[文件索引] 准备后台自动建立索引...");
-
-                // 异步后台建立索引（使用低优先级）
-                let app_clone = app.clone();
-                let service = state.service.clone();
-                let is_indexing = state.is_indexing.clone();
-
-                tokio::spawn(async move {
-                    // 延迟启动，让程序有足够时间完成初始化
-                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-
-                    log_runtime("[文件索引] 开始后台索引任务...");
-
-                    // 检查是否已在索引中
-                    {
-                        let mut indexing = is_indexing.lock().await;
-                        if *indexing {
-                            log_runtime("[文件索引] 索引已在进行中，跳过");
-                            return;
-                        }
-                        *indexing = true;
-                    }
-
-                    // 在后台线程执行索引
-                    let service_clone = service.clone();
-                    let app_for_task = app_clone.clone();
-                    let is_indexing_clone = is_indexing.clone();
-
-                    let result = tokio::task::spawn_blocking(move || {
-                        start_background_indexing(service_clone, None, Some(app_for_task))
-                    }).await;
-
-                    // 重置索引状态
-                    {
-                        let mut indexing = is_indexing_clone.lock().await;
-                        *indexing = false;
-                    }
-
-                    match result {
-                        Ok(Ok(count)) => {
-                            log_runtime(&format!("[文件索引] 后台索引完成，共 {} 个文件", count));
-                        }
-                        Ok(Err(e)) => {
-                            log_runtime(&format!("[文件索引] 后台索引失败: {}", e));
-                        }
-                        Err(e) => {
-                            log_runtime(&format!("[文件索引] 后台索引任务执行失败: {}", e));
-                        }
-                    }
-                });
-
-                return Ok("无索引，已启动后台索引任务".to_string());
-            } else {
-                log_runtime("[文件索引] 无管理员权限，跳过自动索引");
-                return Ok("无管理员权限，跳过自动索引".to_string());
-            }
-        }
-
-        #[cfg(not(windows))]
-        {
-            log_runtime("[文件索引] 非 Windows 系统，跳过自动索引");
-            return Ok("非 Windows 系统，跳过自动索引".to_string());
-        }
+        // 没有索引，不再自动建立索引，改为手动触发
+        // 用户可以在文件搜索工具中手动点击"建立索引"按钮
+        log_runtime("[文件索引] 未检测到索引，跳过自动索引（需手动触发）");
+        return Ok("无索引，请手动建立索引".to_string());
     }
 }
 
@@ -1138,7 +1208,7 @@ async fn start_file_watching_internal(
                             let record = FileIndexRecord {
                                 id: None,
                                 name: file_name.to_string_lossy().to_string(),
-                                path: path.clone(),
+                                path: path.to_string(),
                                 size: if metadata.is_dir() { 0 } else { metadata.len() },
                                 modified_time: metadata.modified().ok().map(|t| {
                                     let datetime: chrono::DateTime<chrono::Local> = t.into();
@@ -1173,7 +1243,7 @@ async fn start_file_watching_internal(
                             let record = FileIndexRecord {
                                 id: None,
                                 name: file_name.to_string_lossy().to_string(),
-                                path: path.clone(),
+                                path: path.to_string(),
                                 size: if metadata.is_dir() { 0 } else { metadata.len() },
                                 modified_time: metadata.modified().ok().map(|t| {
                                     let datetime: chrono::DateTime<chrono::Local> = t.into();

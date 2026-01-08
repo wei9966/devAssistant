@@ -298,6 +298,48 @@ pub async fn context_capture_once(
         .map_err(|e| e.to_string())
 }
 
+/// 执行手动截图并保存到数据库（供快捷键调用）
+#[tauri::command]
+pub async fn context_manual_capture_and_save(
+    state: State<'_, ContextManagerState>,
+    batch_state: State<'_, BatchProcessorState>,
+    db: State<'_, DbConnection>,
+) -> Result<i64, String> {
+    // 执行截图
+    let manager = state.get_or_init().await;
+    let context = manager
+        .capture_once_manual()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // 保存到数据库
+    let saved_id = {
+        let conn = db.0.lock().map_err(|e| e.to_string())?;
+        ContextStoreService::save_context(&conn, &context)
+            .map_err(|e| format!("保存截图失败: {}", e))?
+    };
+
+    println!("✓ 手动截图已保存: {} - {:?}, ID: {}", context.captured_at, context.app_name, saved_id);
+
+    // 加入批量处理队列（用于VLM分析）
+    if let Some(ref path) = context.screenshot_path {
+        let db_path = get_db_path();
+        let processor = batch_state.get_or_init(db_path).await;
+        let batch_item = BatchItem {
+            context_id: saved_id,
+            screenshot_path: path.clone(),
+        };
+
+        if let Err(e) = processor.enqueue(batch_item).await {
+            eprintln!("加入批量处理队列失败: {}", e);
+        } else {
+            println!("✓ 手动截图已加入VLM分析队列, ID: {}", saved_id);
+        }
+    }
+
+    Ok(saved_id)
+}
+
 /// 更新上下文采集配置
 #[tauri::command]
 pub async fn context_update_config(

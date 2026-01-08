@@ -44,6 +44,7 @@ pub mod file_search_service;
 pub mod file_index_service;
 pub mod file_watcher;
 pub mod mft_reader;
+pub mod mft_parser;
 
 // 以下模块暂时注释，因为依赖其他额外的crate或有编码问题
 // pub mod git_service;
@@ -97,3 +98,4 @@ pub use file_search_service::{FileSearchResult, FileSearchService};
 pub use file_index_service::{FileIndexRecord, FileIndexService, IndexStats};
 pub use file_watcher::{FileChangeEvent, FileWatcher};
 pub use mft_reader::{MftFileInfo, MftReader};
+pub use mft_parser::{MftParser, MftFileInfoExtended};

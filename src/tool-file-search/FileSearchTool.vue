@@ -1,12 +1,50 @@
 <template>
   <div class="file-search-tool">
-    <!-- 管理员权限提示 -->
-    <div class="admin-notice" v-if="needAdminPermission && initCheckDone && !isIndexing && !adminNoticeDismissed">
+    <!-- 搜索被禁用时显示强制提示（无索引） -->
+    <div class="admin-notice blocking" v-if="searchDisabled">
+      <div class="notice-icon">{{ needAdminPermission ? '🔒' : '📋' }}</div>
+      <div class="notice-content">
+        <div class="notice-title">{{ needAdminPermission ? '需要管理员权限' : '需要建立索引' }}</div>
+        <div class="notice-desc">
+          {{ needAdminPermission
+            ? '文件搜索功能需要管理员权限才能建立索引。请点击下方按钮以管理员身份重启程序。'
+            : '请先点击右上角的刷新按钮建立文件索引，索引完成后即可使用快速搜索功能。'
+          }}
+        </div>
+        <button
+          v-if="needAdminPermission"
+          class="restart-admin-btn"
+          @click="handleRestartAsAdmin"
+          :disabled="isRestarting"
+        >
+          <svg v-if="!isRestarting" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L12 6M12 18L12 22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12L6 12M18 12L22 12M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93"/>
+          </svg>
+          <div v-else class="btn-spinner small"></div>
+          {{ isRestarting ? '正在重启...' : '以管理员身份重启' }}
+        </button>
+        <button
+          v-else
+          class="restart-admin-btn index-btn-primary"
+          @click="handleManualIndex"
+          :disabled="isIndexing"
+        >
+          <svg v-if="!isIndexing" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+          </svg>
+          <div v-else class="btn-spinner small"></div>
+          {{ isIndexing ? '正在索引...' : '开始建立索引' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- 管理员权限提示 - 有索引时的普通提示（可关闭） -->
+    <div class="admin-notice" v-else-if="needAdminPermission && initCheckDone && !isIndexing && !adminNoticeDismissed && hasIndex">
       <div class="notice-icon">⚠️</div>
       <div class="notice-content">
         <div class="notice-title">建议以管理员身份运行</div>
         <div class="notice-desc">
-          当前使用传统搜索模式（较慢）。以管理员身份运行程序可启用 NTFS 快速索引，搜索速度将大幅提升。
+          当前使用已有索引。以管理员身份运行可重建索引并启用实时监控。
         </div>
       </div>
       <button class="notice-dismiss" @click="dismissAdminNotice" title="不再提示">×</button>
@@ -25,8 +63,10 @@
           ref="keywordInputRef"
           type="text"
           v-model="keyword"
-          placeholder="搜索文件、文件夹..."
+          :placeholder="searchDisabled ? '需要管理员权限...' : '搜索文件、文件夹...'"
           class="search-input"
+          :class="{ disabled: searchDisabled }"
+          :disabled="searchDisabled"
           @keydown.enter="handleSearch"
         />
         <!-- 状态指示器 -->
@@ -74,6 +114,20 @@
             </svg>
           </button>
         </div>
+
+        <!-- 重建索引按钮 -->
+        <button
+          class="index-btn"
+          :class="{ indexing: isIndexing }"
+          @click="handleManualIndex"
+          :disabled="isIndexing"
+          :title="isIndexing ? '正在索引...' : (hasIndex ? '重建索引' : '开始索引')"
+        >
+          <svg v-if="!isIndexing" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+          </svg>
+          <div v-else class="btn-spinner"></div>
+        </button>
 
         <!-- 高级选项按钮 -->
         <button class="options-btn" @click="showAdvanced = !showAdvanced" title="高级选项">
@@ -174,7 +228,6 @@
               <th class="col-name">名称</th>
               <th class="col-size">大小</th>
               <th class="col-time">修改时间</th>
-              <th class="col-actions">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -182,8 +235,8 @@
               v-for="(file, index) in filteredResults"
               :key="index"
               :class="{ selected: selectedFile?.path === file.path }"
-              @click="selectFile(file)"
-              @dblclick="openFile(file.path)"
+              @click="handleFileClick(file)"
+              @contextmenu.prevent="showContextMenu($event, file)"
             >
               <td class="col-name">
                 <div class="file-info">
@@ -202,22 +255,6 @@
               <td class="col-time">
                 <span class="file-time">{{ formatDateTime(file.modifiedTime) }}</span>
               </td>
-              <td class="col-actions">
-                <div class="action-btns">
-                  <button class="action-btn primary" @click.stop="openFile(file.path)" title="打开">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                      <polyline points="15 3 21 3 21 9"/>
-                      <line x1="10" y1="14" x2="21" y2="3"/>
-                    </svg>
-                  </button>
-                  <button class="action-btn" @click.stop="openInFolder(file.path)" title="打开文件夹">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                    </svg>
-                  </button>
-                </div>
-              </td>
             </tr>
           </tbody>
         </table>
@@ -231,28 +268,14 @@
         :key="index"
         class="grid-item"
         :class="{ selected: selectedFile?.path === file.path }"
-        @click="selectFile(file)"
-        @dblclick="openFile(file.path)"
+        @click="handleFileClick(file)"
+        @contextmenu.prevent="showContextMenu($event, file)"
       >
         <div class="grid-icon-wrapper" :class="getFileColorClass(file)">
           <span class="grid-icon">{{ getFileIcon(file) }}</span>
         </div>
         <div class="grid-name" :title="file.name">{{ file.name }}</div>
         <div class="grid-size">{{ file.isDir ? '文件夹' : formatFileSize(file.size) }}</div>
-        <div class="grid-actions">
-          <button class="grid-action-btn" @click.stop="openFile(file.path)" title="打开">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/>
-              <line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
-          </button>
-          <button class="grid-action-btn" @click.stop="openInFolder(file.path)" title="打开文件夹">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-            </svg>
-          </button>
-        </div>
       </div>
     </div>
 
@@ -286,6 +309,46 @@
       <div class="loading-spinner"></div>
       <div class="loading-text">正在搜索 "{{ keyword }}"...</div>
     </div>
+
+    <!-- 右键菜单 -->
+    <Teleport to="body">
+      <div
+        v-if="contextMenu.visible"
+        class="context-menu"
+        :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
+        @click.stop
+      >
+        <div class="context-menu-item" @click="handleContextMenuAction('open')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          打开文件
+        </div>
+        <div class="context-menu-item" @click="handleContextMenuAction('folder')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+          打开所在目录
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" @click="handleContextMenuAction('copyPath')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          复制路径
+        </div>
+        <div class="context-menu-item" @click="handleContextMenuAction('copyName')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+          </svg>
+          复制文件名
+        </div>
+      </div>
+    </Teleport>
 
     <!-- 文件详情面板 -->
     <Transition name="slide">
@@ -363,6 +426,7 @@ import {
   onIndexProgress,
   onIndexCompleted,
   onIndexError,
+  restartAsAdmin,
   type IndexStats,
   type IndexProgressEvent,
   type FileIndexRecord
@@ -437,6 +501,21 @@ const selectedDrive = ref('')
 const needAdminPermission = ref(false)
 const initCheckDone = ref(false)
 const adminNoticeDismissed = ref(false)
+const noIndexNoticeDismissed = ref(false)
+const isRestarting = ref(false)
+
+// 右键菜单状态
+const contextMenu = ref({
+  visible: false,
+  x: 0,
+  y: 0,
+  file: null as UnifiedFileResult | null
+})
+
+// 搜索是否被禁用（没有索引时禁用搜索，必须先建立索引）
+const searchDisabled = computed(() => {
+  return initCheckDone.value && !hasIndex.value && !isIndexing.value
+})
 
 // 事件监听器
 let unlistenProgress: UnlistenFn | null = null
@@ -533,16 +612,17 @@ async function initialize() {
       console.error('索引错误:', error)
     })
 
-    if (!hasIndex.value && !isIndexing.value && !needAdminPermission.value) {
-      autoStartIndexing()
-    }
+    // 不再自动索引，等待用户手动触发
   } catch (error) {
     console.error('初始化文件索引状态失败:', error)
     initCheckDone.value = true
   }
 }
 
-async function autoStartIndexing() {
+// 手动触发索引
+async function handleManualIndex() {
+  if (isIndexing.value) return
+
   try {
     isIndexing.value = true
     indexProgress.value = { stage: 'starting', progress: 0, message: '准备中...', processed: 0, total: 0 }
@@ -553,8 +633,11 @@ async function autoStartIndexing() {
     const errStr = error.toString()
     if (errStr.includes('管理员') || errStr.includes('admin') || errStr.includes('privilege')) {
       needAdminPermission.value = true
+      await message('需要管理员权限才能使用快速索引功能。请以管理员身份运行程序。', { title: '权限不足', kind: 'warning' })
+    } else {
+      await message(`索引失败: ${errStr}`, { title: '索引错误', kind: 'error' })
     }
-    console.error('自动索引失败:', error)
+    console.error('手动索引失败:', error)
   }
 }
 
@@ -562,7 +645,31 @@ function dismissAdminNotice() {
   adminNoticeDismissed.value = true
 }
 
+function dismissNoIndexNotice() {
+  noIndexNoticeDismissed.value = true
+}
+
+// 以管理员身份重启应用
+async function handleRestartAsAdmin() {
+  if (isRestarting.value) return
+
+  isRestarting.value = true
+  try {
+    await restartAsAdmin()
+  } catch (error: any) {
+    isRestarting.value = false
+    console.error('重启失败:', error)
+    await message(`以管理员身份重启失败: ${error}`, { title: '错误', kind: 'error' })
+  }
+}
+
 async function handleSearch() {
+  // 搜索被禁用时不执行
+  if (searchDisabled.value) {
+    await message('需要管理员权限才能使用文件搜索功能。请点击"以管理员身份重启"按钮。', { title: '权限不足', kind: 'warning' })
+    return
+  }
+
   const trimmedKeyword = keyword.value.trim()
   if (!trimmedKeyword || trimmedKeyword.length < 2) {
     return
@@ -636,6 +743,50 @@ function normalizeWalkdirResult(result: FileSearchResult): UnifiedFileResult {
 
 function selectFile(file: UnifiedFileResult) {
   selectedFile.value = selectedFile.value?.path === file.path ? null : file
+}
+
+// 单击打开文件
+function handleFileClick(file: UnifiedFileResult) {
+  openFile(file.path)
+}
+
+// 显示右键菜单
+function showContextMenu(event: MouseEvent, file: UnifiedFileResult) {
+  contextMenu.value = {
+    visible: true,
+    x: event.clientX,
+    y: event.clientY,
+    file
+  }
+  selectedFile.value = file
+}
+
+// 隐藏右键菜单
+function hideContextMenu() {
+  contextMenu.value.visible = false
+}
+
+// 处理右键菜单操作
+async function handleContextMenuAction(action: string) {
+  const file = contextMenu.value.file
+  hideContextMenu()
+
+  if (!file) return
+
+  switch (action) {
+    case 'open':
+      await openFile(file.path)
+      break
+    case 'folder':
+      await openInFolder(file.path)
+      break
+    case 'copyPath':
+      await navigator.clipboard.writeText(file.path)
+      break
+    case 'copyName':
+      await navigator.clipboard.writeText(file.name)
+      break
+  }
 }
 
 async function openFile(path: string) {
@@ -741,6 +892,9 @@ onMounted(() => {
   nextTick(() => {
     keywordInputRef.value?.focus()
   })
+  // 全局点击关闭右键菜单
+  document.addEventListener('click', hideContextMenu)
+  document.addEventListener('contextmenu', hideContextMenu)
 })
 
 onUnmounted(() => {
@@ -750,6 +904,8 @@ onUnmounted(() => {
   if (searchDebounceTimer) {
     clearTimeout(searchDebounceTimer)
   }
+  document.removeEventListener('click', hideContextMenu)
+  document.removeEventListener('contextmenu', hideContextMenu)
 })
 </script>
 
@@ -823,6 +979,63 @@ onUnmounted(() => {
   color: var(--warning);
 }
 
+/* 阻断式管理员提示 */
+.admin-notice.blocking {
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error) 30%, transparent);
+}
+
+.admin-notice.blocking .notice-title {
+  color: var(--error);
+  font-size: 14px;
+}
+
+/* 信息提示样式 */
+.admin-notice.info {
+  background: color-mix(in srgb, var(--info) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--info) 30%, transparent);
+}
+
+.admin-notice.info .notice-title {
+  color: var(--info);
+}
+
+.admin-notice.blocking .notice-desc {
+  margin-bottom: 12px;
+}
+
+.restart-admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--error);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.restart-admin-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--error) 40%, transparent);
+}
+
+.restart-admin-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-spinner.small {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
 /* 搜索头部 */
 .search-header {
   display: flex;
@@ -868,6 +1081,14 @@ onUnmounted(() => {
 
 .search-input::placeholder {
   color: var(--text-dim);
+}
+
+.search-input.disabled,
+.search-input:disabled {
+  background: var(--bg-hover);
+  color: var(--text-dim);
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .search-status {
@@ -947,6 +1168,46 @@ onUnmounted(() => {
   background: var(--bg-base);
   color: var(--accent-primary);
   box-shadow: 0 1px 3px color-mix(in srgb, var(--bg-base) 30%, transparent);
+}
+
+.index-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.index-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.index-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.index-btn.indexing {
+  background: color-mix(in srgb, var(--info) 15%, transparent);
+  border-color: var(--info);
+  color: var(--info);
+}
+
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid color-mix(in srgb, var(--info) 30%, transparent);
+  border-top-color: var(--info);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 .options-btn {
@@ -1228,9 +1489,8 @@ onUnmounted(() => {
 }
 
 .col-name { width: auto; }
-.col-size { width: 80px; }
-.col-time { width: 130px; }
-.col-actions { width: 80px; }
+.col-size { width: 100px; }
+.col-time { width: 160px; }
 
 .file-info {
   display: flex;
@@ -1289,41 +1549,6 @@ onUnmounted(() => {
   font-size: 13px;
   color: var(--text-secondary);
   white-space: nowrap;
-}
-
-.action-btns {
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.results-table tbody tr:hover .action-btns {
-  opacity: 1;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: none;
-  background: var(--bg-hover);
-  color: var(--text-secondary);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.action-btn:hover {
-  background: var(--bg-base);
-  color: var(--text-primary);
-}
-
-.action-btn.primary:hover {
-  background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
-  color: var(--accent-primary);
 }
 
 /* 网格视图 */
@@ -1394,39 +1619,6 @@ onUnmounted(() => {
 .grid-size {
   font-size: 11px;
   color: var(--text-dim);
-}
-
-.grid-actions {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.grid-item:hover .grid-actions {
-  opacity: 1;
-}
-
-.grid-action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  background: var(--bg-base);
-  color: var(--text-secondary);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.grid-action-btn:hover {
-  background: var(--accent-primary);
-  color: white;
 }
 
 /* 空状态 */
@@ -1739,5 +1931,63 @@ onUnmounted(() => {
     padding: 6px 12px;
     font-size: 12px;
   }
+}
+</style>
+
+<style>
+/* 右键菜单样式（非 scoped，因为使用 Teleport 到 body） */
+.context-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 180px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  animation: contextMenuFadeIn 0.15s ease;
+}
+
+@keyframes contextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.context-menu-item:hover {
+  background: var(--bg-hover);
+  color: var(--accent-primary);
+}
+
+.context-menu-item svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.context-menu-item:hover svg {
+  opacity: 1;
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: var(--border-default);
+  margin: 4px 8px;
 }
 </style>
