@@ -704,6 +704,7 @@ import { useWeeklyPlanStore } from '@/stores/weeklyPlanStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { aiApi } from '@/api/aiApi';
 import { promptApi } from '@/api/promptApi';
+import { taskApi } from '@/api/taskApi';
 import type { WorkLog, WeeklyPlan } from '@/types/workLog';
 import type { Task } from '@/types/task';
 import { CATEGORY_LABELS } from '@/types/task';
@@ -1321,6 +1322,25 @@ async function handleAiGenerate() {
       return tags ? `${task.title}（${tags}）` : task.title;
     });
 
+    // 获取每个任务的里程碑
+    const taskMilestones: Array<{ taskTitle: string; milestones: string[] }> = [];
+    for (const task of todayCompletedTasks) {
+      if (task.id) {
+        try {
+          const milestones = await taskApi.getTaskMilestones(task.id);
+          if (milestones && milestones.length > 0) {
+            taskMilestones.push({
+              taskTitle: task.title,
+              milestones: milestones.map(m => m.title)
+            });
+          }
+        } catch (e) {
+          // 忽略单个任务获取里程碑失败
+          console.warn(`获取任务 ${task.id} 里程碑失败:`, e);
+        }
+      }
+    }
+
     const executedSqls: string[] = [];
     const gitCommits: string[] = [];
 
@@ -1330,7 +1350,8 @@ async function handleAiGenerate() {
       dateStr,
       completedTasks,
       executedSqls,
-      gitCommits
+      gitCommits,
+      taskMilestones.length > 0 ? taskMilestones : undefined
     );
 
     message.destroyAll();

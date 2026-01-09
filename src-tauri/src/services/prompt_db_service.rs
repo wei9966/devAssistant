@@ -454,22 +454,23 @@ impl PromptDbService {
             "work_log_generate",
             "work_log",
             "工作日志生成",
-            Some("根据任务、SQL、Git提交和屏幕活动生成专业的工作日志"),
+            Some("根据任务、里程碑、SQL、Git提交和屏幕活动生成专业的工作日志"),
             None,
             r####"请将以下工作内容整理成专业的 Markdown 格式工作日志。
 
 日期：{date}
-{tasks_section}{sqls_section}{commits_section}{activity_section}
+{tasks_section}{milestones_section}{sqls_section}{commits_section}{activity_section}
 
 要求：
 1. 直接输出 Markdown 格式，以 "## {date} 工作日志" 开头
 2. 根据内容智能分组，使用 ### 作为分组标题（如：功能开发、Bug修复、代码优化、工作时间等）
 3. 每个任务用 "- " 开头的列表项展示
 4. 如果任务带有标签（括号内容），保留标签信息
-5. 如果有屏幕活动记录，在最后添加 "### 工作时间" 小节简要描述工作时间段和主要使用的工具
-6. 语言简洁专业，不要添加额外的总结或评价
-7. 只输出日志内容，不要输出其他说明文字"####,
-            Some(vec!["date".to_string(), "tasks_section".to_string(), "sqls_section".to_string(), "commits_section".to_string(), "activity_section".to_string()]),
+5. 如果有任务里程碑，在对应任务下展示里程碑细节，体现任务的关键完成节点
+6. 如果有屏幕活动记录，在最后添加 "### 工作时间" 小节简要描述工作时间段和主要使用的工具
+7. 语言简洁专业，不要添加额外的总结或评价
+8. 只输出日志内容，不要输出其他说明文字"####,
+            Some(vec!["date".to_string(), "tasks_section".to_string(), "milestones_section".to_string(), "sqls_section".to_string(), "commits_section".to_string(), "activity_section".to_string()]),
             true,
         )?;
 

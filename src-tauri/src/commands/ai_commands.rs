@@ -262,6 +262,14 @@ pub fn is_ai_enabled(db: State<'_, DbConnection>) -> Result<bool, String> {
     }
 }
 
+/// 任务里程碑输入结构（用于前端传参）
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskMilestoneParam {
+    pub task_title: String,
+    pub milestones: Vec<String>,
+}
+
 /// AI 生成工作日志
 #[tauri::command]
 pub async fn ai_generate_work_log(
@@ -270,8 +278,9 @@ pub async fn ai_generate_work_log(
     completed_tasks: Vec<String>,
     executed_sqls: Vec<String>,
     git_commits: Vec<String>,
+    task_milestones: Option<Vec<TaskMilestoneParam>>,
 ) -> Result<String, String> {
-    use crate::services::ai_service::WorkLogInput;
+    use crate::services::ai_service::{WorkLogInput, TaskMilestoneInput};
 
     // 尝试获取屏幕活动摘要
     let activity_summary = {
@@ -352,18 +361,29 @@ pub async fn ai_generate_work_log(
     }
 
     let service = AiService::new(config);
+
+    // 转换里程碑参数
+    let milestones_input = task_milestones.map(|milestones| {
+        milestones.into_iter().map(|m| TaskMilestoneInput {
+            task_title: m.task_title,
+            milestones: m.milestones,
+        }).collect()
+    });
+
     let input = WorkLogInput {
         date: date.clone(),
         completed_tasks: completed_tasks.clone(),
         executed_sqls: executed_sqls.clone(),
         git_commits: git_commits.clone(),
         activity_summary: activity_summary.clone(),
+        task_milestones: milestones_input.clone(),
     };
 
     let has_activity = activity_summary.is_some();
+    let has_milestones = milestones_input.as_ref().map(|m| !m.is_empty()).unwrap_or(false);
     let prompt = format!(
-        "生成工作日志 - 日期: {}, 任务数: {}, SQL数: {}, 提交数: {}, 含活动摘要: {}",
-        date, completed_tasks.len(), executed_sqls.len(), git_commits.len(), has_activity
+        "生成工作日志 - 日期: {}, 任务数: {}, SQL数: {}, 提交数: {}, 含活动摘要: {}, 含里程碑: {}",
+        date, completed_tasks.len(), executed_sqls.len(), git_commits.len(), has_activity, has_milestones
     );
 
     let start = std::time::Instant::now();

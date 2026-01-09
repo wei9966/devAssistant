@@ -129,6 +129,18 @@ pub struct WorkLogInput {
     pub git_commits: Vec<String>,
     /// 可选的屏幕活动摘要（来自截图回顾）
     pub activity_summary: Option<ActivitySummaryInput>,
+    /// 任务里程碑列表（任务名 -> 里程碑列表）
+    pub task_milestones: Option<Vec<TaskMilestoneInput>>,
+}
+
+/// 任务里程碑输入（用于工作日志生成）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskMilestoneInput {
+    /// 任务标题
+    pub task_title: String,
+    /// 里程碑标题列表
+    pub milestones: Vec<String>,
 }
 
 /// 活动摘要输入（简化版，用于工作日志生成）
@@ -734,6 +746,29 @@ impl AiService {
             String::new()
         };
 
+        // 构建任务里程碑摘要
+        let milestones_section = if let Some(task_milestones) = &input.task_milestones {
+            let milestones_with_content: Vec<_> = task_milestones
+                .iter()
+                .filter(|tm| !tm.milestones.is_empty())
+                .collect();
+
+            if !milestones_with_content.is_empty() {
+                let mut section = String::from("\n\n任务里程碑：");
+                for tm in milestones_with_content {
+                    section.push_str(&format!("\n- {}：", tm.task_title));
+                    for milestone in &tm.milestones {
+                        section.push_str(&format!("\n  - {}", milestone));
+                    }
+                }
+                section
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+
         // 从数据库获取提示词并渲染
         let mut vars = HashMap::new();
         vars.insert("date".to_string(), input.date.clone());
@@ -741,6 +776,7 @@ impl AiService {
         vars.insert("sqls_section".to_string(), sqls_section);
         vars.insert("commits_section".to_string(), commits_section);
         vars.insert("activity_section".to_string(), activity_section);
+        vars.insert("milestones_section".to_string(), milestones_section);
 
         let rendered = PromptDbService::render_prompt_cached("work_log_generate", &vars)
             .map_err(|e| anyhow!("获取提示词失败: {}", e))?;

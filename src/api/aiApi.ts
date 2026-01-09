@@ -34,13 +34,15 @@ export const aiApi = {
     date: string,
     completedTasks: string[],
     executedSqls: string[],
-    gitCommits: string[]
+    gitCommits: string[],
+    taskMilestones?: Array<{ taskTitle: string; milestones: string[] }>
   ): Promise<string> {
     return await invoke('ai_generate_work_log', {
       date,
       completedTasks,
       executedSqls,
       gitCommits,
+      taskMilestones: taskMilestones || null,
     });
   },
 
