@@ -49,6 +49,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 
 const props = defineProps<{
   show: boolean
@@ -85,7 +86,14 @@ function formatDuration(seconds: number): string {
 }
 
 // 关闭处理
-function handleClose() {
+async function handleClose() {
+  // 取消窗口置顶
+  try {
+    const currentWindow = getCurrentWindow()
+    await currentWindow.setAlwaysOnTop(false)
+  } catch (e) {
+    console.error('取消窗口置顶失败:', e)
+  }
   emit('update:show', false)
   emit('close')
 }

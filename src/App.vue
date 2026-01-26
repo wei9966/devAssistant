@@ -663,19 +663,18 @@ onMounted(() => {
     sedentaryWorkDuration.value = event.payload.work_duration
     showSedentaryReminder.value = true
 
-    // 将窗口置顶并获取焦点，确保用户能看到提醒
+    // 强制显示窗口并置顶，确保用户能看到提醒
     try {
       const currentWindow = getCurrentWindow()
+      // 1. 先显示窗口（如果窗口被隐藏到托盘）
+      await currentWindow.show()
+      // 2. 取消最小化状态
+      await currentWindow.unminimize()
+      // 3. 置顶窗口
       await currentWindow.setAlwaysOnTop(true)
+      // 4. 获取焦点
       await currentWindow.setFocus()
-      // 短暂延迟后取消置顶，允许用户切换到其他应用
-      setTimeout(async () => {
-        try {
-          await currentWindow.setAlwaysOnTop(false)
-        } catch (e) {
-          console.error('取消窗口置顶失败:', e)
-        }
-      }, 1000)
+      // 用户确认后再取消置顶（在 SedentaryReminderModal 关闭时处理）
     } catch (e) {
       console.error('设置窗口置顶失败:', e)
     }
