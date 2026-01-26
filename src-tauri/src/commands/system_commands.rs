@@ -322,3 +322,91 @@ fn get_local_ip() -> Option<String> {
 pub fn get_app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
+
+/// 以管理员身份重启应用
+///
+/// 使用 Windows ShellExecuteW 的 "runas" 动词来请求管理员权限
+#[tauri::command]
+pub async fn restart_as_admin(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        use std::ffi::OsStr;
+        use std::iter::once;
+
+        // 获取当前可执行文件路径
+        let exe_path = std::env::current_exe()
+            .map_err(|e| format!("获取程序路径失败: {}", e))?;
+
+        let exe_path_str = exe_path.to_string_lossy().to_string();
+
+        // 转换为宽字符串
+        let operation: Vec<u16> = OsStr::new("runas")
+            .encode_wide()
+            .chain(once(0))
+            .collect();
+
+        let file: Vec<u16> = OsStr::new(&exe_path_str)
+            .encode_wide()
+            .chain(once(0))
+            .collect();
+
+        // 空参数
+        let parameters: Vec<u16> = OsStr::new("")
+            .encode_wide()
+            .chain(once(0))
+            .collect();
+
+        // 空目录（使用默认）
+        let directory: Vec<u16> = OsStr::new("")
+            .encode_wide()
+            .chain(once(0))
+            .collect();
+
+        crash_logger::log_runtime(&format!("[系统] 正在以管理员身份重启: {}", exe_path_str));
+
+        // 调用 ShellExecuteW
+        let result = unsafe {
+            use winapi::um::shellapi::ShellExecuteW;
+            use winapi::um::winuser::SW_SHOWNORMAL;
+
+            ShellExecuteW(
+                std::ptr::null_mut(),
+                operation.as_ptr(),
+                file.as_ptr(),
+                parameters.as_ptr(),
+                directory.as_ptr(),
+                SW_SHOWNORMAL,
+            )
+        };
+
+        // ShellExecuteW 返回值 > 32 表示成功
+        if (result as isize) > 32 {
+            crash_logger::log_runtime("[系统] 管理员进程已启动，正在退出当前进程");
+
+            // 稍微延迟以确保新进程启动
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+            // 退出当前应用
+            app.exit(0);
+
+            Ok(())
+        } else {
+            let error_code = result as isize;
+            let error_msg = match error_code {
+                0 => "内存不足",
+                2 => "文件未找到",
+                3 => "路径未找到",
+                5 => "访问被拒绝",
+                8 => "内存不足",
+                _ => "未知错误",
+            };
+            Err(format!("启动管理员进程失败: {} (错误码: {})", error_msg, error_code))
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        Err("此功能仅支持 Windows 系统".to_string())
+    }
+}

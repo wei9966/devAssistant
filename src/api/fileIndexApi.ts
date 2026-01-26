@@ -217,3 +217,11 @@ export async function onFileChange(
     callback(event.payload)
   })
 }
+
+/**
+ * 以管理员身份重启应用
+ * 会关闭当前应用并以管理员权限重新启动
+ */
+export async function restartAsAdmin(): Promise<void> {
+  await invoke('restart_as_admin')
+}

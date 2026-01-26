@@ -7,13 +7,21 @@ pub struct DbConnection(pub Arc<Mutex<Connection>>);
 /// 初始化数据库连接
 pub fn init_database() -> Result<Connection> {
     let db_path = get_db_path();
+    println!("[DB] 数据库路径: {:?}", db_path);
 
     // 确保目录存在
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent).ok();
     }
 
-    let conn = Connection::open(db_path)?;
+    let conn = Connection::open(&db_path)?;
+
+    // 设置 journal_mode 为 DELETE（而不是 WAL），确保数据立即写入主文件
+    conn.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;")?;
+
+    // 打印当前 journal_mode
+    let journal_mode: String = conn.query_row("PRAGMA journal_mode", [], |row| row.get(0))?;
+    println!("[DB] journal_mode: {}", journal_mode);
 
     // 执行迁移
     crate::db::migrations::run_migrations(&conn)?;

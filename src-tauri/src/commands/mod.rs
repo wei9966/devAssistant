@@ -2,6 +2,7 @@
 // 定义所有Tauri命令
 
 pub mod ai_commands;
+pub mod ai_chat_commands;
 pub mod app_launcher_commands;
 pub mod autostart_commands;
 pub mod clipboard_commands;
@@ -34,3 +35,4 @@ pub mod work_log_commands;
 pub mod tool_commands;
 pub mod file_search_commands;
 pub mod file_index_commands;
+pub mod sedentary_commands;

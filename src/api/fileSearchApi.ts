@@ -30,9 +30,11 @@ export async function searchFiles(
   searchPaths?: string[],
   maxResults?: number
 ): Promise<FileSearchResult[]> {
+  // 当 searchPaths 为空数组时，传 null 让后端使用默认路径
+  const effectivePaths = searchPaths && searchPaths.length > 0 ? searchPaths : null
   return await invoke('search_files', {
     keyword,
-    searchPaths: searchPaths || [],
+    searchPaths: effectivePaths,
     maxResults: maxResults || 500
   })
 }

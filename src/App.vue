@@ -73,7 +73,17 @@
                 <div class="main-content">
                   <!-- Tauri窗口拖拽区域 -->
                   <div data-tauri-drag-region class="drag-region">
-                    <NotificationBell />
+                    <div class="header-actions">
+                      <button class="ai-chat-btn" @click="showAiChatDrawer = true" title="AI 助手">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="ai-icon">
+                          <path d="M12 3C7.5 3 3.75 6 3.75 9.75C3.75 13.5 7.5 16.5 12 16.5C12.5 16.5 13 16.45 13.5 16.38V21L18 16.5C20.25 14.25 21.75 12 21.75 9.75C21.75 6 18 3 12 3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                          <circle cx="8" cy="9.75" r="1" fill="currentColor"/>
+                          <circle cx="12" cy="9.75" r="1" fill="currentColor"/>
+                          <circle cx="16" cy="9.75" r="1" fill="currentColor"/>
+                        </svg>
+                      </button>
+                      <NotificationBell @click="showNotificationDrawer = true" />
+                    </div>
                   </div>
 
                   <div class="content-wrapper">
@@ -125,6 +135,20 @@
               :has-pending-appeal="hasPendingAppeal"
               @appeal-submitted="handleAppealSubmitted"
             />
+
+            <!-- AI 助手抽屉 -->
+            <AiChatDrawer v-model:show="showAiChatDrawer" />
+
+            <!-- 通知中心抽屉 -->
+            <NotificationDrawer v-model:show="showNotificationDrawer" />
+
+            <!-- 久坐提醒弹框 -->
+            <SedentaryReminderModal
+              v-model:show="showSedentaryReminder"
+              :work-duration="sedentaryWorkDuration"
+              :tips="sedentaryTips"
+              @close="handleSedentaryClose"
+            />
           </n-dialog-provider>
         </n-notification-provider>
       </n-message-provider>
@@ -151,7 +175,6 @@ import {
   DocumentTextOutline as SqlIcon,
   BookOutline as LogIcon,
   RocketOutline as LauncherIcon,
-  NotificationsOutline as NotificationIcon,
   SettingsOutline as SettingsIcon,
   PieChartOutline as ReportIcon,
   TimerOutline as TimerIcon,
@@ -162,8 +185,14 @@ import CyberpunkLauncher from '@/components/appLauncher/CyberpunkLauncher.vue'
 import QuickTaskModal from '@/components/QuickTaskModal.vue'
 import CyberpunkSqlModal from '@/components/sql/CyberpunkSqlModal.vue'
 import NotificationBell from '@/components/notification/NotificationBell.vue'
+import NotificationDrawer from '@/components/notification/NotificationDrawer.vue'
+import AiChatDrawer from '@/components/aiChat/AiChatDrawer.vue'
 import UpdateDialog from '@/components/UpdateDialog.vue'
 import BannedOverlay from '@/components/BannedOverlay.vue'
+import SedentaryReminderModal from '@/components/sedentary/SedentaryReminderModal.vue'
+import { sedentaryApi } from '@/api/sedentaryApi'
+import { listen } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
   checkForUpdate,
   setSkippedVersion,
@@ -218,6 +247,12 @@ const showQuickTaskModal = ref(false)
 // 赛博朋克SQL模态框状态
 const showCyberpunkSql = ref(false)
 
+// AI 助手抽屉状态
+const showAiChatDrawer = ref(false)
+
+// 通知中心抽屉状态
+const showNotificationDrawer = ref(false)
+
 // 更新弹框状态
 const showUpdateDialog = ref(false)
 const updateInfo = ref<UpdateInfo>({ available: false })
@@ -229,6 +264,16 @@ const currentUpdate = shallowRef<any>(null)
 const showBannedOverlay = ref(false)
 const bannedReason = ref('')
 const hasPendingAppeal = ref(false)
+
+// 久坐提醒状态
+const showSedentaryReminder = ref(false)
+const sedentaryWorkDuration = ref(0)
+const sedentaryTips = ref<string[]>([
+  '该休息一下啦！起来喝杯水吧',
+  '久坐不利于健康，起来活动活动吧',
+  '眺望远方，让眼睛休息一下',
+  '做几个伸展运动，放松一下肩颈',
+])
 
 // 打开赛博朋克启动器
 const openCyberpunkLauncher = () => {
@@ -468,11 +513,6 @@ const menuOptions: MenuOption[] = [
     icon: () => h(ReportIcon)
   },
   {
-    label: '通知中心',
-    key: 'notification-center',
-    icon: () => h(NotificationIcon)
-  },
-  {
     label: '工具箱',
     key: 'toolbox',
     icon: () => h(ToolboxIcon)
@@ -549,6 +589,36 @@ const handleAppealSubmitted = () => {
   hasPendingAppeal.value = true
 }
 
+// 初始化久坐提醒服务
+const initSedentaryReminder = async () => {
+  try {
+    const config = await sedentaryApi.getConfig()
+    if (config.tips && config.tips.length > 0) {
+      sedentaryTips.value = config.tips
+    }
+    if (config.enabled) {
+      await sedentaryApi.start()
+    }
+  } catch (error) {
+    console.error('初始化久坐提醒失败:', error)
+  }
+}
+
+// 处理久坐提醒关闭
+const handleSedentaryClose = async () => {
+  try {
+    await sedentaryApi.resetTimer()
+  } catch (error) {
+    console.error('重置久坐计时器失败:', error)
+  }
+}
+
+// 久坐提醒事件监听器
+let unlistenSedentary: (() => void) | null = null
+
+// 手动截图事件监听器
+let unlistenManualScreenshot: (() => void) | null = null
+
 onMounted(() => {
   // 从后端加载主题设置
   loadThemeFromBackend()
@@ -582,6 +652,49 @@ onMounted(() => {
   updateCheckInterval = window.setInterval(() => {
     checkAppUpdate(true) // 定时器触发时强制检查
   }, UPDATE_CHECK_INTERVAL)
+
+  // 初始化久坐提醒（延迟3秒，等待应用初始化完成）
+  setTimeout(() => {
+    initSedentaryReminder()
+  }, 3000)
+
+  // 监听久坐提醒事件
+  listen<{ work_duration: number }>('sedentary-reminder', async (event) => {
+    sedentaryWorkDuration.value = event.payload.work_duration
+    showSedentaryReminder.value = true
+
+    // 将窗口置顶并获取焦点，确保用户能看到提醒
+    try {
+      const currentWindow = getCurrentWindow()
+      await currentWindow.setAlwaysOnTop(true)
+      await currentWindow.setFocus()
+      // 短暂延迟后取消置顶，允许用户切换到其他应用
+      setTimeout(async () => {
+        try {
+          await currentWindow.setAlwaysOnTop(false)
+        } catch (e) {
+          console.error('取消窗口置顶失败:', e)
+        }
+      }, 1000)
+    } catch (e) {
+      console.error('设置窗口置顶失败:', e)
+    }
+  }).then(unlisten => {
+    unlistenSedentary = unlisten
+  })
+
+  // 监听手动截图事件（来自全局快捷键）
+  listen('manual-screenshot', async () => {
+    try {
+      console.log('收到手动截图快捷键事件')
+      const savedId = await invoke<number>('context_manual_capture_and_save')
+      console.log('✓ 手动截图已保存，ID:', savedId)
+    } catch (error) {
+      console.error('手动截图失败:', error)
+    }
+  }).then(unlisten => {
+    unlistenManualScreenshot = unlisten
+  })
 })
 
 onUnmounted(() => {
@@ -596,6 +709,14 @@ onUnmounted(() => {
   window.removeEventListener('open-cyberpunk-launcher', handleOpenLauncher)
   window.removeEventListener('open-quick-task-modal', handleOpenQuickTask)
   window.removeEventListener('open-cyberpunk-sql', handleOpenSqlModal)
+  // 移除久坐提醒事件监听
+  if (unlistenSedentary) {
+    unlistenSedentary()
+  }
+  // 移除手动截图事件监听
+  if (unlistenManualScreenshot) {
+    unlistenManualScreenshot()
+  }
 })
 </script>
 
@@ -860,6 +981,40 @@ onUnmounted(() => {
 .drag-region > * {
   -webkit-app-region: no-drag;
   app-region: no-drag;
+}
+
+/* 右上角操作按钮区域 */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* AI 助手按钮 */
+.ai-chat-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.ai-chat-btn:hover {
+  background: var(--accent-primary);
+  color: white;
+  transform: scale(1.05);
+  box-shadow: var(--shadow-glow);
+}
+
+.ai-chat-btn .ai-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .content-wrapper {

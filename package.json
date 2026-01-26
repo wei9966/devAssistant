@@ -1,6 +1,6 @@
 {
   "name": "dev-assistant",
-  "version": "1.1.2",
+  "version": "1.1.5",
   "description": "DevAssistant - 个人开发效率工具",
   "type": "module",
   "scripts": {
@@ -19,6 +19,7 @@
     "@tauri-apps/plugin-shell": "^2.0.0",
     "@tauri-apps/plugin-updater": "^2.0.0",
     "@tauri-apps/plugin-process": "^2.0.0",
+    "@tauri-apps/plugin-http": "^2.0.0",
     "@vicons/ionicons5": "^0.13.0",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.0",

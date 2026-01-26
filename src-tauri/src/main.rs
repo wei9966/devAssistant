@@ -26,6 +26,7 @@ use services::ai_service::AiService;
 use services::todo_prediction_service::TodoPredictionService;
 use services::tool_service::ToolService;
 use commands::file_index_commands::FileIndexState;
+use commands::sedentary_commands::SedentaryState;
 use chrono::{Duration, Local, Timelike};
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
@@ -227,6 +228,10 @@ fn main() {
     // 初始化文件索引状态
     let file_index_state = FileIndexState::new();
     log_runtime("文件索引服务已初始化");
+
+    // 初始化久坐提醒状态
+    let sedentary_state = SedentaryState::new();
+    log_runtime("久坐提醒服务已初始化");
 
     // 获取数据库路径
     let db_path = match dirs::data_local_dir() {
@@ -721,6 +726,7 @@ fn main() {
         .manage(batch_processor_state)
         .manage(tool_service)
         .manage(file_index_state)
+        .manage(sedentary_state)
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -1081,31 +1087,69 @@ fn main() {
                 }
             });
 
-            // 自动初始化文件索引
-            let app_handle_for_index = app.handle().clone();
+            // 自动恢复久坐提醒（如果之前开启了）
+            let app_handle_for_sedentary = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                // 延迟启动，确保其他服务先初始化完成
-                tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                // 延迟启动，确保所有服务初始化完成
+                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-                log_runtime("[文件索引] 启动自动初始化...");
+                // 获取数据库连接检查设置
+                let db_path = dirs::data_local_dir()
+                    .unwrap_or_else(|| std::path::PathBuf::from("."))
+                    .join("dev-assistant")
+                    .join("dev_assistant.db");
 
-                // 从 app_handle 获取 FileIndexState
-                if let Some(file_index_state) = app_handle_for_index.try_state::<FileIndexState>() {
-                    match commands::file_index_commands::auto_init_file_index(
-                        app_handle_for_index.clone(),
-                        &file_index_state,
-                    ).await {
-                        Ok(msg) => {
-                            log_runtime(&format!("[文件索引] 自动初始化完成: {}", msg));
-                        }
-                        Err(e) => {
-                            log_runtime(&format!("[文件索引] 自动初始化失败: {}", e));
+                if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+                    // 读取久坐提醒配置
+                    let config_json: Option<String> = conn
+                        .query_row(
+                            "SELECT value FROM app_settings WHERE key = 'sedentary_config'",
+                            [],
+                            |row| row.get(0),
+                        )
+                        .ok();
+
+                    if let Some(json) = config_json {
+                        if let Ok(config) = serde_json::from_str::<services::sedentary_reminder_service::SedentaryReminderConfig>(&json) {
+                            if config.enabled {
+                                log::info!("[久坐提醒] 检测到久坐提醒已启用，正在自动恢复...");
+
+                                if let Some(sedentary_state) = app_handle_for_sedentary.try_state::<SedentaryState>() {
+                                    if let Some(_db_state) = app_handle_for_sedentary.try_state::<DbConnection>() {
+                                        // 创建服务
+                                        let service = services::sedentary_reminder_service::SedentaryReminderService::with_config(config);
+
+                                        // 克隆 app handle 用于发送事件
+                                        let app_handle_clone = app_handle_for_sedentary.clone();
+
+                                        // 启动服务
+                                        if let Err(e) = service.start(move |tip, work_duration| {
+                                            if let Err(e) = app_handle_clone.emit("sedentary-reminder", serde_json::json!({
+                                                "tip": tip,
+                                                "timestamp": chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+                                                "work_duration": work_duration,
+                                            })) {
+                                                log::error!("[久坐提醒] 发送事件失败: {}", e);
+                                            }
+                                        }) {
+                                            log::error!("[久坐提醒] 自动恢复失败: {}", e);
+                                        } else {
+                                            // 保存服务实例
+                                            if let Ok(mut guard) = sedentary_state.0.lock() {
+                                                *guard = Some(service);
+                                            }
+                                            log::info!("[久坐提醒] 久坐提醒服务已自动恢复");
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-                } else {
-                    log_runtime("[文件索引] 无法获取 FileIndexState，跳过自动初始化");
                 }
             });
+
+            // 文件索引改为手动触发，不再自动初始化
+            // 用户可通过界面上的索引按钮手动触发索引
 
             Ok(())
         })
@@ -1189,6 +1233,19 @@ fn main() {
             commands::ai_commands::get_ai_log_stats,
             commands::ai_commands::clear_ai_logs,
             commands::ai_commands::save_ai_log,
+            // AI Chat 相关命令
+            commands::ai_chat_commands::ai_assistant_chat,
+            commands::ai_chat_commands::ai_get_dashboard_stats,
+            commands::ai_chat_commands::ai_save_chat_session,
+            commands::ai_chat_commands::ai_get_chat_sessions,
+            commands::ai_chat_commands::ai_delete_chat_session,
+            commands::ai_chat_commands::ai_get_session_messages,
+            commands::ai_chat_commands::ai_save_chat_message,
+            commands::ai_chat_commands::ai_clear_session_messages,
+            commands::ai_chat_commands::ai_get_process_logs,
+            commands::ai_chat_commands::ai_clear_process_logs,
+            commands::ai_chat_commands::ai_reset_conversation_context,
+            commands::ai_chat_commands::ai_get_conversation_stats,
             // VLM 相关命令
             commands::vlm_commands::vlm_save_config,
             commands::vlm_commands::vlm_get_config,
@@ -1320,6 +1377,7 @@ fn main() {
             commands::context_commands::context_stop_capture,
             commands::context_commands::context_get_status,
             commands::context_commands::context_capture_once,
+            commands::context_commands::context_manual_capture_and_save,
             commands::context_commands::context_update_config,
             commands::context_commands::context_get_config,
             commands::context_commands::context_reset_daily_stats,
@@ -1361,6 +1419,7 @@ fn main() {
             commands::system_commands::log_update_info,
             commands::system_commands::get_device_info,
             commands::system_commands::get_app_version,
+            commands::system_commands::restart_as_admin,
             // 提示词相关命令
             commands::prompt_commands::get_prompt_config,
             commands::prompt_commands::save_prompt_config,
@@ -1437,6 +1496,7 @@ fn main() {
             commands::pomodoro_commands::get_active_pomodoro_session,
             commands::pomodoro_commands::get_today_pomodoro_sessions,
             commands::pomodoro_commands::get_task_pomodoro_sessions,
+            commands::pomodoro_commands::get_pomodoro_sessions_range,
             commands::pomodoro_commands::get_pomodoro_focus_apps,
             commands::pomodoro_commands::add_pomodoro_focus_app,
             commands::pomodoro_commands::remove_pomodoro_focus_app,
@@ -1484,6 +1544,13 @@ fn main() {
             commands::file_index_commands::start_file_watching,
             commands::file_index_commands::stop_file_watching,
             commands::file_index_commands::get_available_drives,
+            // 久坐提醒相关命令
+            commands::sedentary_commands::get_sedentary_config,
+            commands::sedentary_commands::save_sedentary_config,
+            commands::sedentary_commands::start_sedentary_reminder,
+            commands::sedentary_commands::stop_sedentary_reminder,
+            commands::sedentary_commands::get_sedentary_status,
+            commands::sedentary_commands::reset_sedentary_timer,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");

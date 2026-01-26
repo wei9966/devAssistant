@@ -1,5 +1,5 @@
 <template>
-  <div class="notification-center">
+  <div class="notification-center" :class="{ 'drawer-mode': mode === 'drawer' }">
     <!-- 顶部标题栏 -->
     <div class="page-header">
       <div class="header-left">
@@ -118,6 +118,18 @@ import { notificationApi } from '@/api/notificationApi'
 import type { Notification, NotificationType } from '@/types/notification'
 import NotificationCard from '@/components/notification/NotificationCard.vue'
 import NotificationSettings from '@/components/notification/NotificationSettings.vue'
+
+// Props
+const props = withDefaults(defineProps<{
+  mode?: 'page' | 'drawer'
+}>(), {
+  mode: 'page'
+})
+
+// Emits
+const emit = defineEmits<{
+  (e: 'close'): void
+}>()
 
 const message = useMessage()
 const dialog = useDialog()
@@ -296,6 +308,13 @@ function formatContent(content?: string): string {
   flex-direction: column;
   height: calc(100vh - 80px);
   gap: 20px;
+}
+
+/* 抽屉模式样式 */
+.notification-center.drawer-mode {
+  height: 100%;
+  padding: 20px;
+  background: var(--bg-base);
 }
 
 /* 顶部标题栏 */

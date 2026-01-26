@@ -415,6 +415,52 @@ impl PomodoroService {
         Ok(sessions)
     }
 
+    /// 获取日期范围内的会话列表
+    pub fn get_sessions_by_date_range(
+        conn: &Connection,
+        start_date: &str,
+        end_date: &str,
+    ) -> Result<Vec<PomodoroSession>> {
+        let start_datetime = format!("{} 00:00:00", start_date);
+        let end_datetime = format!("{} 23:59:59", end_date);
+
+        let mut stmt = conn.prepare(
+            "SELECT id, task_id, duration_minutes, status, phase, focus_goal, ai_suggestion,
+                    actual_focus_seconds, distraction_count, focus_rate, feedback, progress_update,
+                    app_usage, ai_analysis, started_at, paused_at, completed_at, created_at
+             FROM pomodoro_sessions
+             WHERE created_at >= ?1 AND created_at <= ?2
+             ORDER BY created_at DESC",
+        )?;
+
+        let sessions = stmt
+            .query_map(params![start_datetime, end_datetime], |row| {
+                Ok(PomodoroSession {
+                    id: Some(row.get(0)?),
+                    task_id: row.get(1)?,
+                    duration_minutes: row.get(2)?,
+                    status: PomodoroStatus::from_string(&row.get::<_, String>(3)?),
+                    phase: PomodoroPhase::from_string(&row.get::<_, String>(4)?),
+                    focus_goal: row.get(5)?,
+                    ai_suggestion: row.get(6)?,
+                    actual_focus_seconds: row.get(7)?,
+                    distraction_count: row.get(8)?,
+                    focus_rate: row.get(9)?,
+                    feedback: row.get(10)?,
+                    progress_update: row.get(11)?,
+                    app_usage: row.get(12)?,
+                    ai_analysis: row.get(13)?,
+                    started_at: row.get(14)?,
+                    paused_at: row.get(15)?,
+                    completed_at: row.get(16)?,
+                    created_at: row.get(17)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(sessions)
+    }
+
     /// 获取指定任务的会话历史
     pub fn get_task_sessions(conn: &Connection, task_id: i64) -> Result<Vec<PomodoroSession>> {
         let mut stmt = conn.prepare(

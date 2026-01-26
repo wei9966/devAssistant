@@ -1,0 +1,577 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Send, 
+  Settings, 
+  Trash2, 
+  Bot, 
+  User, 
+  CheckCircle2, 
+  Clock, 
+  Database, 
+  FileText, 
+  BarChart3, 
+  Copy, 
+  Check, 
+  ChevronRight, 
+  Calendar,
+  MoreHorizontal,
+  Zap,
+  LayoutGrid,
+  MessageSquare,
+  Search,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  X,
+  History
+} from 'lucide-react';
+
+// --- Mock Data & Constants ---
+
+const MOCK_USER_STATS = {
+  todo_count: 12,
+  weekly_done: 18,
+  today_focus: 145, // minutes
+  date: new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })
+};
+
+const SUGGESTIONS = [
+  { text: "这周我完成了多少任务？", icon: <CheckCircle2 size={14} /> },
+  { text: "搜索关于订单的 SQL", icon: <Database size={14} /> },
+  { text: "生成本周周报", icon: <FileText size={14} /> },
+  { text: "开始 25 分钟番茄钟", icon: <Clock size={14} /> }
+];
+
+const MOCK_HISTORY = [
+  { 
+    label: '今天', 
+    items: [
+      { id: 101, title: '查询本周任务进度' },
+      { id: 102, title: 'SQL 订单查询优化' }
+    ]
+  },
+  { 
+    label: '昨天', 
+    items: [
+      { id: 103, title: '生成周报草稿' },
+      { id: 104, title: 'React 组件调试' }
+    ]
+  },
+  { 
+    label: '更早', 
+    items: [
+      { id: 105, title: 'Docker 环境配置' },
+      { id: 106, title: 'Nginx 反向代理设置' },
+      { id: 107, title: '分析慢查询日志' }
+    ]
+  }
+];
+
+// --- Components ---
+
+const Sidebar = ({ isOpen, currentId, onSelect, onNewChat, onClose }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Filter history based on search
+  const filteredHistory = searchTerm 
+    ? MOCK_HISTORY.map(group => ({
+        ...group,
+        items: group.items.filter(item => item.title.toLowerCase().includes(searchTerm.toLowerCase()))
+      })).filter(group => group.items.length > 0)
+    : MOCK_HISTORY;
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col h-full flex-shrink-0 transition-all duration-300">
+      {/* Sidebar Header */}
+      <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-gray-200 flex items-center gap-2">
+          <History size={16} className="text-indigo-400" />
+          历史记录
+        </h2>
+        <button onClick={onClose} className="text-gray-500 hover:text-gray-300 md:hidden">
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Search & New Chat */}
+      <div className="p-3 space-y-3">
+        <button 
+          onClick={onNewChat}
+          className="w-full flex items-center gap-2 justify-center bg-indigo-600 hover:bg-indigo-500 text-white text-sm py-2 px-4 rounded-lg transition-colors shadow-sm"
+        >
+          <Plus size={16} />
+          新对话
+        </button>
+        
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-2.5 text-gray-500" />
+          <input 
+            type="text" 
+            placeholder="搜索对话..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-gray-800 text-gray-300 text-xs rounded-lg pl-8 pr-3 py-2 border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder:text-gray-600"
+          />
+        </div>
+      </div>
+
+      {/* History List */}
+      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+        {filteredHistory.map((group, gIdx) => (
+          <div key={gIdx}>
+            <div className="px-3 mb-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+              {group.label}
+            </div>
+            <div className="space-y-0.5">
+              {group.items.map((item) => (
+                <div 
+                  key={item.id}
+                  onClick={() => onSelect(item.id)}
+                  className={`group flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-sm transition-colors ${
+                    currentId === item.id 
+                      ? 'bg-gray-800 text-white' 
+                      : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <MessageSquare size={14} className={currentId === item.id ? 'text-indigo-400' : 'text-gray-600 group-hover:text-gray-500'} />
+                    <span className="truncate max-w-[140px]">{item.title}</span>
+                  </div>
+                  {/* Hover Delete Action */}
+                  <button className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-opacity">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* User Info (Bottom) */}
+      <div className="p-4 border-t border-gray-800">
+        <div className="flex items-center gap-3">
+           <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center border border-gray-600">
+             <User size={14} className="text-gray-300"/>
+           </div>
+           <div className="flex-1 min-w-0">
+             <div className="text-xs font-medium text-gray-200 truncate">Developer</div>
+             <div className="text-[10px] text-gray-500 truncate">Pro Plan</div>
+           </div>
+           <Settings size={14} className="text-gray-500 cursor-pointer hover:text-gray-300" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Header = ({ sidebarOpen, setSidebarOpen, onClear }) => (
+  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700/50 bg-gray-900/95 backdrop-blur shadow-sm sticky top-0 z-10 h-16">
+    <div className="flex items-center gap-3">
+      <button 
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+      >
+        {sidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+      </button>
+
+      <div className="h-6 w-px bg-gray-700 mx-1"></div>
+
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <Bot size={18} className="text-white" />
+        </div>
+        <div>
+          <h1 className="font-bold text-gray-100 text-sm tracking-tight">DevAssistant AI</h1>
+          <p className="text-[10px] text-gray-400 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            在线
+          </p>
+        </div>
+      </div>
+    </div>
+    <div className="flex items-center gap-2">
+      <button 
+        onClick={onClear}
+        className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors text-xs flex items-center gap-1"
+        title="清空当前对话"
+      >
+        <Trash2 size={16} />
+        <span className="hidden sm:inline">清空</span>
+      </button>
+    </div>
+  </div>
+);
+
+const TaskCard = ({ quadrant, count, total, color, label }) => {
+  const percentage = Math.min(100, (count / total) * 100);
+  return (
+    <div className="flex flex-col gap-1 mb-3 last:mb-0">
+      <div className="flex justify-between text-xs mb-0.5">
+        <span className="text-gray-300 font-medium">{label}</span>
+        <span className="text-gray-400">{count}个</span>
+      </div>
+      <div className="h-2 w-full bg-gray-700/50 rounded-full overflow-hidden">
+        <div 
+          className={`h-full rounded-full ${color} transition-all duration-1000 ease-out`}
+          style={{ width: `${percentage}%` }}
+        ></div>
+      </div>
+    </div>
+  );
+};
+
+const SqlCard = ({ sql, date, id }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(sql);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="bg-gray-900 rounded-lg border border-gray-700/50 overflow-hidden my-2 group">
+      <div className="flex items-center justify-between px-3 py-2 bg-gray-800/50 border-b border-gray-700/30">
+        <span className="text-xs text-gray-400 font-mono flex items-center gap-1">
+          <Calendar size={12} /> {date}
+        </span>
+        <button 
+          onClick={handleCopy}
+          className="text-xs flex items-center gap-1 text-gray-400 hover:text-white transition-colors"
+        >
+          {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+          {copied ? "已复制" : "复制"}
+        </button>
+      </div>
+      <div className="p-3 overflow-x-auto">
+        <pre className="text-sm font-mono text-blue-300 leading-relaxed whitespace-pre-wrap break-all">
+          {sql}
+        </pre>
+      </div>
+    </div>
+  );
+};
+
+const MessageBubble = ({ message }) => {
+  const isAi = message.sender === 'ai';
+  
+  return (
+    <div className={`flex gap-4 ${isAi ? '' : 'flex-row-reverse'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+      {/* Avatar */}
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-1 shadow-sm ${isAi ? 'bg-indigo-600' : 'bg-gray-700'}`}>
+        {isAi ? <Bot size={18} className="text-white" /> : <User size={18} className="text-gray-200" />}
+      </div>
+
+      {/* Content */}
+      <div className={`flex flex-col max-w-[85%] sm:max-w-[80%] gap-1 ${isAi ? 'items-start' : 'items-end'}`}>
+        <div className={`px-4 py-3 rounded-2xl shadow-sm text-[14px] leading-relaxed whitespace-pre-wrap ${
+          isAi 
+            ? 'bg-gray-800 border border-gray-700/50 text-gray-100 rounded-tl-none' 
+            : 'bg-indigo-600 text-white rounded-tr-none'
+        }`}>
+          {/* Text Content */}
+          {message.content && <div>{message.content}</div>}
+
+          {/* Task Visualization Widget */}
+          {message.type === 'task_summary' && (
+            <div className="mt-4 min-w-[280px] bg-gray-900/50 rounded-xl p-4 border border-gray-700/30">
+              <div className="flex items-center justify-between mb-4 border-b border-gray-700/30 pb-2">
+                <span className="text-sm font-bold text-gray-200 flex items-center gap-2">
+                  <LayoutGrid size={16} className="text-indigo-400" /> 
+                  任务分布
+                </span>
+                <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">
+                  Total: {message.data.total}
+                </span>
+              </div>
+              <TaskCard label="重要紧急" count={3} total={12} color="bg-red-500" />
+              <TaskCard label="重要不紧急" count={5} total={12} color="bg-orange-500" />
+              <TaskCard label="紧急不重要" count={2} total={12} color="bg-yellow-500" />
+              <TaskCard label="不重要不紧急" count={2} total={12} color="bg-emerald-500" />
+              
+              <div className="mt-4 pt-3 border-t border-gray-700/30 text-xs text-gray-400 flex items-center gap-1">
+                <Zap size={12} className="text-yellow-500" />
+                比上周效率提升 20%
+              </div>
+            </div>
+          )}
+
+          {/* SQL Search Widget */}
+          {message.type === 'sql_search' && (
+            <div className="mt-3 w-full">
+               {message.data.results.map((item, idx) => (
+                 <SqlCard key={idx} {...item} />
+               ))}
+               <div className="mt-2 text-xs text-gray-400">
+                 显示 {message.data.results.length} 条最相关的历史记录
+               </div>
+            </div>
+          )}
+
+          {/* Report Widget */}
+          {message.type === 'report' && (
+             <div className="mt-3 bg-gray-50 text-gray-800 rounded-lg p-4 border border-gray-200 text-sm font-mono shadow-inner">
+               <h3 className="font-bold border-b border-gray-300 pb-2 mb-2 text-gray-900 flex items-center gap-2">
+                 <FileText size={16}/> {message.data.title}
+               </h3>
+               
+               <div className="space-y-4">
+                 <div>
+                   <h4 className="font-semibold text-blue-700 mb-1">【已完成工作】</h4>
+                   <ul className="list-disc pl-4 space-y-1 text-gray-700">
+                     {message.data.completed.map((t, i) => <li key={i}>{t}</li>)}
+                   </ul>
+                 </div>
+                 
+                 <div>
+                   <h4 className="font-semibold text-blue-700 mb-1">【时间统计】</h4>
+                    <div className="flex gap-2 flex-wrap">
+                      {message.data.stats.map((s, i) => (
+                        <span key={i} className="bg-white border px-2 py-1 rounded text-xs">{s}</span>
+                      ))}
+                    </div>
+                 </div>
+               </div>
+             </div>
+          )}
+        </div>
+        
+        {/* Timestamp */}
+        <span className="text-[10px] text-gray-500 px-1 opacity-70">
+          {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+export default function DevAssistantChat() {
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [currentSessionId, setCurrentSessionId] = useState(null); // null means new chat
+  const messagesEndRef = useRef(null);
+  
+  const initialMessage = {
+    id: 1,
+    sender: 'ai',
+    content: `👋 你好！我是你的 DevAssistant 助手。\n\n我可以帮你查询任务、搜索 SQL 历史、生成周报或分析工作效率。\n\n试着问我："这周我完成了多少任务？"`,
+    type: 'text'
+  };
+
+  const [messages, setMessages] = useState([initialMessage]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping]);
+
+  const handleSend = async (text = input) => {
+    if (!text.trim()) return;
+
+    // 1. Add User Message
+    const userMsg = { id: Date.now(), sender: 'user', content: text, type: 'text' };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setIsTyping(true);
+
+    // 2. Simulate AI Processing Delay
+    setTimeout(() => {
+      let aiResponse = { 
+        id: Date.now() + 1, 
+        sender: 'ai', 
+        type: 'text',
+        content: "我不太理解这个指令，请尝试问我关于任务或SQL的问题。" 
+      };
+
+      // 3. Simple Mock Logic based on keywords
+      const lowerText = text.toLowerCase();
+      
+      if (lowerText.includes('任务') || lowerText.includes('task') || lowerText.includes('完成')) {
+        aiResponse = {
+          ...aiResponse,
+          type: 'task_summary',
+          content: "这周你完成了 12 个任务，效率不错！\n以下是按象限的任务分布：",
+          data: {
+            total: 12,
+            stats: { q1: 3, q2: 5, q3: 2, q4: 2 }
+          }
+        };
+      } else if (lowerText.includes('sql') || lowerText.includes('查询') || lowerText.includes('订单')) {
+        aiResponse = {
+          ...aiResponse,
+          type: 'sql_search',
+          content: "找到 2 条关于「订单」的相关 SQL 历史：",
+          data: {
+            results: [
+              { id: 1, date: '12-20 14:30', sql: "SELECT u.name, o.* FROM user u \nJOIN orders o ON u.id = o.user_id \nWHERE o.status = 1;" },
+              { id: 2, date: '12-18 09:15', sql: "SELECT * FROM orders WHERE user_id = 123 ORDER BY created_at DESC;" }
+            ]
+          }
+        };
+      } else if (lowerText.includes('周报') || lowerText.includes('report') || lowerText.includes('日报')) {
+        aiResponse = {
+          ...aiResponse,
+          type: 'report',
+          content: "好的，基于你的任务记录，我为你整理了本周周报草稿：",
+          data: {
+            title: "工作周报 (12.16 - 12.22)",
+            completed: [
+              "修复器械商下单保存问题 (Bugfix)",
+              "优化数据库查询性能 (Optimization)",
+              "整理工厂排产大屏地址 (Misc)"
+            ],
+            stats: ["总时长: 42h", "编程: 24h", "会议: 8h"]
+          }
+        };
+      } else if (lowerText.includes('番茄') || lowerText.includes('focus') || lowerText.includes('专注')) {
+        aiResponse = {
+          ...aiResponse,
+          content: "🍅 番茄钟已就绪！\n\n已为你设置 25 分钟专注时间。请选择一个关联任务开始计时。",
+        };
+      } else {
+        // Fallback for demo
+        aiResponse = {
+           ...aiResponse,
+           content: `我收到了你的消息："${text}"。\n作为一个演示助手，我目前只能处理右下角「快捷提问」中的场景哦。`
+        }
+      }
+
+      setMessages(prev => [...prev, aiResponse]);
+      setIsTyping(false);
+    }, 1000 + Math.random() * 500); // Random delay 1-1.5s
+  };
+
+  const handleClear = () => {
+    setMessages([
+      {
+        id: Date.now(),
+        sender: 'ai',
+        content: "对话已清空。有什么新任务需要帮忙吗？",
+        type: 'text'
+      }
+    ]);
+  };
+  
+  const handleSelectSession = (id) => {
+      setCurrentSessionId(id);
+      // Simulate loading old messages
+      setMessages([
+          { id: 1, sender: 'user', content: '演示：这里应该加载 ID 为 ' + id + ' 的历史记录...', type: 'text'},
+          { id: 2, sender: 'ai', content: '没错，这里可以对接后端 API 加载真实的历史聊天记录。\n\n现在请点击左上角的 "新对话" 回到主流程。', type: 'text'}
+      ]);
+      if (window.innerWidth < 768) setSidebarOpen(false); // Auto close on mobile
+  };
+
+  const handleNewChat = () => {
+      setCurrentSessionId(null);
+      setMessages([initialMessage]);
+      if (window.innerWidth < 768) setSidebarOpen(false);
+  };
+
+  return (
+    <div className="flex justify-center items-center h-screen bg-gray-950 p-0 sm:p-4 font-sans text-gray-100 overflow-hidden">
+      {/* Main Container - mimicking a desktop app window */}
+      <div className="w-full max-w-6xl bg-gray-800 sm:rounded-2xl shadow-2xl border border-gray-700 overflow-hidden flex h-full sm:h-[800px] max-h-[95vh]">
+        
+        {/* Sidebar */}
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          currentId={currentSessionId}
+          onSelect={handleSelectSession}
+          onNewChat={handleNewChat}
+          onClose={() => setSidebarOpen(false)}
+        />
+
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col min-w-0 bg-gray-900/50">
+            <Header 
+              sidebarOpen={sidebarOpen} 
+              setSidebarOpen={setSidebarOpen} 
+              onClear={handleClear} 
+            />
+
+            {/* Scrollable Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+            {/* Daily Summary Pill */}
+            <div className="flex justify-center my-4">
+                <div className="bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-full px-4 py-1.5 text-[10px] sm:text-xs text-gray-400 flex items-center gap-3">
+                <span>📅 {MOCK_USER_STATS.date}</span>
+                <span className="w-px h-3 bg-gray-600"></span>
+                <span>待办: {MOCK_USER_STATS.todo_count}</span>
+                <span className="w-px h-3 bg-gray-600"></span>
+                <span>专注: {MOCK_USER_STATS.today_focus}m</span>
+                </div>
+            </div>
+
+            {messages.map((msg) => (
+                <MessageBubble key={msg.id} message={msg} />
+            ))}
+
+            {isTyping && (
+                <div className="flex gap-4 animate-pulse">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0 mt-1">
+                        <Bot size={18} className="text-white" />
+                    </div>
+                    <div className="flex items-center gap-1 bg-gray-800 px-4 py-3 rounded-2xl rounded-tl-none border border-gray-700/50">
+                        <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce delay-0"></div>
+                        <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce delay-150"></div>
+                        <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce delay-300"></div>
+                    </div>
+                </div>
+            )}
+            
+            <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Area */}
+            <div className="bg-gray-800 p-4 border-t border-gray-700/50">
+            
+            {/* Quick Actions */}
+            <div className="flex gap-2 overflow-x-auto pb-3 mb-1 scrollbar-hide mask-fade-right">
+                {SUGGESTIONS.map((suggestion, idx) => (
+                <button
+                    key={idx}
+                    onClick={() => handleSend(suggestion.text)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/50 hover:bg-indigo-600/20 hover:text-indigo-300 hover:border-indigo-500/30 border border-gray-600/50 rounded-lg text-xs text-gray-300 transition-all whitespace-nowrap"
+                >
+                    {suggestion.icon}
+                    {suggestion.text}
+                </button>
+                ))}
+            </div>
+
+            {/* Input Box */}
+            <div className="relative">
+                <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                placeholder="输入你想问的..."
+                className="w-full bg-gray-900/50 text-gray-100 border border-gray-600 rounded-xl pl-4 pr-12 py-3.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all placeholder:text-gray-500 text-sm"
+                />
+                <button
+                onClick={() => handleSend()}
+                disabled={!input.trim()}
+                className="absolute right-2 top-2 p-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors shadow-lg shadow-indigo-500/20"
+                >
+                <Send size={18} />
+                </button>
+            </div>
+            
+            <div className="text-center mt-2">
+                <p className="text-[10px] text-gray-500">DevAssistant AI can make mistakes. Check important info.</p>
+            </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  );
+}

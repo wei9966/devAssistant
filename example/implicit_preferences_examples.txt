@@ -1,0 +1,336 @@
+# 隐含偏好提取功能 - 测试示例
+
+## 测试用例集合
+
+### 1. 时间偏好测试
+
+#### 测试用例 1.1：明确表达的习惯
+输入："我一般下午效率高"
+预期输出：
+- context_type: "preference"
+- context_key: "time_preference"
+- time_period: "下午"
+- importance: 8
+日志：[Context Memory] 提取到时间偏好: 下午 (重要性: 8)
+
+#### 测试用例 1.2：早晨习惯
+输入："早上我习惯先处理邮件"
+预期输出：
+- context_type: "preference"
+- context_key: "time_preference"
+- time_period: "早上"
+- importance: 8
+
+#### 测试用例 1.3：喜欢的工作时间
+输入："我喜欢晚上写代码"
+预期输出：
+- context_type: "preference"
+- context_key: "time_preference"
+- time_period: "晚上"
+- importance: 7
+
+#### 测试用例 1.4：隐含的效率高峰
+输入："下午效率最高"
+预期输出：
+- context_type: "preference"
+- context_key: "time_preference"
+- time_period: "下午"
+- importance: 6
+
+---
+
+### 2. 工作模式偏好测试
+
+#### 测试用例 2.1：番茄钟使用习惯
+输入："我习惯用番茄钟"
+预期输出：
+- context_type: "preference"
+- context_key: "work_method_preference"
+- method: "番茄钟"
+- importance: 7
+
+#### 测试用例 2.2：番茄钟时长偏好
+输入："我一般一个番茄钟25分钟"
+预期输出：
+- context_type: "preference"
+- context_key: "pomodoro_duration_preference"
+- method: "番茄钟"
+- duration_minutes: 25
+- importance: 7
+
+#### 测试用例 2.3：工作时长偏好
+输入："专注工作30分钟效率最高"
+预期输出：
+- context_type: "preference"
+- context_key: "pomodoro_duration_preference"
+- duration_minutes: 30
+- importance: 6
+
+#### 测试用例 2.4：任务分块偏好
+输入："我喜欢把任务分成小块"
+预期输出：
+- context_type: "preference"
+- context_key: "work_method_preference"
+- method: "分块"
+- importance: 7
+
+---
+
+### 3. 优先级表达测试
+
+#### 测试用例 3.1：高优先级表达
+输入："这个很重要"
+预期输出：
+- context_type: "preference"
+- context_key: "current_task_priority"
+- priority_level: "high"
+- importance: 8
+
+#### 测试用例 3.2：紧急任务
+输入："必须今天完成"
+预期输出：
+- context_type: "preference"
+- context_key: "current_task_priority"
+- priority_level: "urgent"
+- importance: 9
+
+#### 测试用例 3.3：低优先级表达
+输入："不着急，慢慢来"
+预期输出：
+- context_type: "preference"
+- context_key: "current_task_priority"
+- priority_level: "low"
+- importance: 5
+
+#### 测试用例 3.4：紧急但灵活的表达
+输入："今天必须搞定这个"
+预期输出：
+- context_type: "preference"
+- context_key: "current_task_priority"
+- priority_level: "urgent"
+- importance: 9
+
+---
+
+### 4. 项目关联测试
+
+#### 测试用例 4.1：明确的项目关联
+输入："这是DevAssistant项目的新功能"
+预期输出：
+- context_type: "entity"
+- context_key: "task_project_{hash}"
+- project_name: "DevAssistant"
+- association_type: "current_task"
+- importance: 8
+
+#### 测试用例 4.2：项目相关任务
+输入："XXX项目相关的任务"
+预期输出：
+- context_type: "entity"
+- project_name: "XXX"
+- importance: 6
+
+#### 测试用例 4.3：关联之前的任务
+输入："和上次那个任务有关"
+预期输出：
+- context_type: "entity"
+- association_type: "previous_task"
+- importance: 7
+
+---
+
+### 5. 组合场景测试
+
+#### 测试用例 5.1：时间偏好 + 工作模式
+输入："我一般下午效率高，习惯用番茄钟25分钟"
+预期输出：
+1. time_preference: "下午" (importance: 8)
+2. pomodoro_duration_preference: 25分钟 (importance: 7)
+
+#### 测试用例 5.2：优先级 + 项目关联
+输入："这是DevAssistant项目的，很重要"
+预期输出：
+1. task_project: "DevAssistant" (importance: 8)
+2. current_task_priority: "high" (importance: 8)
+
+#### 测试用例 5.3：完整的任务描述
+输入："创建一个DevAssistant项目的任务，我习惯用番茄钟25分钟，这个很重要，必须今天完成"
+预期输出：
+1. task_project: "DevAssistant" (importance: 8)
+2. pomodoro_duration_preference: 25分钟 (importance: 7)
+3. current_task_priority: "urgent" (importance: 9)
+
+---
+
+### 6. 边界情况测试
+
+#### 测试用例 6.1：无匹配模式
+输入："查看今天的任务"
+预期输出：空数组 []
+
+#### 测试用例 6.2：部分匹配但不完整
+输入："我喜欢工作"
+预期输出：空数组 [] (不足以识别为具体偏好)
+
+#### 测试用例 6.3：包含排除关键词
+输入："这是我的项目"
+预期输出：空数组 [] ("我的"被排除)
+
+#### 测试用例 6.4：多次重复相同偏好
+输入："我习惯用番茄钟，我真的很习惯用番茄钟"
+预期输出：
+- 只提取第一个匹配项（防止重复）
+- work_method_preference: "番茄钟" (importance: 7)
+
+---
+
+## 实际对话场景模拟
+
+### 场景 1：新用户首次对话
+
+**对话 1：**
+用户："我一般下午效率高，你帮我创建一个任务"
+AI 响应：
+- 提取时间偏好：下午 (importance: 8)
+- 保存到数据库
+- 创建任务
+
+**对话 2（一周后）：**
+用户："帮我安排一下今天的任务"
+AI 响应：
+- 读取保存的时间偏好
+- "根据你的习惯，我建议把复杂的任务安排在下午..."
+
+---
+
+### 场景 2：工作模式学习
+
+**对话 1：**
+用户："我习惯用番茄钟，一个番茄钟25分钟"
+AI 响应：
+- 提取工作模式偏好 (importance: 7)
+- 提取番茄钟时长：25分钟 (importance: 7)
+- "明白了，已记录你的番茄钟偏好"
+
+**对话 2：**
+用户："启动番茄钟"
+AI 响应：
+- 读取保存的时长偏好
+- 自动使用25分钟
+- "好的，为你启动25分钟的番茄钟"
+
+---
+
+### 场景 3：优先级理解
+
+**对话 1：**
+用户："创建一个任务：写周报，这个很重要"
+AI 响应：
+- 提取优先级：high (importance: 8)
+- 创建高优先级任务
+- "好的，已创建高优先级任务「写周报」"
+
+**对话 2：**
+用户："创建任务：整理文档，不着急"
+AI 响应：
+- 提取优先级：low (importance: 5)
+- 创建低优先级任务
+- "好的，已创建低优先级任务「整理文档」"
+
+---
+
+### 场景 4：项目关联
+
+**对话 1：**
+用户："这是DevAssistant项目的新功能：添加隐含偏好提取"
+AI 响应：
+- 提取项目关联：DevAssistant (importance: 8)
+- 创建任务并关联项目
+- "好的，已创建DevAssistant项目的任务"
+
+**对话 2：**
+用户："和上次那个任务有关，需要写测试"
+AI 响应：
+- 识别关联之前的任务 (importance: 7)
+- 自动关联到DevAssistant项目
+- "明白，已关联到之前的项目任务"
+
+---
+
+## 测试步骤
+
+### 手动测试
+
+1. 启动应用
+2. 打开 AI 对话界面
+3. 依次输入测试用例
+4. 观察 AI 响应
+5. 检查数据库 `context_memory` 表
+6. 验证后续对话是否利用了保存的偏好
+
+### 查看数据库记录
+
+```sql
+-- 查看所有保存的偏好
+SELECT * FROM context_memory
+WHERE context_type = 'preference'
+ORDER BY importance DESC, created_at DESC;
+
+-- 查看特定类型的偏好
+SELECT * FROM context_memory
+WHERE context_key = 'time_preference';
+
+-- 查看项目关联
+SELECT * FROM context_memory
+WHERE context_type = 'entity' AND context_key LIKE 'task_project_%';
+```
+
+### 日志检查
+
+启动应用时设置环境变量：
+```bash
+RUST_LOG=info cargo run
+```
+
+查找日志中的关键信息：
+```
+[Context Memory] 提取到时间偏好: 下午 (重要性: 8)
+[Context Memory] 提取到工作模式偏好: 番茄钟 (时长: Some(25), 重要性: 7)
+[AI Chat] 💾 保存上下文记忆: time_preference (type=preference, importance=8)
+```
+
+---
+
+## 性能测试
+
+### 测试长消息处理
+输入：包含500字的长消息，其中包含多个偏好表达
+预期：能够正确提取，且处理时间 < 100ms
+
+### 测试高频调用
+连续发送100条消息
+预期：内存占用稳定，无内存泄漏
+
+---
+
+## 调试技巧
+
+### 启用详细日志
+```rust
+log::debug!("[Implicit Prefs] Checking message: {}", user_message);
+log::debug!("[Implicit Prefs] Pattern matched: {:?}", caps);
+```
+
+### 打印中间结果
+```rust
+println!("Extracted preferences: {:?}", preferences);
+```
+
+### 单独测试正则表达式
+```rust
+#[test]
+fn test_regex_patterns() {
+    let pattern = Regex::new(r"我(一般|习惯|通常|喜欢).{0,15}(早上|上午|中午|下午|晚上|深夜)").unwrap();
+    assert!(pattern.is_match("我一般下午效率高"));
+}
+```

@@ -103,6 +103,16 @@ export async function getTaskSessions(taskId: number): Promise<PomodoroSession[]
   return invoke<PomodoroSession[]>('get_task_pomodoro_sessions', { taskId })
 }
 
+/**
+ * 获取日期范围内的会话列表
+ */
+export async function getSessionsRange(
+  startDate: string,
+  endDate: string
+): Promise<PomodoroSession[]> {
+  return invoke<PomodoroSession[]>('get_pomodoro_sessions_range', { startDate, endDate })
+}
+
 // === 白名单应用管理 ===
 
 /**

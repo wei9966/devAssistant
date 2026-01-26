@@ -147,6 +147,17 @@ pub fn get_task_pomodoro_sessions(
     PomodoroService::get_task_sessions(&conn, task_id).map_err(|e| e.to_string())
 }
 
+/// 获取日期范围内的会话列表
+#[tauri::command]
+pub fn get_pomodoro_sessions_range(
+    db: State<DbConnection>,
+    start_date: String,
+    end_date: String,
+) -> Result<Vec<PomodoroSession>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    PomodoroService::get_sessions_by_date_range(&conn, &start_date, &end_date).map_err(|e| e.to_string())
+}
+
 // ==================== 白名单应用管理命令 ====================
 
 /// 获取所有白名单应用

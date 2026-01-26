@@ -47,6 +47,16 @@
   --error: #ef4444;             /* red-500 */
   --info: #3b82f6;              /* blue-500 */
 
+  /* 状态色背景和边框 */
+  --error-bg: rgba(239, 68, 68, 0.15);
+  --error-border: rgba(239, 68, 68, 0.3);
+  --warning-bg: rgba(245, 158, 11, 0.15);
+  --warning-border: rgba(245, 158, 11, 0.3);
+  --success-bg: rgba(16, 185, 129, 0.15);
+  --success-border: rgba(16, 185, 129, 0.3);
+  --info-bg: rgba(59, 130, 246, 0.15);
+  --info-border: rgba(59, 130, 246, 0.3);
+
   /* 边框 */
   --border-default: rgba(51, 65, 85, 0.5);
   --border-hover: rgba(71, 85, 105, 0.7);
@@ -120,6 +130,16 @@
   --error: #ef4444;             /* red-500 */
   --info: #3b82f6;              /* blue-500 */
 
+  /* 状态色背景和边框 */
+  --error-bg: rgba(239, 68, 68, 0.15);
+  --error-border: rgba(239, 68, 68, 0.3);
+  --warning-bg: rgba(245, 158, 11, 0.15);
+  --warning-border: rgba(245, 158, 11, 0.3);
+  --success-bg: rgba(16, 185, 129, 0.15);
+  --success-border: rgba(16, 185, 129, 0.3);
+  --info-bg: rgba(59, 130, 246, 0.15);
+  --info-border: rgba(59, 130, 246, 0.3);
+
   /* 边框 */
   --border-default: rgba(51, 65, 85, 0.5);
   --border-hover: rgba(71, 85, 105, 0.7);
@@ -192,6 +212,16 @@
   --warning: #f59e0b;           /* amber-500 */
   --error: #ef4444;             /* red-500 */
   --info: #3b82f6;              /* blue-500 */
+
+  /* 状态色背景和边框 */
+  --error-bg: rgba(239, 68, 68, 0.1);
+  --error-border: rgba(239, 68, 68, 0.3);
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  --warning-border: rgba(245, 158, 11, 0.3);
+  --success-bg: rgba(16, 185, 129, 0.1);
+  --success-border: rgba(16, 185, 129, 0.3);
+  --info-bg: rgba(59, 130, 246, 0.1);
+  --info-border: rgba(59, 130, 246, 0.3);
 
   /* 边框 */
   --border-default: rgba(203, 213, 225, 0.8);
@@ -268,6 +298,16 @@
   --warning: #ebcb8b;             /* nord13 - 黄色 */
   --error: #bf616a;               /* nord11 - 红色 */
   --info: #5e81ac;                /* nord10 - 蓝色 */
+
+  /* 状态色背景和边框 */
+  --error-bg: rgba(191, 97, 106, 0.15);
+  --error-border: rgba(191, 97, 106, 0.3);
+  --warning-bg: rgba(235, 203, 139, 0.15);
+  --warning-border: rgba(235, 203, 139, 0.3);
+  --success-bg: rgba(163, 190, 140, 0.15);
+  --success-border: rgba(163, 190, 140, 0.3);
+  --info-bg: rgba(94, 129, 172, 0.15);
+  --info-border: rgba(94, 129, 172, 0.3);
 
   /* 边框 */
   --border-default: rgba(76, 86, 106, 0.6);
@@ -349,6 +389,16 @@
   --warning: #b58900;             /* yellow */
   --error: #dc322f;               /* red */
   --info: #268bd2;                /* blue */
+
+  /* 状态色背景和边框 */
+  --error-bg: rgba(220, 50, 47, 0.15);
+  --error-border: rgba(220, 50, 47, 0.3);
+  --warning-bg: rgba(181, 137, 0, 0.15);
+  --warning-border: rgba(181, 137, 0, 0.3);
+  --success-bg: rgba(133, 153, 0, 0.15);
+  --success-border: rgba(133, 153, 0, 0.3);
+  --info-bg: rgba(38, 139, 210, 0.15);
+  --info-border: rgba(38, 139, 210, 0.3);
 
   /* 边框 */
   --border-default: rgba(147, 161, 161, 0.3);

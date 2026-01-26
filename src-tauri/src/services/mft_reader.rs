@@ -26,6 +26,12 @@ pub struct MftFileInfo {
     pub file_name: String,
     /// 是否为目录
     pub is_directory: bool,
+    /// 驱动器盘符
+    pub drive_letter: char,
+    /// 文件大小（字节）- 从 MFT $DATA 属性直接获取
+    pub size: u64,
+    /// 修改时间（格式化字符串）- 从 MFT $STANDARD_INFORMATION 属性直接获取
+    pub modified_time: String,
 }
 
 /// MFT 读取器
@@ -137,18 +143,56 @@ mod windows_impl {
 
         /// 读取指定驱动器的所有文件
         ///
+        /// 使用直接解析 $MFT 文件的方式，从 MFT 记录中提取文件大小和修改时间，
+        /// 避免逐文件调用 metadata()，大幅提升索引速度。
+        ///
         /// # Arguments
         /// * `drive_letter` - 驱动器盘符 (如 'C')
         ///
         /// # Returns
-        /// 返回文件信息列表
+        /// 返回文件信息列表（包含 size 和 modified_time）
         pub fn read_drive(drive_letter: char) -> Result<Vec<MftFileInfo>, String> {
             if !Self::check_admin_privilege() {
                 return Err("需要管理员权限才能读取 MFT".to_string());
             }
 
-            let volume_path = format!("\\\\.\\{}:", drive_letter);
-            Self::read_volume(&volume_path)
+            // 优先使用新的直接解析方式
+            match Self::read_drive_direct(drive_letter) {
+                Ok(files) => {
+                    log::info!("驱动器 {}: 使用直接 MFT 解析成功读取 {} 个文件", drive_letter, files.len());
+                    Ok(files)
+                }
+                Err(e) => {
+                    log::warn!("直接 MFT 解析失败: {}, 回退到 USN 枚举方式", e);
+                    // 回退到旧方式
+                    let volume_path = format!("\\\\.\\{}:", drive_letter);
+                    Self::read_volume(&volume_path, drive_letter)
+                }
+            }
+        }
+
+        /// 使用直接解析 $MFT 文件的方式读取
+        fn read_drive_direct(drive_letter: char) -> Result<Vec<MftFileInfo>, String> {
+            use crate::services::mft_parser::{mft_direct_reader::MftDirectReader, MftParser};
+
+            let reader = MftDirectReader::new();
+            let extended_files = reader.read_drive(drive_letter, None)?;
+
+            // 转换为 MftFileInfo 格式
+            let files: Vec<MftFileInfo> = extended_files
+                .into_iter()
+                .map(|f| MftFileInfo {
+                    file_ref_number: f.file_ref_number,
+                    parent_ref_number: f.parent_ref_number,
+                    file_name: f.file_name,
+                    is_directory: f.is_directory,
+                    drive_letter: f.drive_letter,
+                    size: f.size,
+                    modified_time: MftParser::filetime_to_string(f.modification_time),
+                })
+                .collect();
+
+            Ok(files)
         }
 
         /// 读取所有 NTFS 驱动器
@@ -225,7 +269,7 @@ mod windows_impl {
         }
 
         /// 读取指定卷的 MFT
-        fn read_volume(volume_path: &str) -> Result<Vec<MftFileInfo>, String> {
+        fn read_volume(volume_path: &str, drive_letter: char) -> Result<Vec<MftFileInfo>, String> {
             unsafe {
                 // 打开卷
                 let volume_path_wide: Vec<u16> = OsStr::new(volume_path)
@@ -251,7 +295,7 @@ mod windows_impl {
                     ));
                 }
 
-                let result = Self::enumerate_usn_data(handle);
+                let result = Self::enumerate_usn_data(handle, drive_letter);
 
                 CloseHandle(handle);
 
@@ -260,7 +304,7 @@ mod windows_impl {
         }
 
         /// 枚举 USN 数据
-        unsafe fn enumerate_usn_data(handle: HANDLE) -> Result<Vec<MftFileInfo>, String> {
+        unsafe fn enumerate_usn_data(handle: HANDLE, drive_letter: char) -> Result<Vec<MftFileInfo>, String> {
             let mut files = Vec::new();
 
             // 输出缓冲区 (64KB)
@@ -317,7 +361,7 @@ mod windows_impl {
                     }
 
                     // 根据版本解析记录
-                    if let Some(file_info) = Self::parse_usn_record(record_ptr, &header) {
+                    if let Some(file_info) = Self::parse_usn_record(record_ptr, &header, drive_letter) {
                         files.push(file_info);
                     }
 
@@ -338,16 +382,17 @@ mod windows_impl {
         unsafe fn parse_usn_record(
             record_ptr: *const u8,
             header: &UsnRecordHeader,
+            drive_letter: char,
         ) -> Option<MftFileInfo> {
             match header.major_version {
-                2 => Self::parse_usn_record_v2(record_ptr),
-                3 => Self::parse_usn_record_v3(record_ptr),
+                2 => Self::parse_usn_record_v2(record_ptr, drive_letter),
+                3 => Self::parse_usn_record_v3(record_ptr, drive_letter),
                 _ => None,
             }
         }
 
         /// 解析 USN_RECORD_V2
-        unsafe fn parse_usn_record_v2(record_ptr: *const u8) -> Option<MftFileInfo> {
+        unsafe fn parse_usn_record_v2(record_ptr: *const u8, drive_letter: char) -> Option<MftFileInfo> {
             let record = ptr::read_unaligned(record_ptr as *const UsnRecordV2);
 
             // 提取文件名
@@ -368,11 +413,14 @@ mod windows_impl {
                 parent_ref_number: record.parent_file_reference_number,
                 file_name,
                 is_directory: (record.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0,
+                drive_letter,
+                size: 0, // USN 记录不包含文件大小，需要后续获取
+                modified_time: "未知".to_string(), // USN 记录不包含修改时间
             })
         }
 
         /// 解析 USN_RECORD_V3
-        unsafe fn parse_usn_record_v3(record_ptr: *const u8) -> Option<MftFileInfo> {
+        unsafe fn parse_usn_record_v3(record_ptr: *const u8, drive_letter: char) -> Option<MftFileInfo> {
             let record = ptr::read_unaligned(record_ptr as *const UsnRecordV3);
 
             // 提取文件名
@@ -398,6 +446,9 @@ mod windows_impl {
                 parent_ref_number: parent_ref,
                 file_name,
                 is_directory: (record.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0,
+                drive_letter,
+                size: 0, // USN 记录不包含文件大小，需要后续获取
+                modified_time: "未知".to_string(), // USN 记录不包含修改时间
             })
         }
 
@@ -407,10 +458,11 @@ mod windows_impl {
         pub fn build_full_paths(files: &[MftFileInfo]) -> Vec<(String, bool)> {
             use std::collections::HashMap;
 
-            // 构建引用号到文件信息的映射
-            let ref_map: HashMap<u64, &MftFileInfo> = files
+            // 按驱动器分组构建引用号映射
+            // 键: (drive_letter, file_ref_number)
+            let ref_map: HashMap<(char, u64), &MftFileInfo> = files
                 .iter()
-                .map(|f| (f.file_ref_number & 0x0000FFFFFFFFFFFF, f))
+                .map(|f| ((f.drive_letter, f.file_ref_number & 0x0000FFFFFFFFFFFF), f))
                 .collect();
 
             let mut result = Vec::with_capacity(files.len());
@@ -426,10 +478,11 @@ mod windows_impl {
         /// 解析单个文件的完整路径
         fn resolve_path(
             file: &MftFileInfo,
-            ref_map: &std::collections::HashMap<u64, &MftFileInfo>,
+            ref_map: &std::collections::HashMap<(char, u64), &MftFileInfo>,
         ) -> String {
             let mut path_parts = vec![file.file_name.clone()];
             let mut current_parent = file.parent_ref_number & 0x0000FFFFFFFFFFFF;
+            let drive_letter = file.drive_letter;
 
             // 限制递归深度，防止循环引用
             let mut depth = 0;
@@ -441,7 +494,7 @@ mod windows_impl {
                     break;
                 }
 
-                if let Some(parent_file) = ref_map.get(&current_parent) {
+                if let Some(parent_file) = ref_map.get(&(drive_letter, current_parent)) {
                     path_parts.push(parent_file.file_name.clone());
                     current_parent = parent_file.parent_ref_number & 0x0000FFFFFFFFFFFF;
                 } else {
@@ -451,9 +504,9 @@ mod windows_impl {
                 depth += 1;
             }
 
-            // 反转并连接路径
+            // 反转并连接路径，添加盘符前缀
             path_parts.reverse();
-            path_parts.join("\\")
+            format!("{}:\\{}", drive_letter, path_parts.join("\\"))
         }
     }
 }

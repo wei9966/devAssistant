@@ -5,7 +5,7 @@
       <div class="modal-grid-bg"></div>
 
       <!-- Header - 可拖动区域 -->
-      <div class="modal-header" data-tauri-drag-region>
+      <div class="modal-header" data-tauri-drag-region @dblclick="toggleMaximize">
         <div class="header-title">
           <span class="title-icon">{{ currentTool?.icon || '🔧' }}</span>
           <span class="title-text">{{ currentTool?.name || '工具' }}</span>
@@ -19,6 +19,15 @@
             :title="isPinned ? '取消固定' : '固定窗口'"
           >
             {{ isPinned ? '📍' : '📌' }}
+          </button>
+          <!-- 最大化按钮 -->
+          <button
+            class="action-btn maximize-btn"
+            :class="{ maximized: isMaximized }"
+            @click="toggleMaximize"
+            :title="isMaximized ? '还原窗口' : '最大化'"
+          >
+            {{ isMaximized ? '🗗' : '🗖' }}
           </button>
           <!-- 关闭按钮 -->
           <button class="action-btn close-btn" @click="closeWindow" title="关闭 (ESC)">
@@ -65,6 +74,7 @@ interface ToolInfo {
 const containerRef = ref<HTMLElement | null>(null)
 const toolId = ref<string>('')
 const isPinned = ref(false)
+const isMaximized = ref(false)
 const currentTool = ref<ToolInfo | null>(null)
 
 // 工具组件映射（使用 markRaw 避免 Vue 响应式代理）
@@ -127,6 +137,22 @@ async function togglePin() {
   }
 }
 
+// 切换最大化状态
+async function toggleMaximize() {
+  try {
+    const maximized = await appWindow.isMaximized()
+    if (maximized) {
+      await appWindow.unmaximize()
+      isMaximized.value = false
+    } else {
+      await appWindow.maximize()
+      isMaximized.value = true
+    }
+  } catch (error) {
+    console.error('切换最大化状态失败:', error)
+  }
+}
+
 // 关闭窗口（不检查置顶状态，直接关闭）
 async function closeWindow() {
   try {
@@ -164,6 +190,7 @@ async function handleWindowBlur() {
 // 事件监听器
 let unlistenLoadTool: UnlistenFn | null = null
 let unlistenFocusChanged: UnlistenFn | null = null
+let unlistenResized: UnlistenFn | null = null
 
 // 保存当前工具 ID 到 localStorage
 function saveCurrentToolId(id: string) {
@@ -195,6 +222,13 @@ onMounted(async () => {
   saveCurrentToolId(toolId.value)
   containerRef.value?.focus()
 
+  // 同步初始化最大化状态
+  try {
+    isMaximized.value = await appWindow.isMaximized()
+  } catch (e) {
+    console.error('获取最大化状态失败:', e)
+  }
+
   // 监听切换工具事件（来自后端）
   unlistenLoadTool = await listen<string>('tool-container:load-tool', async (event) => {
     const newToolId = event.payload
@@ -211,6 +245,15 @@ onMounted(async () => {
       handleWindowBlur()
     }
   })
+
+  // 监听窗口大小变化，同步最大化状态
+  unlistenResized = await appWindow.onResized(async () => {
+    try {
+      isMaximized.value = await appWindow.isMaximized()
+    } catch (e) {
+      // 忽略错误
+    }
+  })
 })
 
 // 清理
@@ -220,6 +263,9 @@ onUnmounted(() => {
   }
   if (unlistenFocusChanged) {
     unlistenFocusChanged()
+  }
+  if (unlistenResized) {
+    unlistenResized()
   }
 })
 </script>
@@ -324,6 +370,25 @@ onUnmounted(() => {
   border-color: color-mix(in srgb, var(--accent-primary, #6366f1) 50%, transparent);
   color: var(--accent-primary, #6366f1);
   box-shadow: 0 0 8px color-mix(in srgb, var(--accent-primary, #6366f1) 30%, transparent);
+}
+
+.maximize-btn {
+  background: color-mix(in srgb, var(--success, #22c55e) 10%, transparent);
+  border-color: color-mix(in srgb, var(--success, #22c55e) 20%, transparent);
+  color: color-mix(in srgb, var(--success, #22c55e) 80%, transparent);
+}
+
+.maximize-btn:hover {
+  background: color-mix(in srgb, var(--success, #22c55e) 20%, transparent);
+  border-color: color-mix(in srgb, var(--success, #22c55e) 40%, transparent);
+  color: var(--success, #22c55e);
+}
+
+.maximize-btn.maximized {
+  background: color-mix(in srgb, var(--success, #22c55e) 25%, transparent);
+  border-color: color-mix(in srgb, var(--success, #22c55e) 50%, transparent);
+  color: var(--success, #22c55e);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--success, #22c55e) 30%, transparent);
 }
 
 .close-btn {

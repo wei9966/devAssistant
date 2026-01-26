@@ -81,10 +81,16 @@ pub struct ShortcutConfig {
     pub clipboard_history: String,
     #[serde(default = "default_copy_image_path")]
     pub copy_image_path: String,
+    #[serde(default = "default_manual_screenshot")]
+    pub manual_screenshot: String,
 }
 
 fn default_copy_image_path() -> String {
     "Ctrl+Shift+V".to_string()
+}
+
+fn default_manual_screenshot() -> String {
+    "Ctrl+Shift+P".to_string()
 }
 
 impl Default for ShortcutConfig {
@@ -96,6 +102,7 @@ impl Default for ShortcutConfig {
             quick_task: "Ctrl+Shift+T".to_string(),
             clipboard_history: "Ctrl+Shift+C".to_string(),
             copy_image_path: "Ctrl+Shift+V".to_string(),
+            manual_screenshot: "Ctrl+Shift+P".to_string(),
         }
     }
 }
@@ -156,6 +163,7 @@ pub fn update_shortcut_config(
         old_config.quick_task.as_str(),
         old_config.clipboard_history.as_str(),
         old_config.copy_image_path.as_str(),
+        old_config.manual_screenshot.as_str(),
     ];
 
     for shortcut in shortcuts {
@@ -331,6 +339,26 @@ pub fn update_shortcut_config(
         return Err(format!(
             "无法注册复制图片路径快捷键 {}: {}",
             copy_image_path_shortcut, e
+        ));
+    }
+
+    // 手动截图快捷键 - 发送事件触发前端调用截图命令
+    let manual_screenshot_shortcut = config.manual_screenshot.clone();
+    if let Err(e) = app.global_shortcut().on_shortcut(
+        manual_screenshot_shortcut.as_str(),
+        move |app, _shortcut, event| {
+            if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                // 发送事件到主窗口，触发手动截图
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit("manual-screenshot", ());
+                    println!("✓ 手动截图快捷键已触发");
+                }
+            }
+        },
+    ) {
+        return Err(format!(
+            "无法注册手动截图快捷键 {}: {}",
+            manual_screenshot_shortcut, e
         ));
     }
 

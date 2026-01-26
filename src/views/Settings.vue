@@ -209,6 +209,20 @@
                     </div>
                   </div>
 
+                  <div class="setting-item">
+                    <div class="setting-info">
+                      <div class="setting-label">手动截图</div>
+                      <div class="setting-desc">手动触发屏幕采集（VLM视图）</div>
+                    </div>
+                    <div class="shortcut-input">
+                      <n-input
+                        v-model:value="shortcuts.manualScreenshot"
+                        placeholder="如: Ctrl+Shift+P"
+                        @keydown="handleShortcutKeyDown($event, 'manualScreenshot')"
+                      />
+                    </div>
+                  </div>
+
                   <div class="shortcut-tips">
                     <n-alert type="info" :bordered="false">
                       <template #icon>
@@ -539,6 +553,54 @@
               </div>
             </section>
 
+            <!-- 久坐提醒设置 -->
+            <section class="settings-card">
+              <div class="card-header">
+                <h3 class="card-title">久坐提醒</h3>
+                <span class="status-badge" :class="{ 'status-active': sedentaryConfig.enabled }">
+                  {{ sedentaryConfig.enabled ? '已启用' : '未启用' }}
+                </span>
+              </div>
+              <div class="card-content">
+                <div class="setting-item">
+                  <div class="setting-info">
+                    <div class="setting-label">启用久坐提醒</div>
+                    <div class="setting-desc">连续工作一段时间后弹出全屏提醒，提示您休息</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-switch v-model:value="sedentaryConfig.enabled" />
+                  </div>
+                </div>
+
+                <div v-if="sedentaryConfig.enabled" class="setting-item sub-setting">
+                  <div class="setting-info">
+                    <div class="setting-label">提醒间隔</div>
+                    <div class="setting-desc">连续工作多长时间后提醒休息</div>
+                  </div>
+                  <div class="setting-control">
+                    <n-input-number
+                      v-model:value="sedentaryConfig.reminderIntervalMinutes"
+                      :min="15"
+                      :max="120"
+                      :step="5"
+                      style="width: 120px"
+                    >
+                      <template #suffix>分钟</template>
+                    </n-input-number>
+                  </div>
+                </div>
+
+                <div class="sedentary-actions">
+                  <n-button @click="saveSedentaryConfig" :loading="savingSedentary">
+                    保存久坐提醒设置
+                  </n-button>
+                  <n-text depth="3" style="font-size: 12px;">
+                    提示：只有在电脑前活动（鼠标键盘操作）时才会计算工作时间
+                  </n-text>
+                </div>
+              </div>
+            </section>
+
             <!-- 定时任务设置 -->
             <section class="settings-card">
               <div class="card-header">
@@ -851,6 +913,7 @@ import { relaunch } from '@tauri-apps/plugin-process';
 import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
 import { aiApi } from '@/api/aiApi';
+import { sedentaryApi, type SedentaryConfig } from '@/api/sedentaryApi';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { AI_PROVIDERS } from '@/types/ai';
 import type { AiProvider, AiLog, AiLogStats } from '@/types/ai';
@@ -912,6 +975,7 @@ const shortcuts = ref({
   quickTask: 'Ctrl+Shift+T',
   clipboardHistory: 'Ctrl+Shift+C',
   copyImagePath: 'Ctrl+Shift+V',
+  manualScreenshot: 'Ctrl+Shift+P',
 });
 
 // 保存原始设置用于重置（放在 settings 和 shortcuts 定义之后）
@@ -944,6 +1008,19 @@ const schedulerConfig = ref({
   enableHourlySummary: false,
 });
 const savingScheduler = ref(false);
+
+// 久坐提醒配置
+const sedentaryConfig = ref<SedentaryConfig>({
+  enabled: false,
+  reminderIntervalMinutes: 45,
+  tips: [
+    '该休息一下啦！起来喝杯水吧 💧',
+    '久坐不利于健康，起来活动活动吧 🚶',
+    '眺望远方，让眼睛休息一下 👀',
+    '做几个伸展运动，放松一下肩颈 🧘',
+  ]
+})
+const savingSedentary = ref(false)
 
 // 更新相关变量
 const appVersion = ref('');
@@ -1166,6 +1243,7 @@ onMounted(async () => {
   await loadAutostartStatus();
   await loadAlwaysOnTopStatus();
   await loadSchedulerConfig();
+  await loadSedentaryConfig();
 });
 
 async function loadSettings() {
@@ -1211,6 +1289,7 @@ async function loadShortcuts() {
       quick_task: string;
       clipboard_history: string;
       copy_image_path: string;
+      manual_screenshot: string;
     }>('get_shortcut_config');
 
     shortcuts.value = {
@@ -1220,6 +1299,7 @@ async function loadShortcuts() {
       quickTask: config.quick_task,
       clipboardHistory: config.clipboard_history,
       copyImagePath: config.copy_image_path,
+      manualScreenshot: config.manual_screenshot,
     };
 
     // 保存原始快捷键用于重置
@@ -1242,6 +1322,7 @@ async function saveShortcuts() {
         quick_task: shortcuts.value.quickTask,
         clipboard_history: shortcuts.value.clipboardHistory,
         copy_image_path: shortcuts.value.copyImagePath,
+        manual_screenshot: shortcuts.value.manualScreenshot,
       },
     });
     message.success('快捷键已更新');
@@ -1591,6 +1672,39 @@ async function saveSchedulerConfig() {
     message.error(error || '保存定时任务配置失败');
   } finally {
     savingScheduler.value = false;
+  }
+}
+
+// 加载久坐提醒配置
+async function loadSedentaryConfig() {
+  try {
+    const config = await sedentaryApi.getConfig()
+    sedentaryConfig.value = {
+      enabled: config.enabled,
+      reminderIntervalMinutes: config.reminderIntervalMinutes || 45,
+      tips: config.tips || sedentaryConfig.value.tips
+    }
+  } catch (error) {
+    console.error('加载久坐提醒配置失败:', error)
+  }
+}
+
+// 保存久坐提醒配置
+async function saveSedentaryConfig() {
+  savingSedentary.value = true
+  try {
+    await sedentaryApi.saveConfig(sedentaryConfig.value)
+    // 根据开关状态启动或停止服务
+    if (sedentaryConfig.value.enabled) {
+      await sedentaryApi.start()
+    } else {
+      await sedentaryApi.stop()
+    }
+    message.success('久坐提醒设置已保存')
+  } catch (error: any) {
+    message.error(error || '保存失败')
+  } finally {
+    savingSedentary.value = false
   }
 }
 
@@ -2311,6 +2425,16 @@ async function openManualExternal() {
 
 /* 定时任务操作区 */
 .scheduler-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-default);
+  margin-top: 8px;
+}
+
+/* 久坐提醒操作区 */
+.sedentary-actions {
   display: flex;
   align-items: center;
   gap: 16px;
