@@ -705,7 +705,6 @@ import { useTaskStore } from '@/stores/taskStore';
 import { aiApi } from '@/api/aiApi';
 import { taskApi } from '@/api/taskApi';
 import { promptApi } from '@/api/promptApi';
-import { taskApi } from '@/api/taskApi';
 import type { WorkLog, WeeklyPlan } from '@/types/workLog';
 import type { Task } from '@/types/task';
 import { CATEGORY_LABELS } from '@/types/task';
