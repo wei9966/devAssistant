@@ -111,6 +111,17 @@ export const useTaskStore = defineStore('task', () => {
     }
   }
 
+  async function reactivateTask(taskId: number, progress: number) {
+    try {
+      await taskApi.reactivateTask(taskId, progress);
+      await loadTasks();
+      await loadCompletedTasks(7);
+    } catch (e) {
+      console.error('重新激活任务失败:', e);
+      throw e;
+    }
+  }
+
   async function updateTask(
     taskId: number,
     updates: {
@@ -183,6 +194,7 @@ export const useTaskStore = defineStore('task', () => {
     pauseTask,
     deferTask,
     completeTask,
+    reactivateTask,
     updateTask,
     deleteTask,
     checkStaleTasks,

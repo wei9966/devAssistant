@@ -459,7 +459,7 @@ impl PromptDbService {
             r####"请将以下工作内容整理成专业的 Markdown 格式工作日志。
 
 日期：{date}
-{tasks_section}{milestones_section}{sqls_section}{commits_section}{activity_section}
+{tasks_section}{milestones_section}{sqls_section}{commits_section}{activity_section}{progress_section}
 
 要求：
 1. 直接输出 Markdown 格式，以 "## {date} 工作日志" 开头
@@ -468,9 +468,10 @@ impl PromptDbService {
 4. 如果任务带有标签（括号内容），保留标签信息
 5. 如果有任务里程碑，在对应任务下展示里程碑细节，体现任务的关键完成节点
 6. 如果有屏幕活动记录，在最后添加 "### 工作时间" 小节简要描述工作时间段和主要使用的工具
-7. 语言简洁专业，不要添加额外的总结或评价
-8. 只输出日志内容，不要输出其他说明文字"####,
-            Some(vec!["date".to_string(), "tasks_section".to_string(), "milestones_section".to_string(), "sqls_section".to_string(), "commits_section".to_string(), "activity_section".to_string()]),
+7. 如果有里程碑进展更新，添加 "### 任务进展" 小节，展示各任务的里程碑和进度变化
+8. 语言简洁专业，不要添加额外的总结或评价
+9. 只输出日志内容，不要输出其他说明文字"####,
+            Some(vec!["date".to_string(), "tasks_section".to_string(), "milestones_section".to_string(), "sqls_section".to_string(), "commits_section".to_string(), "activity_section".to_string(), "progress_section".to_string()]),
             true,
         )?;
 
@@ -503,16 +504,17 @@ impl PromptDbService {
             "周报生成",
             Some("根据每日工作日志生成周报"),
             None,
-            r#"请根据以下工作日志生成周报：
+            r####"请根据以下工作日志生成周报：
 
 日志内容：
 {logs}
 
 要求：
 1. 总结本周主要工作成果
-2. 列出遇到的问题和解决方案
-3. 规划下周工作重点
-4. 使用 Markdown 格式
+2. 如果日志中包含里程碑进展数据，添加 "### 任务进展与里程碑" 小节，展示各任务的进度变化和关键里程碑
+3. 列出遇到的问题和解决方案
+4. 规划下周工作重点
+5. 使用 Markdown 格式
 
 生成格式：
 ## 周报
@@ -520,11 +522,14 @@ impl PromptDbService {
 ### 本周工作成果
 - ...
 
+### 任务进展与里程碑
+- ...（如有里程碑数据则展示，无则省略此节）
+
 ### 遇到的问题与解决方案
 - ...
 
 ### 下周工作计划
-- ..."#,
+- ..."####,
             Some(vec!["logs".to_string()]),
             true,
         )?;

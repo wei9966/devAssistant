@@ -131,6 +131,8 @@ pub struct WorkLogInput {
     pub activity_summary: Option<ActivitySummaryInput>,
     /// 任务里程碑列表（任务名 -> 里程碑列表）
     pub task_milestones: Option<Vec<TaskMilestoneInput>>,
+    /// 里程碑进展更新
+    pub progress_updates: Vec<String>,
 }
 
 /// 任务里程碑输入（用于工作日志生成）
@@ -684,9 +686,11 @@ impl AiService {
         let has_sqls = !input.executed_sqls.is_empty();
         let has_commits = !input.git_commits.is_empty();
         let has_activity = input.activity_summary.is_some();
+        let has_progress = !input.progress_updates.is_empty();
+        let has_milestones = input.task_milestones.as_ref().map(|m| !m.is_empty()).unwrap_or(false);
 
         // 如果没有任何内容，返回简单模板
-        if !has_tasks && !has_sqls && !has_commits && !has_activity {
+        if !has_tasks && !has_sqls && !has_commits && !has_activity && !has_progress && !has_milestones {
             return Ok(format!("## {} 工作日志\n\n今日暂无记录的工作内容。", input.date));
         }
 
@@ -769,6 +773,16 @@ impl AiService {
             String::new()
         };
 
+        // 构建里程碑进展更新
+        let progress_section = if has_progress {
+            format!("\n\n里程碑进展更新：\n{}", input.progress_updates.iter()
+                .map(|p| format!("- {}", p))
+                .collect::<Vec<_>>()
+                .join("\n"))
+        } else {
+            String::new()
+        };
+
         // 从数据库获取提示词并渲染
         let mut vars = HashMap::new();
         vars.insert("date".to_string(), input.date.clone());
@@ -777,6 +791,7 @@ impl AiService {
         vars.insert("commits_section".to_string(), commits_section);
         vars.insert("activity_section".to_string(), activity_section);
         vars.insert("milestones_section".to_string(), milestones_section);
+        vars.insert("progress_section".to_string(), progress_section);
 
         let rendered = PromptDbService::render_prompt_cached("work_log_generate", &vars)
             .map_err(|e| anyhow!("获取提示词失败: {}", e))?;

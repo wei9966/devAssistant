@@ -339,7 +339,7 @@
                       :class="{ 'task-new': isNewTask(task.id) && weeklyPlanForReport }"
                     >
                       <div class="task-row">
-                        <n-icon size="14" color="#10b981" class="task-check-icon">
+                        <n-icon size="14" class="task-check-icon">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
@@ -703,6 +703,7 @@ import { useWorkLogStore } from '@/stores/workLogStore';
 import { useWeeklyPlanStore } from '@/stores/weeklyPlanStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { aiApi } from '@/api/aiApi';
+import { taskApi } from '@/api/taskApi';
 import { promptApi } from '@/api/promptApi';
 import { taskApi } from '@/api/taskApi';
 import type { WorkLog, WeeklyPlan } from '@/types/workLog';
@@ -1341,6 +1342,21 @@ async function handleAiGenerate() {
       }
     }
 
+    // 获取当天的里程碑进展更新
+    const dateStr2 = dayjs(selectedDate.value).format('YYYY-MM-DD');
+    let progressUpdates: string[] = [];
+    try {
+      const milestones = await taskApi.getMilestonesByDateRange(dateStr2, dateStr2);
+      progressUpdates = milestones.map(m => {
+        const progress = m.progressSnapshot !== undefined && m.progressSnapshot !== null
+          ? `（进度: ${m.progressSnapshot}%）`
+          : '';
+        return `${m.taskTitle} - ${m.title}${progress}`;
+      });
+    } catch (error) {
+      console.error('获取里程碑失败:', error);
+    }
+
     const executedSqls: string[] = [];
     const gitCommits: string[] = [];
 
@@ -1351,7 +1367,8 @@ async function handleAiGenerate() {
       completedTasks,
       executedSqls,
       gitCommits,
-      taskMilestones.length > 0 ? taskMilestones : undefined
+      taskMilestones.length > 0 ? taskMilestones : undefined,
+      progressUpdates
     );
 
     message.destroyAll();
@@ -1418,11 +1435,31 @@ async function handleGenerateWeekly() {
     message.loading('AI 正在基于任务生成周报...', { duration: 0 });
 
     // 构建任务摘要
-    const taskSummaries = weeklyTasks.value.map(task => {
+    let taskSummaries = weeklyTasks.value.map(task => {
       const category = getCategoryLabel(task.category);
       const time = dayjs(task.completedAt).format('MM-DD');
       return `[${time}] [${category}] ${task.title}${task.description ? `: ${task.description}` : ''}`;
     });
+
+    // 获取本周的里程碑进展
+    try {
+      const weekStart = dayjs(weekRange.value[0]).format('YYYY-MM-DD');
+      const weekEnd = dayjs(weekRange.value[1]).format('YYYY-MM-DD');
+      const milestones = await taskApi.getMilestonesByDateRange(weekStart, weekEnd);
+      if (milestones.length > 0) {
+        taskSummaries.push('');
+        taskSummaries.push('--- 里程碑进展 ---');
+        milestones.forEach(m => {
+          const date = m.createdAt ? dayjs(m.createdAt).format('MM-DD') : '';
+          const progress = m.progressSnapshot !== undefined && m.progressSnapshot !== null
+            ? `（进度: ${m.progressSnapshot}%）`
+            : '';
+          taskSummaries.push(`[${date}] ${m.taskTitle} - ${m.title}${progress}`);
+        });
+      }
+    } catch (error) {
+      console.error('获取周里程碑失败:', error);
+    }
 
     // 调用AI生成周报
     const result = await aiApi.generateWeeklyReport(taskSummaries);
@@ -2355,10 +2392,10 @@ function truncate(text: string, length: number) {
 
 /* 简化的任务项样式 */
 .task-item-simple {
-  background: var(--card-bg);
+  background: var(--bg-surface, var(--card-bg));
   border: 1px solid var(--card-border);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   transition: all 0.2s;
 }
 
@@ -2375,12 +2412,14 @@ function truncate(text: string, length: number) {
 
 .task-check-icon {
   flex-shrink: 0;
+  color: var(--success, #10b981);
 }
 
 .task-title-simple {
   flex: 1;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

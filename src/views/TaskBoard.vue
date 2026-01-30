@@ -200,6 +200,7 @@
             :key="task.id"
             :task="task"
             @click="handleTaskClick"
+            @reactivate="handleReactivate"
             readonly
             class="task-card-item"
           />
@@ -446,6 +447,69 @@
         </n-space>
       </template>
     </n-modal>
+
+    <!-- 完成任务里程碑对话框 -->
+    <n-modal v-model:show="showCompleteModal" preset="card" title="完成任务" style="width: 450px;">
+      <div class="complete-modal-content">
+        <div class="complete-task-title">{{ completeTask?.title }}</div>
+        <n-form-item label="完成里程碑（可选）">
+          <n-input v-model:value="completeTitle" placeholder="记录完成时的里程碑说明" />
+        </n-form-item>
+        <n-form-item label="描述（可选）">
+          <n-input
+            v-model:value="completeDesc"
+            type="textarea"
+            placeholder="补充描述信息"
+            :autosize="{ minRows: 2, maxRows: 4 }"
+          />
+        </n-form-item>
+      </div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showCompleteModal = false">取消</n-button>
+          <n-button type="success" @click="handleConfirmComplete">确认完成</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <!-- 重新激活任务对话框 -->
+    <n-modal v-model:show="showReactivateModal" preset="card" title="重新激活任务" style="width: 450px;">
+      <div class="reactivate-modal-content">
+        <div class="reactivate-task-title">{{ reactivateTask?.title }}</div>
+        <n-form-item label="激活说明" :required="true">
+          <n-input v-model:value="reactivateTitle" placeholder="请说明重新激活的原因" />
+        </n-form-item>
+        <n-form-item label="描述（可选）">
+          <n-input
+            v-model:value="reactivateDesc"
+            type="textarea"
+            placeholder="补充描述信息"
+            :autosize="{ minRows: 2, maxRows: 4 }"
+          />
+        </n-form-item>
+        <n-form-item label="设置当前进度">
+          <div class="reactivate-progress-setting">
+            <n-slider
+              v-model:value="reactivateProgress"
+              :min="0"
+              :max="95"
+              :step="5"
+              :marks="{ 0: '0%', 25: '25%', 50: '50%', 75: '75%', 95: '95%' }"
+            />
+            <div class="reactivate-progress-value">{{ reactivateProgress }}%</div>
+          </div>
+        </n-form-item>
+        <div class="reactivate-hint">
+          任务将从已完成状态重新激活为进行中，并设置为选定的进度
+        </div>
+      </div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showReactivateModal = false">取消</n-button>
+          <n-button type="primary" @click="handleConfirmReactivate">确认激活</n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -510,6 +574,19 @@ const milestoneTask = ref<Task | null>(null);
 const milestoneTitle = ref('');
 const milestoneDesc = ref('');
 const milestoneProgress = ref(0);
+
+// 完成任务弹窗状态
+const showCompleteModal = ref(false);
+const completeTask = ref<Task | null>(null);
+const completeTitle = ref('');
+const completeDesc = ref('');
+
+// 重新激活弹窗状态
+const showReactivateModal = ref(false);
+const reactivateTask = ref<Task | null>(null);
+const reactivateTitle = ref('');
+const reactivateDesc = ref('');
+const reactivateProgress = ref(0);
 
 // 里程碑进度标记
 const milestoneProgressMarks = computed(() => {
@@ -867,9 +944,75 @@ async function handlePause(taskId: number) {
   message.success('任务已暂停');
 }
 
-async function handleComplete(taskId: number) {
-  await taskStore.completeTask(taskId);
-  message.success('任务已完成');
+function handleComplete(taskId: number) {
+  const task = [...taskStore.tasks, ...taskStore.completedTasks].find(t => t.id === taskId);
+  completeTask.value = task || null;
+  completeTitle.value = '';
+  completeDesc.value = '';
+  showCompleteModal.value = true;
+}
+
+// 确认完成任务（可选里程碑）
+async function handleConfirmComplete() {
+  if (!completeTask.value?.id) return;
+  try {
+    const taskId = completeTask.value.id;
+
+    // 如果填写了里程碑标题，先创建里程碑
+    if (completeTitle.value.trim()) {
+      await taskApi.createTaskMilestone(
+        taskId,
+        completeTitle.value.trim(),
+        completeDesc.value.trim() || undefined,
+        100
+      );
+    }
+
+    // 完成任务
+    await taskStore.completeTask(taskId);
+    message.success('任务已完成');
+    showCompleteModal.value = false;
+  } catch (error: any) {
+    console.error('完成任务失败:', error);
+    message.error(error?.message || '完成任务失败');
+  }
+}
+
+// 打开重新激活弹窗
+function handleReactivate(task: Task) {
+  reactivateTask.value = task;
+  reactivateTitle.value = '';
+  reactivateDesc.value = '';
+  reactivateProgress.value = 0;
+  showReactivateModal.value = true;
+}
+
+// 确认重新激活
+async function handleConfirmReactivate() {
+  if (!reactivateTask.value?.id) return;
+  if (!reactivateTitle.value.trim()) {
+    message.warning('请填写激活说明');
+    return;
+  }
+  try {
+    const taskId = reactivateTask.value.id;
+
+    // 创建里程碑记录重新激活
+    await taskApi.createTaskMilestone(
+      taskId,
+      reactivateTitle.value.trim(),
+      reactivateDesc.value.trim() || undefined,
+      reactivateProgress.value
+    );
+
+    // 重新激活任务
+    await taskStore.reactivateTask(taskId, reactivateProgress.value);
+    message.success('任务已重新激活');
+    showReactivateModal.value = false;
+  } catch (error: any) {
+    console.error('重新激活任务失败:', error);
+    message.error(error?.message || '重新激活任务失败');
+  }
 }
 
 async function handleEdit(task: Task) {
@@ -1743,5 +1886,62 @@ async function handleAiGenerateSubtasks() {
   font-size: 24px;
   font-weight: 600;
   color: var(--accent-primary);
+}
+
+/* 完成任务弹窗样式 */
+.complete-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.complete-task-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 12px;
+  background: var(--card-bg);
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+}
+
+/* 重新激活弹窗样式 */
+.reactivate-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.reactivate-task-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 12px;
+  background: var(--card-bg);
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+}
+
+.reactivate-progress-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.reactivate-progress-value {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+
+.reactivate-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-overlay);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
 }
 </style>

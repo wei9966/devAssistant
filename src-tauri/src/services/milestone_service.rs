@@ -106,4 +106,36 @@ impl MilestoneService {
         )?;
         Ok(())
     }
+
+    /// 获取日期范围内创建的里程碑（含任务标题）
+    pub fn get_milestones_by_date_range(
+        conn: &Connection,
+        start_date: &str,
+        end_date: &str,
+    ) -> Result<Vec<(TaskMilestone, String)>> {
+        let mut stmt = conn.prepare(
+            "SELECT m.id, m.task_id, m.title, m.description, m.progress_snapshot, m.created_at, t.title
+             FROM task_milestones m
+             JOIN tasks t ON m.task_id = t.id
+             WHERE date(m.created_at) BETWEEN ? AND ?
+             ORDER BY m.created_at ASC",
+        )?;
+
+        let results = stmt
+            .query_map(params![start_date, end_date], |row| {
+                let milestone = TaskMilestone {
+                    id: Some(row.get(0)?),
+                    task_id: row.get(1)?,
+                    title: row.get(2)?,
+                    description: row.get(3)?,
+                    progress_snapshot: row.get(4)?,
+                    created_at: row.get(5)?,
+                };
+                let task_title: String = row.get(6)?;
+                Ok((milestone, task_title))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(results)
+    }
 }

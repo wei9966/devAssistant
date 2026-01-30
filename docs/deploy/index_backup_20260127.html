@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevAssistant - 一个帮你自动写日报的小工具</title>
+    <style>
+        :root {
+            --bg-primary: #1a1b1e;
+            --bg-secondary: #212226;
+            --bg-card: #27282c;
+            --bg-hover: #2d2e33;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #2dd4bf;
+            --accent-hover: #5eead4;
+            --accent-dim: rgba(45, 212, 191, 0.12);
+            --border-color: #333438;
+            --border-light: #3f4046;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { color: var(--accent-hover); }
+
+        /* 导航 */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 14px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(26, 27, 30, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 100;
+        }
+
+        .nav-brand {
+            font-weight: 600;
+            font-size: 17px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-brand-icon {
+            width: 26px;
+            height: 26px;
+            background: var(--accent);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 28px;
+            font-size: 14px;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-btn {
+            padding: 8px 18px;
+            background: var(--accent);
+            color: #000;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .nav-btn:hover {
+            background: var(--accent-hover);
+            color: #000;
+        }
+
+        /* 容器 */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 32px;
+        }
+
+        .container-wide {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 32px;
+        }
+
+        /* Hero */
+        .hero {
+            padding: 140px 0 80px;
+        }
+
+        .hero-inner {
+            max-width: 680px;
+        }
+
+        .hero-tag {
+            display: inline-block;
+            padding: 5px 12px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .hero h1 {
+            font-size: 44px;
+            font-weight: 700;
+            line-height: 1.25;
+            margin-bottom: 20px;
+            letter-spacing: -0.5px;
+        }
+
+        .hero .highlight {
+            color: var(--accent);
+        }
+
+        .hero-desc {
+            font-size: 18px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            line-height: 1.7;
+        }
+
+        .hero-btns {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 48px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-light);
+        }
+
+        /* Hero 截图 */
+        .hero-screenshot {
+            margin-top: 48px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+        }
+
+        .hero-screenshot img {
+            width: 100%;
+            display: block;
+        }
+
+        /* Section */
+        .section {
+            padding: 80px 0;
+        }
+
+        .section-header {
+            margin-bottom: 48px;
+        }
+
+        .section-tag {
+            display: inline-block;
+            font-size: 12px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+
+        .section-header h2 {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            letter-spacing: -0.3px;
+        }
+
+        .section-header p {
+            font-size: 16px;
+            color: var(--text-secondary);
+            max-width: 600px;
+        }
+
+        /* 背景故事 */
+        .story {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .story-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .story-text h2 {
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        .story-text p {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .code-block {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px 24px;
+            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+            color: var(--text-secondary);
+            overflow-x: auto;
+        }
+
+        .code-block .comment { color: var(--text-muted); }
+        .code-block .string { color: var(--accent); }
+        .code-block .keyword { color: #f472b6; }
+
+        /* 工作流 */
+        .workflow-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+        }
+
+        .workflow-step {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 24px 20px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .workflow-step:hover {
+            border-color: var(--border-light);
+            transform: translateY(-2px);
+        }
+
+        .step-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--accent-dim);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 14px;
+            font-size: 20px;
+        }
+
+        .workflow-step h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .workflow-step p {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .workflow-arrow {
+            display: none;
+        }
+
+        /* 功能展示 */
+        .features-section {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .feature-block {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+            padding: 60px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .feature-block:last-child {
+            border-bottom: none;
+        }
+
+        .feature-block.reverse {
+            direction: rtl;
+        }
+
+        .feature-block.reverse > * {
+            direction: ltr;
+        }
+
+        .feature-text h3 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .feature-text p {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            padding-left: 24px;
+            position: relative;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .feature-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+        }
+
+        .feature-image {
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-image img {
+            width: 100%;
+            display: block;
+        }
+
+        /* 更多功能 */
+        .more-features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .more-feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 28px 24px;
+            transition: all 0.2s;
+        }
+
+        .more-feature-card:hover {
+            border-color: var(--border-light);
+            background: var(--bg-hover);
+        }
+
+        .more-feature-icon {
+            font-size: 28px;
+            margin-bottom: 14px;
+        }
+
+        .more-feature-card h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .more-feature-card p {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* 技术栈 */
+        .tech-section {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .tech-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .tech-badges {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 24px 0;
+        }
+
+        .tech-badge {
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .tech-highlight {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 24px;
+        }
+
+        .tech-highlight-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .tech-highlight-item:last-child {
+            border-bottom: none;
+        }
+
+        .tech-highlight-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--accent-dim);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .tech-highlight-text h5 {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .tech-highlight-text p {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* CTA */
+        .cta-section {
+            text-align: center;
+            padding: 100px 0;
+        }
+
+        .cta-section h2 {
+            font-size: 36px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .cta-section p {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .cta-btns {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 40px 0;
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .footer p {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 12px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        /* 响应式 */
+        @media (max-width: 900px) {
+            .workflow-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .feature-block,
+            .story-content,
+            .tech-content {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .feature-block.reverse {
+                direction: ltr;
+            }
+
+            .more-features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .nav {
+                padding: 12px 20px;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding: 120px 0 60px;
+            }
+
+            .hero h1 {
+                font-size: 32px;
+            }
+
+            .container, .container-wide {
+                padding: 0 20px;
+            }
+
+            .workflow-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .more-features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section-header h2 {
+                font-size: 26px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航 -->
+    <nav class="nav">
+        <div class="nav-brand">
+            <div class="nav-brand-icon">D</div>
+            DevAssistant
+        </div>
+        <div class="nav-links">
+            <a href="#workflow">工作流</a>
+            <a href="#features">功能</a>
+            <a href="#tech">技术</a>
+            <a href="./manual.html">使用手册</a>
+        </div>
+        <a href="#download" class="nav-btn">下载</a>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-inner">
+                <div class="hero-tag">个人效率工具 · v1.0.20</div>
+                <h1>
+                    写日报太烦了<br>
+                    所以做了个<span class="highlight">自动生成</span>的工具
+                </h1>
+                <p class="hero-desc">
+                    把任务管理和番茄钟结合起来，AI 自动读取完成的任务，一键生成日报周报。不用再翻聊天记录拼凑了。
+                </p>
+                <div class="hero-btns">
+                    <a href="#download" class="btn btn-primary">免费下载</a>
+                    <a href="#workflow" class="btn btn-secondary">看看怎么用 →</a>
+                </div>
+            </div>
+            <div class="hero-screenshot">
+                <img src="./images/微信图片_20251222133607_258_1.png" alt="DevAssistant 主界面">
+            </div>
+        </div>
+    </section>
+
+    <!-- 背景故事 -->
+    <section class="section story">
+        <div class="container">
+            <div class="story-content">
+                <div class="story-text">
+                    <h2>每天下班前的痛苦</h2>
+                    <p>
+                        你懂的，明明忙了一天，写日报的时候脑子一片空白。翻聊天记录、翻 Git 提交，东拼西凑。
+                    </p>
+                    <p>
+                        周报更惨，得把五天的日报再过一遍，调格式，写总结，规划下周...
+                    </p>
+                    <p>
+                        后来我想，既然我用番茄钟记录工作时间，任务也在软件里管理，那日报的素材不是都有了吗？让 AI 帮我整理一下不就行了？
+                    </p>
+                </div>
+                <div class="code-block">
+                    <span class="comment">// 理想中的工作流</span><br><br>
+                    <span class="keyword">const</span> todayTasks = tasks<br>
+                    &nbsp;&nbsp;.filter(t => t.completedToday)<br>
+                    &nbsp;&nbsp;.map(t => ({<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;title: t.title,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;duration: t.focusTime<br>
+                    &nbsp;&nbsp;}))<br><br>
+                    <span class="comment">// 交给 AI 生成日报</span><br>
+                    ai.generate(<span class="string">"日报"</span>, todayTasks)
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 工作流 -->
+    <section class="section" id="workflow">
+        <div class="container-wide">
+            <div class="section-header">
+                <div class="section-tag">工作流</div>
+                <h2>用起来是这样的</h2>
+                <p>从任务到日报，全程自动记录，下班点一下就完事</p>
+            </div>
+            <div class="workflow-grid">
+                <div class="workflow-step">
+                    <div class="step-icon">📋</div>
+                    <h4>选个任务</h4>
+                    <p>四象限看板<br>挑今天要做的</p>
+                </div>
+                <div class="workflow-step">
+                    <div class="step-icon">⏱️</div>
+                    <h4>开番茄钟</h4>
+                    <p>25分钟专注<br>自动计时</p>
+                </div>
+                <div class="workflow-step">
+                    <div class="step-icon">✅</div>
+                    <h4>完成打勾</h4>
+                    <p>任务完成<br>时间自动记录</p>
+                </div>
+                <div class="workflow-step">
+                    <div class="step-icon">🤖</div>
+                    <h4>生成日报</h4>
+                    <p>AI 读取任务<br>一键生成</p>
+                </div>
+                <div class="workflow-step">
+                    <div class="step-icon">📊</div>
+                    <h4>周报汇总</h4>
+                    <p>自动汇总<br>周五点一下</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 功能展示 -->
+    <section class="section features-section" id="features">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-tag">核心功能</div>
+                <h2>主要能做这些事</h2>
+            </div>
+
+            <!-- 任务管理 -->
+            <div class="feature-block">
+                <div class="feature-text">
+                    <h3>📋 四象限任务看板</h3>
+                    <p>
+                        基于艾森豪威尔矩阵，把任务按重要紧急程度分成四个区域。支持拖拽调整，一眼看清该先做什么。
+                    </p>
+                    <ul class="feature-list">
+                        <li>四象限分类，轻重缓急一目了然</li>
+                        <li>AI 智能分类，自动判断优先级</li>
+                        <li>日历视图，月视图周视图切换</li>
+                        <li>悬浮窗模式，随时查看待办</li>
+                    </ul>
+                </div>
+                <div class="feature-image">
+                    <img src="./images/微信图片_20251222133607_258_1.png" alt="任务看板">
+                </div>
+            </div>
+
+            <!-- 工作日志 -->
+            <div class="feature-block reverse">
+                <div class="feature-text">
+                    <h3>📝 AI 自动日报周报</h3>
+                    <p>
+                        这是核心功能。AI 读取你今天完成的任务、专注时间，自动生成规范的工作日报。周报同理，一键汇总本周工作。
+                    </p>
+                    <ul class="feature-list">
+                        <li>一键生成，不用手写</li>
+                        <li>自动关联已完成的任务</li>
+                        <li>周报联动日报，自动汇总</li>
+                        <li>格式规范，直接复制发出去</li>
+                    </ul>
+                </div>
+                <div class="feature-image">
+                    <img src="./images/微信图片_20251222133815_270_1.png" alt="工作日志">
+                </div>
+            </div>
+
+            <!-- 番茄钟 -->
+            <div class="feature-block">
+                <div class="feature-text">
+                    <h3>⏱️ 番茄专注时钟</h3>
+                    <p>
+                        基于番茄工作法的专注计时器。关键是它和任务联动：每次专注的时间会自动记录到对应任务上。
+                    </p>
+                    <ul class="feature-list">
+                        <li>和任务绑定，专注时间自动记录</li>
+                        <li>完成后自动写入日志</li>
+                        <li>可以查看专注统计报表</li>
+                    </ul>
+                </div>
+                <div class="feature-image">
+                    <img src="./images/微信图片_20251222133740_266_1.png" alt="专注时钟">
+                </div>
+            </div>
+
+            <!-- 应用启动器 -->
+            <div class="feature-block reverse">
+                <div class="feature-text">
+                    <h3>🚀 应用快速启动</h3>
+                    <p>
+                        把常用的软件、文件夹、网址收集起来，分类管理。全局快捷键一按，搜索秒开。
+                    </p>
+                    <ul class="feature-list">
+                        <li>分类管理常用应用</li>
+                        <li>全局快捷键搜索</li>
+                        <li>支持文件夹和网址</li>
+                    </ul>
+                </div>
+                <div class="feature-image">
+                    <img src="./images/微信图片_20251222133820_273_1.png" alt="应用启动器">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 更多功能 -->
+    <section class="section">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-tag">还有</div>
+                <h2>顺手加的功能</h2>
+                <p>既然做了，就把平时用得到的都加上了</p>
+            </div>
+            <div class="more-features-grid">
+                <div class="more-feature-card">
+                    <div class="more-feature-icon">💾</div>
+                    <h4>SQL 历史记录</h4>
+                    <p>自动记录执行过的 SQL，方便搜索和复用。开发时经常要翻之前的 SQL，有这个就方便多了。</p>
+                </div>
+                <div class="more-feature-card">
+                    <div class="more-feature-icon">📅</div>
+                    <h4>任务日历</h4>
+                    <p>除了看板视图，还可以用日历看任务分布。月视图、周视图都有。</p>
+                </div>
+                <div class="more-feature-card">
+                    <div class="more-feature-icon">📊</div>
+                    <h4>效率报表</h4>
+                    <p>看看自己的任务完成情况、时间花在哪了。可视化的图表，一目了然。</p>
+                </div>
+                <div class="more-feature-card">
+                    <div class="more-feature-icon">🔔</div>
+                    <h4>通知提醒</h4>
+                    <p>任务到期提醒、定时通知。重要的事不会忘。</p>
+                </div>
+                <div class="more-feature-card">
+                    <div class="more-feature-icon">🛠️</div>
+                    <h4>开发工具箱</h4>
+                    <p>文本转换、JSON 格式化、时间戳转换这些常用的小工具。</p>
+                </div>
+                <div class="more-feature-card">
+                    <div class="more-feature-icon">🤖</div>
+                    <h4>AI 对话</h4>
+                    <p>支持配置自己的 AI API，可以直接在软件里和 AI 对话。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 技术栈 -->
+    <section class="section tech-section" id="tech">
+        <div class="container">
+            <div class="tech-content">
+                <div>
+                    <div class="section-tag">技术</div>
+                    <h2 style="font-size: 28px; margin-bottom: 16px;">怎么做的</h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                        用 Tauri 做的桌面端，比 Electron 轻量很多，启动快、占内存小。前端是 Vue 3 + TypeScript。
+                    </p>
+                    <p style="color: var(--text-secondary); margin-bottom: 24px;">
+                        数据全部存在本地，不会上传到任何服务器。你的任务、日报都是你自己的。
+                    </p>
+                    <div class="tech-badges">
+                        <span class="tech-badge">Tauri</span>
+                        <span class="tech-badge">Rust</span>
+                        <span class="tech-badge">Vue 3</span>
+                        <span class="tech-badge">TypeScript</span>
+                        <span class="tech-badge">Naive UI</span>
+                    </div>
+                </div>
+                <div class="tech-highlight">
+                    <div class="tech-highlight-item">
+                        <div class="tech-highlight-icon">⚡</div>
+                        <div class="tech-highlight-text">
+                            <h5>轻量快速</h5>
+                            <p>Tauri 打包，安装包只有 10MB 左右</p>
+                        </div>
+                    </div>
+                    <div class="tech-highlight-item">
+                        <div class="tech-highlight-icon">🔒</div>
+                        <div class="tech-highlight-text">
+                            <h5>数据本地</h5>
+                            <p>所有数据存本地，隐私安全</p>
+                        </div>
+                    </div>
+                    <div class="tech-highlight-item">
+                        <div class="tech-highlight-icon">🎨</div>
+                        <div class="tech-highlight-text">
+                            <h5>界面简洁</h5>
+                            <p>Naive UI 组件库，暗色主题</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 下载 -->
+    <section class="cta-section" id="download">
+        <div class="container">
+            <h2>试试看？</h2>
+            <p>免费下载，开箱即用，数据全部存本地</p>
+            <div class="cta-btns">
+                <a href="https://github.com/your-repo/releases" class="btn btn-primary">下载 DevAssistant</a>
+                <a href="./manual.html" class="btn btn-secondary">查看使用手册</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>这是个人项目，主要自己用。如果你也有写日报的烦恼，可以试试。</p>
+            <div class="footer-links">
+                <a href="./manual.html">使用手册</a>
+                <a href="mailto:bin.wei@steriguard.cn">问题反馈</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 从 version.json 获取最新版本信息
+        async function loadVersionInfo() {
+            try {
+                const response = await fetch('http://d.wbdao.cn:9900/update/version.json');
+                const data = await response.json();
+                const version = data.version;
+                const downloadUrl = data.platforms['windows-x86_64']?.url;
+
+                // 更新版本号显示
+                const versionTag = document.querySelector('.hero-tag');
+                if (versionTag) {
+                    versionTag.textContent = `个人效率工具 · v${version}`;
+                }
+
+                if (downloadUrl) {
+                    // Hero 区域的下载按钮
+                    const heroDownloadBtn = document.querySelector('.hero-btns .btn-primary');
+                    if (heroDownloadBtn) {
+                        heroDownloadBtn.href = downloadUrl;
+                    }
+
+                    // CTA 区域的主下载按钮
+                    const ctaDownloadBtn = document.querySelector('.cta-btns .btn-primary');
+                    if (ctaDownloadBtn) {
+                        ctaDownloadBtn.href = downloadUrl;
+                        ctaDownloadBtn.textContent = `下载 v${version}`;
+                    }
+
+                    // 导航栏的下载按钮（保持跳转到下载区域，不改）
+                }
+
+                console.log('Version info loaded:', version, downloadUrl);
+            } catch (error) {
+                console.error('Failed to load version info:', error);
+                // 失败时保持默认链接
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadVersionInfo);
+    </script>
+</body>
+</html>
