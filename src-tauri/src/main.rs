@@ -1175,10 +1175,12 @@ fn main() {
             commands::task_commands::move_task_to_today,
             commands::task_commands::get_upcoming_tasks,
             commands::task_commands::update_task_progress,
+            commands::task_commands::reactivate_task,
             // 里程碑相关命令
             commands::milestone_commands::create_task_milestone,
             commands::milestone_commands::get_task_milestones,
             commands::milestone_commands::delete_task_milestone,
+            commands::milestone_commands::get_milestones_by_date_range,
             // SQL 相关命令
             commands::sql_commands::save_sql,
             commands::sql_commands::get_recent_sqls,

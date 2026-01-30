@@ -270,6 +270,7 @@ pub async fn ai_generate_work_log(
     completed_tasks: Vec<String>,
     executed_sqls: Vec<String>,
     git_commits: Vec<String>,
+    progress_updates: Vec<String>,
 ) -> Result<String, String> {
     use crate::services::ai_service::WorkLogInput;
 
@@ -358,12 +359,13 @@ pub async fn ai_generate_work_log(
         executed_sqls: executed_sqls.clone(),
         git_commits: git_commits.clone(),
         activity_summary: activity_summary.clone(),
+        progress_updates: progress_updates.clone(),
     };
 
     let has_activity = activity_summary.is_some();
     let prompt = format!(
-        "生成工作日志 - 日期: {}, 任务数: {}, SQL数: {}, 提交数: {}, 含活动摘要: {}",
-        date, completed_tasks.len(), executed_sqls.len(), git_commits.len(), has_activity
+        "生成工作日志 - 日期: {}, 任务数: {}, SQL数: {}, 提交数: {}, 进展数: {}, 含活动摘要: {}",
+        date, completed_tasks.len(), executed_sqls.len(), git_commits.len(), progress_updates.len(), has_activity
     );
 
     let start = std::time::Instant::now();

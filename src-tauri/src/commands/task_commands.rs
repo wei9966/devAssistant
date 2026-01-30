@@ -232,3 +232,13 @@ pub fn update_task_progress(
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     TaskService::update_task_progress(&conn, task_id, progress).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn reactivate_task(
+    db: State<DbConnection>,
+    task_id: i64,
+    progress: i32,
+) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::reactivate_task(&conn, task_id, progress).map_err(|e| e.to_string())
+}

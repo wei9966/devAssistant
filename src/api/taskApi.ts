@@ -177,6 +177,16 @@ export const taskApi = {
   async deleteTaskMilestone(milestoneId: number): Promise<void> {
     await invoke('delete_task_milestone', { milestoneId });
   },
+
+  // 获取日期范围内的里程碑（含任务标题）
+  async getMilestonesByDateRange(startDate: string, endDate: string): Promise<MilestoneWithTask[]> {
+    return await invoke('get_milestones_by_date_range', { startDate, endDate });
+  },
+
+  // 重新激活已完成的任务
+  async reactivateTask(taskId: number, progress: number): Promise<void> {
+    await invoke('reactivate_task', { taskId, progress });
+  },
 };
 
 // 导入任务的数据结构
@@ -200,4 +210,15 @@ export interface ImportResult {
   success: number;
   failed: number;
   errors: string[];
+}
+
+// 带任务标题的里程碑
+export interface MilestoneWithTask {
+  id?: number;
+  taskId: number;
+  title: string;
+  description?: string;
+  progressSnapshot?: number;
+  createdAt?: string;
+  taskTitle: string;
 }

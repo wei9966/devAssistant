@@ -88,7 +88,7 @@
 import { ref, computed, h } from 'vue';
 import { useRouter } from 'vue-router';
 import { NCard, NButton, NIcon, NDropdown, NProgress, useDialog } from 'naive-ui';
-import { EllipsisHorizontal, CreateOutline, TrashOutline, TimeOutline, GridOutline, TrendingUpOutline, FlagOutline, TimerOutline } from '@vicons/ionicons5';
+import { EllipsisHorizontal, CreateOutline, TrashOutline, TimeOutline, GridOutline, TrendingUpOutline, FlagOutline, TimerOutline, RefreshOutline } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
@@ -119,6 +119,7 @@ const emit = defineEmits<{
   click: [task: Task];
   adjustProgress: [task: Task];
   addMilestone: [task: Task];
+  reactivate: [task: Task];
 }>();
 
 const dialog = useDialog();
@@ -133,6 +134,15 @@ const dropdownOptions = computed(() => {
       label: '开始番茄钟',
       key: 'startPomodoro',
       icon: () => h(NIcon, null, { default: () => h(TimerOutline) })
+    });
+  }
+
+  // 已完成任务可以重新激活
+  if (props.task.status === 'done') {
+    options.push({
+      label: '重新激活',
+      key: 'reactivate',
+      icon: () => h(NIcon, null, { default: () => h(RefreshOutline) })
     });
   }
 
@@ -241,6 +251,9 @@ const handleDropdownSelect = (key: string) => {
       break;
     case 'startPomodoro':
       handleStartPomodoro();
+      break;
+    case 'reactivate':
+      emit('reactivate', props.task);
       break;
   }
 };

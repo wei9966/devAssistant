@@ -175,6 +175,37 @@ impl TaskService {
         Ok(())
     }
 
+    /// 重新激活已完成的任务
+    pub fn reactivate_task(conn: &Connection, task_id: i64, progress: i32) -> Result<()> {
+        // 验证进度值范围
+        if !(0..=100).contains(&progress) {
+            return Err(anyhow::anyhow!("进度值必须在 0-100 之间"));
+        }
+
+        // 验证任务当前状态是否为 done
+        let current_status: String = conn.query_row(
+            "SELECT status FROM tasks WHERE id = ?",
+            params![task_id],
+            |row| row.get(0),
+        ).map_err(|_| anyhow::anyhow!("任务不存在"))?;
+
+        if current_status != "done" {
+            return Err(anyhow::anyhow!("只有已完成的任务才能重新激活"));
+        }
+
+        conn.execute(
+            "UPDATE tasks
+             SET status = 'active',
+                 completed_at = NULL,
+                 progress = ?,
+                 last_active_at = datetime('now', 'localtime')
+             WHERE id = ?",
+            params![progress, task_id],
+        )?;
+
+        Ok(())
+    }
+
     /// 更新任务信息
     pub fn update_task(
         conn: &Connection,
