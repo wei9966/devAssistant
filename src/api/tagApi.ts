@@ -46,4 +46,9 @@ export const tagApi = {
   async getTaskTags(taskId: number): Promise<Tag[]> {
     return await invoke('get_task_tags', { taskId });
   },
+
+  // 切换标签的常用状态
+  async toggleTagFavorite(id: number, isFavorite: boolean): Promise<void> {
+    await invoke('toggle_tag_favorite', { id, isFavorite });
+  },
 };

@@ -1364,6 +1364,7 @@ fn main() {
             commands::tag_commands::get_tag_usage_count,
             commands::tag_commands::get_tags_with_usage_count,
             commands::tag_commands::search_tags,
+            commands::tag_commands::toggle_tag_favorite,
             // 剪切板历史相关命令
             commands::clipboard_commands::get_clipboard_history,
             commands::clipboard_commands::copy_from_clipboard_history,

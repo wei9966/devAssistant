@@ -477,6 +477,7 @@
           @create="handleCreateTag"
           @update="handleUpdateTag"
           @delete="handleDeleteTag"
+          @toggle-favorite="handleToggleTagFavorite"
         />
       </n-dialog-provider>
     </n-message-provider>
@@ -1219,6 +1220,15 @@ async function handleDeleteTag(id: number) {
     await loadTags();
   } catch (error) {
     console.error('删除标签失败:', error);
+  }
+}
+
+async function handleToggleTagFavorite(id: number, isFavorite: boolean) {
+  try {
+    await tagApi.toggleTagFavorite(id, isFavorite);
+    await loadTags();
+  } catch (error) {
+    console.error('切换常用标签失败:', error);
   }
 }
 

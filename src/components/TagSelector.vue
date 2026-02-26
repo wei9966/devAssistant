@@ -14,7 +14,77 @@
       </n-button>
     </div>
 
-    <div class="tag-list">
+    <!-- 常用标签区域 -->
+    <div v-if="favoriteTags.length > 0" class="tag-list">
+      <div
+        v-for="tag in favoriteTags"
+        :key="tag.id"
+        class="tag-item"
+        :class="{ 'selected': isSelected(tag.id!) }"
+        :style="{
+          '--tag-color': tag.color,
+          '--tag-bg': `${tag.color}20`,
+          '--tag-border': `${tag.color}40`,
+        }"
+        @click="toggleTag(tag)"
+      >
+        <span class="tag-name">{{ tag.name }}</span>
+        <n-icon
+          v-if="isSelected(tag.id!)"
+          size="14"
+          class="check-icon"
+        >
+          <CheckmarkCircle />
+        </n-icon>
+      </div>
+    </div>
+
+    <!-- 展开/收起按钮 -->
+    <div v-if="otherTags.length > 0" class="expand-section">
+      <div class="expand-divider">
+        <span class="divider-line"></span>
+        <n-button
+          text
+          size="small"
+          class="expand-btn"
+          @click="showAllTags = !showAllTags"
+        >
+          <template #icon>
+            <n-icon :component="showAllTags ? ChevronUpOutline : ChevronDownOutline" />
+          </template>
+          {{ showAllTags ? '收起' : `展开全部 (${otherTags.length})` }}
+        </n-button>
+        <span class="divider-line"></span>
+      </div>
+    </div>
+
+    <!-- 其他标签（展开后显示） -->
+    <div v-if="showAllTags && otherTags.length > 0" class="tag-list other-tags">
+      <div
+        v-for="tag in otherTags"
+        :key="tag.id"
+        class="tag-item"
+        :class="{ 'selected': isSelected(tag.id!) }"
+        :style="{
+          '--tag-color': tag.color,
+          '--tag-bg': `${tag.color}20`,
+          '--tag-border': `${tag.color}40`,
+        }"
+        @click="toggleTag(tag)"
+      >
+        <span class="tag-name">{{ tag.name }}</span>
+        <n-icon
+          v-if="isSelected(tag.id!)"
+          size="14"
+          class="check-icon"
+        >
+          <CheckmarkCircle />
+        </n-icon>
+      </div>
+    </div>
+
+    <!-- 无常用标签时显示全部 -->
+    <div v-if="favoriteTags.length === 0 && availableTags.length > 0" class="tag-list">
       <div
         v-for="tag in availableTags"
         :key="tag.id"
@@ -82,13 +152,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { NIcon, NButton, NEmpty } from 'naive-ui';
 import {
   PricetagsOutline,
   SettingsOutline,
   CheckmarkCircle,
   CloseOutline,
+  ChevronDownOutline,
+  ChevronUpOutline,
 } from '@vicons/ionicons5';
 import type { Tag } from '@/types/task';
 
@@ -101,6 +173,18 @@ const emit = defineEmits<{
   'update:modelValue': [value: number[]];
   'manage': [];
 }>();
+
+const showAllTags = ref(false);
+
+// 常用标签
+const favoriteTags = computed(() => {
+  return props.availableTags.filter(tag => tag.isFavorite);
+});
+
+// 非常用标签（排除已选中的，已选中的会在常用区显示或已选区显示）
+const otherTags = computed(() => {
+  return props.availableTags.filter(tag => !tag.isFavorite);
+});
 
 const selectedTags = computed(() => {
   return props.availableTags.filter(tag => props.modelValue.includes(tag.id!));
@@ -158,6 +242,21 @@ const clearAll = () => {
   gap: 6px;
 }
 
+.tag-list.other-tags {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .tag-item {
   display: inline-flex;
   align-items: center;
@@ -205,6 +304,34 @@ const clearAll = () => {
     opacity: 1;
     transform: scale(1);
   }
+}
+
+/* 展开/收起按钮 */
+.expand-section {
+  margin: 4px 0;
+}
+
+.expand-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border-default);
+}
+
+.expand-btn {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.expand-btn:hover {
+  color: var(--accent-primary);
 }
 
 /* 已选标签 */

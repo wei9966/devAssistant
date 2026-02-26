@@ -82,6 +82,10 @@
         <h3 class="section-title">
           已有标签
           <span class="tag-count">{{ tags.length }}</span>
+          <span v-if="favoriteCount > 0" class="favorite-count">
+            <n-icon size="12"><StarSharp /></n-icon>
+            {{ favoriteCount }} 个常用
+          </span>
         </h3>
 
         <div v-if="tags.length > 0" class="tags-list">
@@ -100,8 +104,33 @@
                 :style="{ background: tag.color }"
               />
               <span class="tag-name" :style="{ color: tag.color }">{{ tag.name }}</span>
+              <n-icon
+                v-if="tag.isFavorite"
+                size="14"
+                class="favorite-badge"
+                :style="{ color: '#f59e0b' }"
+              >
+                <StarSharp />
+              </n-icon>
             </div>
             <div class="tag-actions">
+              <n-tooltip trigger="hover" :delay="500">
+                <template #trigger>
+                  <n-button
+                    text
+                    size="small"
+                    :type="tag.isFavorite ? 'warning' : 'default'"
+                    @click="handleToggleFavorite(tag)"
+                  >
+                    <template #icon>
+                      <n-icon>
+                        <component :is="tag.isFavorite ? StarSharp : StarOutline" />
+                      </n-icon>
+                    </template>
+                  </n-button>
+                </template>
+                {{ tag.isFavorite ? '取消常用' : '设为常用' }}
+              </n-tooltip>
               <n-button
                 text
                 size="small"
@@ -154,6 +183,7 @@ import {
   NButton,
   NIcon,
   NEmpty,
+  NTooltip,
   useMessage,
   useDialog,
 } from 'naive-ui';
@@ -161,6 +191,8 @@ import {
   PricetagOutline,
   CreateOutline,
   TrashOutline,
+  StarOutline,
+  StarSharp,
 } from '@vicons/ionicons5';
 import type { Tag } from '@/types/task';
 
@@ -174,6 +206,7 @@ const emit = defineEmits<{
   'create': [tag: Omit<Tag, 'id'>];
   'update': [id: number, tag: Partial<Tag>];
   'delete': [id: number];
+  'toggleFavorite': [id: number, isFavorite: boolean];
 }>();
 
 const message = useMessage();
@@ -185,6 +218,10 @@ const editingTagId = ref<number | null>(null);
 const showModal = computed({
   get: () => props.show,
   set: (value) => emit('update:show', value),
+});
+
+const favoriteCount = computed(() => {
+  return props.tags.filter(tag => tag.isFavorite).length;
 });
 
 const formData = reactive({
@@ -272,6 +309,12 @@ const handleUpdate = async () => {
   }
 };
 
+const handleToggleFavorite = (tag: Tag) => {
+  const newState = !tag.isFavorite;
+  emit('toggleFavorite', tag.id!, newState);
+  message.success(newState ? '已设为常用标签' : '已取消常用标签');
+};
+
 const handleDelete = (tagId: number) => {
   dialog.warning({
     title: '删除标签',
@@ -324,6 +367,15 @@ watch(() => props.show, (newVal) => {
   font-weight: 600;
   border: 1px solid var(--border-default);
   font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.favorite-count {
+  font-size: 11px;
+  color: #f59e0b;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 500;
 }
 
 /* 创建区域 */
@@ -447,6 +499,10 @@ watch(() => props.show, (newVal) => {
 .tag-name {
   font-size: 13px;
   font-weight: 600;
+}
+
+.favorite-badge {
+  flex-shrink: 0;
 }
 
 .tag-actions {

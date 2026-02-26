@@ -17,17 +17,19 @@ impl TagService {
     /// 获取所有标签
     pub fn get_all_tags(conn: &Connection) -> Result<Vec<Tag>> {
         let mut stmt = conn.prepare(
-            "SELECT id, name, color, created_at, updated_at FROM tags ORDER BY created_at DESC",
+            "SELECT id, name, color, created_at, updated_at, is_favorite FROM tags ORDER BY created_at DESC",
         )?;
 
         let tags = stmt
             .query_map([], |row| {
+                let is_fav: i64 = row.get(5)?;
                 Ok(Tag {
                     id: Some(row.get(0)?),
                     name: row.get(1)?,
                     color: row.get(2)?,
                     created_at: row.get(3)?,
                     updated_at: row.get(4)?,
+                    is_favorite: Some(is_fav != 0),
                 })
             })?
             .collect::<Result<Vec<_>>>()?;
@@ -38,15 +40,17 @@ impl TagService {
     /// 根据ID获取标签
     pub fn get_tag_by_id(conn: &Connection, id: i64) -> Result<Tag> {
         let tag = conn.query_row(
-            "SELECT id, name, color, created_at, updated_at FROM tags WHERE id = ?1",
+            "SELECT id, name, color, created_at, updated_at, is_favorite FROM tags WHERE id = ?1",
             params![id],
             |row| {
+                let is_fav: i64 = row.get(5)?;
                 Ok(Tag {
                     id: Some(row.get(0)?),
                     name: row.get(1)?,
                     color: row.get(2)?,
                     created_at: row.get(3)?,
                     updated_at: row.get(4)?,
+                    is_favorite: Some(is_fav != 0),
                 })
             },
         )?;
@@ -121,7 +125,7 @@ impl TagService {
     /// 获取任务的所有标签
     pub fn get_task_tags(conn: &Connection, task_id: i64) -> Result<Vec<Tag>> {
         let mut stmt = conn.prepare(
-            "SELECT t.id, t.name, t.color, t.created_at, t.updated_at
+            "SELECT t.id, t.name, t.color, t.created_at, t.updated_at, t.is_favorite
              FROM tags t
              INNER JOIN task_tags tt ON t.id = tt.tag_id
              WHERE tt.task_id = ?1
@@ -130,12 +134,14 @@ impl TagService {
 
         let tags = stmt
             .query_map(params![task_id], |row| {
+                let is_fav: i64 = row.get(5)?;
                 Ok(Tag {
                     id: Some(row.get(0)?),
                     name: row.get(1)?,
                     color: row.get(2)?,
                     created_at: row.get(3)?,
                     updated_at: row.get(4)?,
+                    is_favorite: Some(is_fav != 0),
                 })
             })?
             .collect::<Result<Vec<_>>>()?;
@@ -182,24 +188,26 @@ impl TagService {
     /// 获取所有标签及其使用次数
     pub fn get_tags_with_usage_count(conn: &Connection) -> Result<Vec<(Tag, i64)>> {
         let mut stmt = conn.prepare(
-            "SELECT t.id, t.name, t.color, t.created_at, t.updated_at,
+            "SELECT t.id, t.name, t.color, t.created_at, t.updated_at, t.is_favorite,
                     COALESCE(COUNT(tt.task_id), 0) as usage_count
              FROM tags t
              LEFT JOIN task_tags tt ON t.id = tt.tag_id
-             GROUP BY t.id, t.name, t.color, t.created_at, t.updated_at
+             GROUP BY t.id, t.name, t.color, t.created_at, t.updated_at, t.is_favorite
              ORDER BY usage_count DESC, t.created_at DESC",
         )?;
 
         let results = stmt
             .query_map([], |row| {
+                let is_fav: i64 = row.get(5)?;
                 let tag = Tag {
                     id: Some(row.get(0)?),
                     name: row.get(1)?,
                     color: row.get(2)?,
                     created_at: row.get(3)?,
                     updated_at: row.get(4)?,
+                    is_favorite: Some(is_fav != 0),
                 };
-                let usage_count: i64 = row.get(5)?;
+                let usage_count: i64 = row.get(6)?;
                 Ok((tag, usage_count))
             })?
             .collect::<Result<Vec<_>>>()?;
@@ -210,7 +218,7 @@ impl TagService {
     /// 搜索标签（按名称模糊搜索）
     pub fn search_tags(conn: &Connection, keyword: &str) -> Result<Vec<Tag>> {
         let mut stmt = conn.prepare(
-            "SELECT id, name, color, created_at, updated_at
+            "SELECT id, name, color, created_at, updated_at, is_favorite
              FROM tags
              WHERE name LIKE ?1
              ORDER BY created_at DESC",
@@ -219,17 +227,28 @@ impl TagService {
         let search_pattern = format!("%{}%", keyword);
         let tags = stmt
             .query_map(params![search_pattern], |row| {
+                let is_fav: i64 = row.get(5)?;
                 Ok(Tag {
                     id: Some(row.get(0)?),
                     name: row.get(1)?,
                     color: row.get(2)?,
                     created_at: row.get(3)?,
                     updated_at: row.get(4)?,
+                    is_favorite: Some(is_fav != 0),
                 })
             })?
             .collect::<Result<Vec<_>>>()?;
 
         Ok(tags)
+    }
+
+    /// 切换标签的常用状态
+    pub fn toggle_tag_favorite(conn: &Connection, id: i64, is_favorite: bool) -> Result<()> {
+        conn.execute(
+            "UPDATE tags SET is_favorite = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+            params![is_favorite as i64, id],
+        )?;
+        Ok(())
     }
 }
 

@@ -176,6 +176,9 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     create_ai_context_memory_table(conn)?;
     create_ai_context_memory_indexes(conn)?;
 
+    // 迁移 tags 表：添加 is_favorite 字段（常用标签）
+    migrate_tags_add_is_favorite(conn)?;
+
     Ok(())
 }
 
@@ -2475,5 +2478,25 @@ fn create_ai_context_memory_indexes(conn: &Connection) -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_context_memory_importance ON ai_context_memory(importance DESC)",
         [],
     )?;
+    Ok(())
+}
+
+/// 迁移 tags 表：添加 is_favorite 字段（常用标签）
+fn migrate_tags_add_is_favorite(conn: &Connection) -> Result<()> {
+    let has_is_favorite: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('tags') WHERE name='is_favorite'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if has_is_favorite == 0 {
+        conn.execute(
+            "ALTER TABLE tags ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0",
+            [],
+        )?;
+    }
+
     Ok(())
 }

@@ -45,6 +45,7 @@ export interface Tag {
   color: string;
   createdAt?: string;
   updatedAt?: string;
+  isFavorite?: boolean;
 }
 
 export interface WorkContext {

@@ -133,3 +133,14 @@ pub fn search_tags(db: State<DbConnection>, keyword: String) -> Result<Vec<Tag>,
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     TagService::search_tags(&conn, &keyword).map_err(|e| e.to_string())
 }
+
+/// 切换标签的常用状态
+#[tauri::command]
+pub fn toggle_tag_favorite(
+    db: State<DbConnection>,
+    id: i64,
+    is_favorite: bool,
+) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TagService::toggle_tag_favorite(&conn, id, is_favorite).map_err(|e| e.to_string())
+}

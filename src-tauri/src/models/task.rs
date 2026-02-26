@@ -222,6 +222,7 @@ pub struct Tag {
     pub color: String,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
+    pub is_favorite: Option<bool>,
 }
 
 /// 四象限统计结构

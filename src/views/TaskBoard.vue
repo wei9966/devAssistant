@@ -400,6 +400,7 @@
       @create="handleCreateTag"
       @update="handleUpdateTag"
       @delete="handleDeleteTag"
+      @toggle-favorite="handleToggleTagFavorite"
     />
 
     <!-- AI 预测任务列表抽屉 -->
@@ -1429,6 +1430,16 @@ async function handleDeleteTag(id: number) {
   } catch (error: any) {
     console.error('删除标签失败:', error);
     message.error(error?.message || '删除标签失败');
+  }
+}
+
+async function handleToggleTagFavorite(id: number, isFavorite: boolean) {
+  try {
+    await tagApi.toggleTagFavorite(id, isFavorite);
+    await loadTags();
+  } catch (error: any) {
+    console.error('切换常用标签失败:', error);
+    message.error(error?.message || '切换常用标签失败');
   }
 }
 
