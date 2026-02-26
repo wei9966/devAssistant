@@ -844,11 +844,11 @@ impl AiService {
             _ => String::new(),
         };
 
-        // 构建现有标签提示（限制数量）
+        // 构建现有标签提示（传入所有标签，要求AI优先选择）
         let tags_hint = if let Some(tags) = existing_tags {
-            let limited_tags: Vec<_> = tags.iter().take(10).collect();
-            if !limited_tags.is_empty() {
-                format!("\n可选标签：{}", limited_tags.iter().map(|t| t.as_str()).collect::<Vec<_>>().join(","))
+            let all_tags: Vec<_> = tags.iter().collect();
+            if !all_tags.is_empty() {
+                format!("\n已有标签列表：{}\n【重要】必须优先从以上已有标签中选择最匹配的标签，只有当已有标签中完全没有匹配项时才建议新标签。", all_tags.iter().map(|t| t.as_str()).collect::<Vec<_>>().join(","))
             } else {
                 String::new()
             }

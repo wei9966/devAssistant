@@ -121,7 +121,7 @@
             @start="handleStart"
             @complete="handleComplete"
             @edit="handleEdit"
-            @delete="handleDelete"
+            @cancel="handleCancel"
             @defer="handleDefer"
             @click="handleTaskClick"
             class="task-card-item"
@@ -139,7 +139,7 @@
               @start="handleStart"
               @complete="handleComplete"
               @edit="handleEdit"
-              @delete="handleDelete"
+              @cancel="handleCancel"
               @click="handleTaskClick"
               class="task-card-item deferred-task"
             />
@@ -332,6 +332,22 @@
               format="yyyy-MM-dd HH:mm:ss"
             />
           </n-form-item>
+
+          <!-- 保存并完成时的里程碑输入区域 -->
+          <div v-if="showSaveAndCompleteMilestone && !isEditing" class="milestone-input-section">
+            <div class="milestone-input-header">完成里程碑（可选）</div>
+            <n-input
+              v-model:value="saveCompleteTitle"
+              placeholder="里程碑标题，如：完成了XX功能开发"
+              style="margin-bottom: 8px;"
+            />
+            <n-input
+              v-model:value="saveCompleteDesc"
+              type="textarea"
+              placeholder="里程碑描述（可选）"
+              :rows="2"
+            />
+          </div>
         </n-form>
       </div>
       <template #footer>
@@ -343,6 +359,15 @@
           <span v-else></span>
           <n-space>
             <n-button @click="handleCancelEdit" :disabled="isCreating">取消</n-button>
+            <n-button
+              v-if="!isEditing"
+              type="success"
+              @click="handleCreateAndComplete()"
+              :loading="isCreating"
+              :disabled="isCreating"
+            >
+              保存并完成
+            </n-button>
             <n-button
               class="primary-button"
               @click="isEditing ? handleUpdate() : handleCreate()"
@@ -574,6 +599,11 @@ const milestoneTask = ref<Task | null>(null);
 const milestoneTitle = ref('');
 const milestoneDesc = ref('');
 const milestoneProgress = ref(0);
+
+// 保存并完成相关状态
+const showSaveAndCompleteMilestone = ref(false);
+const saveCompleteTitle = ref('');
+const saveCompleteDesc = ref('');
 
 // 完成任务弹窗状态
 const showCompleteModal = ref(false);
@@ -870,11 +900,13 @@ async function handleCreate() {
           finalQuadrant = result.quadrant as TaskQuadrant;
         }
 
-        // 处理 AI 推荐的标签
+        // 处理 AI 推荐的标签（模糊匹配）
         if (result.suggestedTags && result.suggestedTags.length > 0) {
           for (const suggestedTag of result.suggestedTags) {
             const matchedTag = availableTags.value.find(
-              t => t.name.toLowerCase() === suggestedTag.toLowerCase()
+              t => t.name.toLowerCase() === suggestedTag.toLowerCase() ||
+                   t.name.toLowerCase().includes(suggestedTag.toLowerCase()) ||
+                   suggestedTag.toLowerCase().includes(t.name.toLowerCase())
             );
             if (matchedTag && matchedTag.id) {
               aiSuggestedTagIds.push(matchedTag.id);
@@ -929,6 +961,134 @@ async function handleCreate() {
   } catch (error: any) {
     console.error('创建任务失败:', error);
     message.error(error?.message || '创建任务失败，请检查输入内容');
+  } finally {
+    isCreating.value = false;
+  }
+}
+
+async function handleCreateAndComplete() {
+  try {
+    await formRef.value?.validate();
+
+    // 前端验证
+    if (formData.title.trim().length === 0) {
+      message.error('任务标题不能为空');
+      return;
+    }
+    if (formData.title.length > 200) {
+      message.error('任务标题不能超过200个字符');
+      return;
+    }
+
+    // 防止重复提交
+    if (isCreating.value) return;
+    isCreating.value = true;
+
+    // 展开里程碑输入区域（如果还没展开）
+    if (!showSaveAndCompleteMilestone.value) {
+      showSaveAndCompleteMilestone.value = true;
+      isCreating.value = false;
+      return;
+    }
+
+    let finalCategory = formData.category;
+    let finalPriority = formData.priority;
+    let finalQuadrant = formData.quadrant;
+    let aiSuggestedTagIds: number[] = [];
+
+    // AI 分类
+    if (isAiEnabled.value) {
+      try {
+        const existingTagNames = availableTags.value.map(t => t.name);
+        const result = await aiApi.classifyTask(
+          formData.title,
+          formData.description || undefined,
+          existingTagNames
+        );
+
+        if (formData.category === 'other' && result.category) {
+          finalCategory = result.category as Task['category'];
+        }
+        if (formData.priority === 2 && result.priority) {
+          finalPriority = result.priority as Task['priority'];
+        }
+        if (formData.quadrant === 'urgent_not_important' && result.quadrant) {
+          finalQuadrant = result.quadrant as TaskQuadrant;
+        }
+
+        if (result.suggestedTags && result.suggestedTags.length > 0) {
+          for (const suggestedTag of result.suggestedTags) {
+            // 模糊匹配：精确匹配或包含匹配
+            const matchedTag = availableTags.value.find(
+              t => t.name.toLowerCase() === suggestedTag.toLowerCase() ||
+                   t.name.toLowerCase().includes(suggestedTag.toLowerCase()) ||
+                   suggestedTag.toLowerCase().includes(t.name.toLowerCase())
+            );
+            if (matchedTag && matchedTag.id) {
+              aiSuggestedTagIds.push(matchedTag.id);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('AI 分类失败，使用默认值:', error);
+      }
+    }
+
+    // 格式化日期
+    const dueDateStr = formData.dueDate ? dayjs(formData.dueDate).format('YYYY-MM-DD') : undefined;
+    const registeredAtStr = formData.registeredAt ? dayjs(formData.registeredAt).format('YYYY-MM-DD') : undefined;
+    const scheduledStartTimeStr = formData.scheduledStartTime ? dayjs(formData.scheduledStartTime).format('YYYY-MM-DD HH:mm:ss') : undefined;
+
+    // 创建任务
+    const taskId = await taskStore.createTask(
+      formData.title,
+      formData.description || undefined,
+      finalCategory,
+      finalPriority,
+      finalQuadrant,
+      dueDateStr,
+      registeredAtStr,
+      scheduledStartTimeStr
+    );
+
+    // 添加标签
+    const allTagIds = [...new Set([...formData.tagIds, ...aiSuggestedTagIds])];
+    if (allTagIds.length > 0) {
+      try {
+        await tagApi.addTagsToTask(taskId, allTagIds);
+      } catch (error) {
+        console.error('添加标签失败:', error);
+      }
+    }
+
+    // 如果填写了里程碑，创建里程碑
+    if (saveCompleteTitle.value.trim()) {
+      try {
+        await taskApi.createTaskMilestone(
+          taskId,
+          saveCompleteTitle.value.trim(),
+          saveCompleteDesc.value.trim() || undefined,
+          100
+        );
+      } catch (error) {
+        console.error('创建里程碑失败:', error);
+      }
+    }
+
+    // 立即完成任务
+    await taskStore.completeTask(taskId);
+
+    // 刷新任务列表
+    await taskStore.loadTasks();
+
+    message.success('任务已创建并完成');
+    showSaveAndCompleteMilestone.value = false;
+    saveCompleteTitle.value = '';
+    saveCompleteDesc.value = '';
+    handleCancelEdit();
+  } catch (error: any) {
+    console.error('创建并完成任务失败:', error);
+    message.error(error?.message || '操作失败，请检查输入内容');
   } finally {
     isCreating.value = false;
   }
@@ -1101,6 +1261,11 @@ function handleCancelEdit() {
   formData.registeredAt = Date.now();
   formData.scheduledStartTime = null;
 
+  // 重置保存并完成状态
+  showSaveAndCompleteMilestone.value = false;
+  saveCompleteTitle.value = '';
+  saveCompleteDesc.value = '';
+
   // 清理防抖定时器
   if (aiEnhanceDebounceTimer) {
     clearTimeout(aiEnhanceDebounceTimer);
@@ -1113,9 +1278,9 @@ async function handleDefer(taskId: number) {
   message.success('任务已延后');
 }
 
-async function handleDelete(taskId: number) {
-  await taskStore.deleteTask(taskId);
-  message.success('任务已删除');
+async function handleCancel(taskId: number) {
+  await taskStore.cancelTask(taskId);
+  message.success('任务已取消');
 }
 
 async function handleRefresh() {
@@ -1782,6 +1947,22 @@ async function handleAiGenerateSubtasks() {
     opacity: 0.7;
     transform: scale(1.1);
   }
+}
+
+/* 保存并完成 - 里程碑输入区域 */
+.milestone-input-section {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+}
+
+.milestone-input-header {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 8px;
 }
 
 /* AI 状态提示 */

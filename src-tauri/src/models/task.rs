@@ -30,10 +30,11 @@ pub struct Task {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum TaskStatus {
-    Todo,     // 待办
-    Active,   // 进行中
-    Done,     // 已完成
-    Deferred, // 延后
+    Todo,      // 待办
+    Active,    // 进行中
+    Done,      // 已完成
+    Deferred,  // 延后
+    Cancelled, // 已取消
 }
 
 impl TaskStatus {
@@ -43,6 +44,7 @@ impl TaskStatus {
             TaskStatus::Active => "active",
             TaskStatus::Done => "done",
             TaskStatus::Deferred => "deferred",
+            TaskStatus::Cancelled => "cancelled",
         }
     }
 
@@ -52,6 +54,7 @@ impl TaskStatus {
             "active" => TaskStatus::Active,
             "done" => TaskStatus::Done,
             "deferred" => TaskStatus::Deferred,
+            "cancelled" => TaskStatus::Cancelled,
             _ => TaskStatus::Todo,
         }
     }

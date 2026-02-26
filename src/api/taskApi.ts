@@ -104,9 +104,22 @@ export const taskApi = {
     });
   },
 
-  // 删除任务
+  // 取消任务（软删除）
+  async cancelTask(taskId: number): Promise<void> {
+    await invoke('cancel_task', { taskId });
+  },
+
+  // 删除任务（物理删除，保留备用）
   async deleteTask(taskId: number): Promise<void> {
     await invoke('delete_task', { taskId });
+  },
+
+  // 获取历史任务（已完成 + 已取消）
+  async getHistoryTasks(days: number, statusFilter?: string): Promise<Task[]> {
+    return await invoke('get_history_tasks', {
+      days,
+      statusFilter: statusFilter || null,
+    });
   },
 
   // 获取长时间未处理的任务

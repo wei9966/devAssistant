@@ -4,7 +4,7 @@ export interface Task {
   description?: string;
   category: 'backend' | 'database' | 'feature' | 'docs' | 'other';
   priority: 1 | 2 | 3;  // 1-高 | 2-中 | 3-低
-  status: 'todo' | 'active' | 'done' | 'deferred';
+  status: 'todo' | 'active' | 'done' | 'deferred' | 'cancelled';
   quadrant?: TaskQuadrant;
   tags?: Tag[];
   gitBranch?: string;
@@ -82,6 +82,7 @@ export const STATUS_LABELS: Record<Task['status'], string> = {
   active: '进行中',
   done: '已完成',
   deferred: '延后',
+  cancelled: '已取消',
 };
 
 // 四象限的中文映射

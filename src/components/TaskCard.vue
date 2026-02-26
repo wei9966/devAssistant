@@ -77,8 +77,8 @@
       <div class="task-actions">
         <n-button v-if="task.status === 'todo'" class="primary-button" size="small" @click="handleStart">开始</n-button>
         <n-button v-if="task.status === 'active'" type="warning" size="small" @click="handlePause">暂停</n-button>
-        <n-button v-if="task.status !== 'done'" type="success" size="small" @click="handleComplete">完成</n-button>
-        <n-button v-if="!readonly" type="error" text size="small" @click="handleDelete">删除</n-button>
+        <n-button v-if="task.status !== 'done' && task.status !== 'cancelled'" type="success" size="small" @click="handleComplete">完成</n-button>
+        <n-button v-if="!readonly && task.status !== 'done' && task.status !== 'cancelled'" type="error" text size="small" @click="handleCancel">取消</n-button>
       </div>
     </div>
   </n-card>
@@ -114,7 +114,7 @@ const emit = defineEmits<{
   pause: [taskId: number];
   complete: [taskId: number];
   edit: [task: Task];
-  delete: [taskId: number];
+  cancel: [taskId: number];
   defer: [taskId: number];
   click: [task: Task];
   adjustProgress: [task: Task];
@@ -137,8 +137,8 @@ const dropdownOptions = computed(() => {
     });
   }
 
-  // 已完成任务可以重新激活
-  if (props.task.status === 'done') {
+  // 已完成或已取消任务可以重新激活
+  if (props.task.status === 'done' || props.task.status === 'cancelled') {
     options.push({
       label: '重新激活',
       key: 'reactivate',
@@ -175,11 +175,13 @@ const dropdownOptions = computed(() => {
       });
     }
 
-    options.push({
-      label: '删除',
-      key: 'delete',
-      icon: () => h(NIcon, null, { default: () => h(TrashOutline) })
-    });
+    if (props.task.status !== 'done' && props.task.status !== 'cancelled') {
+      options.push({
+        label: '取消任务',
+        key: 'cancel',
+        icon: () => h(NIcon, null, { default: () => h(TrashOutline) })
+      });
+    }
   }
 
   return options;
@@ -208,14 +210,14 @@ const handleEdit = () => {
   emit('edit', props.task);
 };
 
-const handleDelete = () => {
+const handleCancel = () => {
   dialog.warning({
-    title: '删除任务',
-    content: `确定要删除任务 "${props.task.title}" 吗？`,
-    positiveText: '删除',
-    negativeText: '取消',
+    title: '取消任务',
+    content: `确定要取消任务 "${props.task.title}" 吗？取消后可在历史报表中查看。`,
+    positiveText: '确认取消',
+    negativeText: '返回',
     onPositiveClick: () => {
-      emit('delete', props.task.id!);
+      emit('cancel', props.task.id!);
     },
   });
 };
@@ -240,8 +242,8 @@ const handleDropdownSelect = (key: string) => {
     case 'defer':
       emit('defer', props.task.id!);
       break;
-    case 'delete':
-      handleDelete();
+    case 'cancel':
+      handleCancel();
       break;
     case 'adjustProgress':
       emit('adjustProgress', props.task);

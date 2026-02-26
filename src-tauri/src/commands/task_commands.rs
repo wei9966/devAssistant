@@ -121,9 +121,25 @@ pub fn update_task(
 }
 
 #[tauri::command]
+pub fn cancel_task(db: State<DbConnection>, task_id: i64) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::cancel_task(&conn, task_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn delete_task(db: State<DbConnection>, task_id: i64) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     TaskService::delete_task(&conn, task_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_history_tasks(
+    db: State<DbConnection>,
+    days: i64,
+    status_filter: Option<String>,
+) -> Result<Vec<Task>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    TaskService::get_history_tasks(&conn, days, status_filter.as_deref()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

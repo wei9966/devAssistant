@@ -28,6 +28,17 @@
             />
           </div>
           <div class="filter-item">
+            <span class="filter-label">状态</span>
+            <n-select
+              v-model:value="selectedStatus"
+              :options="statusOptions"
+              clearable
+              placeholder="全部"
+              style="width: 120px"
+              @update:value="handleStatusFilterChange"
+            />
+          </div>
+          <div class="filter-item">
             <span class="filter-label">标签筛选</span>
             <n-select
               v-model:value="selectedTags"
@@ -68,11 +79,11 @@
         </n-gi>
         <n-gi>
           <div class="stat-card">
-            <div class="stat-icon in-progress">
-              <n-icon :component="HourglassOutline" size="24" />
+            <div class="stat-icon cancelled">
+              <n-icon :component="CloseCircleOutline" size="24" />
             </div>
-            <div class="stat-value">{{ stats.inProgress }}</div>
-            <div class="stat-label">进行中</div>
+            <div class="stat-value">{{ stats.cancelled }}</div>
+            <div class="stat-label">已取消</div>
           </div>
         </n-gi>
         <n-gi>
@@ -80,8 +91,8 @@
             <div class="stat-icon pending">
               <n-icon :component="TimeOutline" size="24" />
             </div>
-            <div class="stat-value">{{ stats.pending }}</div>
-            <div class="stat-label">待办</div>
+            <div class="stat-value">{{ stats.avgDuration }}</div>
+            <div class="stat-label">平均耗时</div>
           </div>
         </n-gi>
         <n-gi>
@@ -99,7 +110,7 @@
     <!-- 任务列表 -->
     <section class="settings-card task-list-section">
       <div class="card-header">
-        <h3 class="card-title">已完成任务详情</h3>
+        <h3 class="card-title">任务详情</h3>
         <n-tag type="success">{{ filteredTasks.length }} 条记录</n-tag>
       </div>
       <div class="card-content">
@@ -107,12 +118,13 @@
           <n-spin size="medium" />
           <span>加载中...</span>
         </div>
-        <n-empty v-else-if="filteredTasks.length === 0" description="暂无已完成的任务" />
+        <n-empty v-else-if="filteredTasks.length === 0" description="暂无历史任务" />
         <div v-else class="task-table-wrapper">
           <table class="task-table">
             <thead>
               <tr>
                 <th style="width: 300px;">任务名称</th>
+                <th style="width: 80px;">状态</th>
                 <th style="width: 120px;">标签</th>
                 <th style="width: 100px;">四象限</th>
                 <th style="width: 150px;">开始时间</th>
@@ -141,6 +153,11 @@
                   </div>
                 </td>
                 <td>
+                  <span class="status-badge" :class="`status-${task.status}`">
+                    {{ getStatusLabel(task.status) }}
+                  </span>
+                </td>
+                <td>
                   <div class="tag-list">
                     <n-tag
                       v-for="tag in task.tags"
@@ -154,7 +171,7 @@
                   </div>
                 </td>
                 <td>
-                  <span class="quadrant-badge" :class="`quadrant-${task.quadrant || 4}`">
+                  <span class="quadrant-badge" :class="`quadrant-${task.quadrant || 'none'}`">
                     {{ getQuadrantName(task.quadrant) }}
                   </span>
                 </td>
@@ -189,7 +206,7 @@ import {
   RefreshOutline,
   DownloadOutline,
   CheckmarkCircleOutline,
-  HourglassOutline,
+  CloseCircleOutline,
   TimeOutline,
   LayersOutline
 } from '@vicons/ionicons5';
@@ -198,25 +215,34 @@ import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { taskApi } from '@/api/taskApi';
 import { tagApi } from '@/api/tagApi';
 import type { Task, Tag } from '@/types/task';
+import { STATUS_LABELS } from '@/types/task';
 
 const message = useMessage();
 
 const loading = ref(false);
 const dateRange = ref<[number, number] | null>(null);
 const selectedTags = ref<number[]>([]);
-const selectedQuadrant = ref<number | null>(null);
+const selectedQuadrant = ref<string | null>(null);
+const selectedStatus = ref<string | null>(null);
 const availableTags = ref<Tag[]>([]);
 // 所有历史完成任务
 const allCompletedTasks = ref<Task[]>([]);
 // 展开的任务描述
 const expandedTasks = ref<Set<number>>(new Set());
 
-// 四象限选项
+// 四象限选项（使用字符串键匹配实际数据）
 const quadrantOptions = [
-  { label: '重要紧急', value: 1 },
-  { label: '重要不紧急', value: 2 },
-  { label: '不重要紧急', value: 3 },
-  { label: '不重要不紧急', value: 4 }
+  { label: '紧急且重要', value: 'urgent_important' },
+  { label: '紧急不重要', value: 'urgent_not_important' },
+  { label: '不紧急但重要', value: 'not_urgent_important' },
+  { label: '不紧急不重要', value: 'not_urgent_not_important' }
+];
+
+// 状态筛选选项
+const statusOptions = [
+  { label: '全部', value: 'all' },
+  { label: '已完成', value: 'done' },
+  { label: '已取消', value: 'cancelled' },
 ];
 
 // 标签选项
@@ -227,18 +253,36 @@ const tagOptions = computed(() => {
   }));
 });
 
-// 统计数据 - 基于所有历史完成任务
+// 统计数据 - 基于所有历史任务
 const stats = computed(() => {
   const tasks = allCompletedTasks.value;
+  const completedTasks = tasks.filter(t => t.status === 'done');
+
+  // 计算平均耗时
+  let totalDuration = 0;
+  let durationCount = 0;
+  for (const t of completedTasks) {
+    if (t.startedAt && t.completedAt) {
+      const diff = new Date(t.completedAt).getTime() - new Date(t.startedAt).getTime();
+      if (diff > 0) {
+        totalDuration += diff;
+        durationCount++;
+      }
+    }
+  }
+  const avgMs = durationCount > 0 ? totalDuration / durationCount : 0;
+  const avgHours = Math.round(avgMs / 3600000 * 10) / 10;
+  const avgDuration = avgHours > 0 ? (avgHours >= 24 ? `${Math.round(avgHours / 24)}天` : `${avgHours}h`) : '-';
+
   return {
     total: tasks.length,
-    completed: tasks.length,  // 所有任务都是已完成的
-    inProgress: 0,  // 报表只显示已完成任务
-    pending: 0
+    completed: completedTasks.length,
+    cancelled: tasks.filter(t => t.status === 'cancelled').length,
+    avgDuration,
   };
 });
 
-// 过滤后的已完成任务
+// 过滤后的历史任务
 const filteredTasks = computed(() => {
   let tasks = [...allCompletedTasks.value];
 
@@ -246,9 +290,10 @@ const filteredTasks = computed(() => {
   if (dateRange.value) {
     const [start, end] = dateRange.value;
     tasks = tasks.filter(t => {
-      if (!t.completedAt) return false;
-      const completedTime = new Date(t.completedAt).getTime();
-      return completedTime >= start && completedTime <= end + 86400000; // 加一天以包含结束日期
+      const dateStr = t.completedAt || t.createdAt;
+      if (!dateStr) return false;
+      const time = new Date(dateStr).getTime();
+      return time >= start && time <= end + 86400000;
     });
   }
 
@@ -266,8 +311,8 @@ const filteredTasks = computed(() => {
 
   // 按完成时间倒序排序
   return tasks.sort((a, b) => {
-    const timeA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
-    const timeB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+    const timeA = a.completedAt ? new Date(a.completedAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+    const timeB = b.completedAt ? new Date(b.completedAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
     return timeB - timeA;
   });
 });
@@ -279,8 +324,9 @@ onMounted(async () => {
 async function loadData() {
   loading.value = true;
   try {
-    // 使用 days=0 获取所有历史完成任务
-    allCompletedTasks.value = await taskApi.getCompletedTasks(0);
+    // 获取所有历史任务（已完成 + 已取消），支持状态筛选
+    const statusFilter = selectedStatus.value === 'all' ? undefined : (selectedStatus.value || undefined);
+    allCompletedTasks.value = await taskApi.getHistoryTasks(0, statusFilter);
     await loadTags();
   } catch (error) {
     console.error('加载数据失败:', error);
@@ -288,6 +334,10 @@ async function loadData() {
   } finally {
     loading.value = false;
   }
+}
+
+function handleStatusFilterChange() {
+  loadData();
 }
 
 async function loadTags() {
@@ -339,11 +389,12 @@ async function handleExport() {
     }
 
     // 构建CSV内容
-    const headers = ['任务名称', '描述', '标签', '四象限', '开始时间', '完成时间', '耗时'];
+    const headers = ['任务名称', '描述', '状态', '标签', '四象限', '开始时间', '完成时间', '耗时'];
     const rows = filteredTasks.value.map(task => [
       task.title,
       task.description || '',
-      task.tags?.map(t => t.name).join('、') || '',  // 多个标签用顿号拼接
+      getStatusLabel(task.status),
+      task.tags?.map(t => t.name).join('、') || '',
       getQuadrantName(task.quadrant),
       formatDateTime(task.startedAt),
       formatDateTime(task.completedAt),
@@ -373,14 +424,18 @@ async function handleExport() {
   }
 }
 
-function getQuadrantName(quadrant: number | undefined): string {
-  const names: Record<number, string> = {
-    1: '重要紧急',
-    2: '重要不紧急',
-    3: '不重要紧急',
-    4: '不重要不紧急'
+function getStatusLabel(status: string): string {
+  return STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status;
+}
+
+function getQuadrantName(quadrant: string | undefined): string {
+  const names: Record<string, string> = {
+    urgent_important: '紧急且重要',
+    urgent_not_important: '紧急不重要',
+    not_urgent_important: '不紧急但重要',
+    not_urgent_not_important: '不紧急不重要',
   };
-  return names[quadrant || 4] || '未分类';
+  return quadrant ? (names[quadrant] || '未分类') : '未分类';
 }
 
 function formatDateTime(dateStr: string | undefined): string {
@@ -655,28 +710,56 @@ function calculateDuration(startStr: string | undefined, endStr: string | undefi
   font-weight: 500;
 }
 
-.quadrant-1 {
+.quadrant-urgent_important {
   background: rgba(239, 68, 68, 0.15);
   color: var(--error);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-.quadrant-2 {
+.quadrant-urgent_not_important {
   background: rgba(251, 191, 36, 0.15);
   color: var(--warning);
   border: 1px solid rgba(251, 191, 36, 0.3);
 }
 
-.quadrant-3 {
+.quadrant-not_urgent_important {
   background: rgba(96, 165, 250, 0.15);
   color: var(--info);
   border: 1px solid rgba(96, 165, 250, 0.3);
 }
 
-.quadrant-4 {
+.quadrant-not_urgent_not_important,
+.quadrant-none {
   background: var(--bg-overlay);
   color: var(--text-secondary);
   border: 1px solid var(--border-default);
+}
+
+/* 状态标签 */
+.status-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-done {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--success);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.status-cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* 已取消统计卡片图标样式 */
+.stat-icon.cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error);
 }
 
 /* Naive UI 样式覆盖 */

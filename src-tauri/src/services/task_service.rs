@@ -17,7 +17,7 @@ impl TaskService {
                     estimated_hours, actual_hours, context_json, notes, quadrant,
                     due_date, registered_at, display_date, scheduled_start_time, progress
              FROM tasks
-             WHERE status != 'done'
+             WHERE status NOT IN ('done', 'cancelled')
              ORDER BY priority ASC, last_active_at DESC",
         )?;
 
@@ -182,15 +182,15 @@ impl TaskService {
             return Err(anyhow::anyhow!("进度值必须在 0-100 之间"));
         }
 
-        // 验证任务当前状态是否为 done
+        // 验证任务当前状态是否为 done 或 cancelled
         let current_status: String = conn.query_row(
             "SELECT status FROM tasks WHERE id = ?",
             params![task_id],
             |row| row.get(0),
         ).map_err(|_| anyhow::anyhow!("任务不存在"))?;
 
-        if current_status != "done" {
-            return Err(anyhow::anyhow!("只有已完成的任务才能重新激活"));
+        if current_status != "done" && current_status != "cancelled" {
+            return Err(anyhow::anyhow!("只有已完成或已取消的任务才能重新激活"));
         }
 
         conn.execute(
@@ -345,10 +345,89 @@ impl TaskService {
         Ok(())
     }
 
+    /// 取消任务（软删除，将状态设为 cancelled）
+    pub fn cancel_task(conn: &Connection, task_id: i64) -> Result<()> {
+        // 验证任务存在且不是已完成/已取消
+        let current_status: String = conn.query_row(
+            "SELECT status FROM tasks WHERE id = ?",
+            params![task_id],
+            |row| row.get(0),
+        ).map_err(|_| anyhow::anyhow!("任务不存在"))?;
+
+        if current_status == "done" {
+            return Err(anyhow::anyhow!("已完成的任务不能取消"));
+        }
+        if current_status == "cancelled" {
+            return Err(anyhow::anyhow!("任务已经是取消状态"));
+        }
+
+        conn.execute(
+            "UPDATE tasks
+             SET status = 'cancelled',
+                 completed_at = datetime('now', 'localtime'),
+                 last_active_at = datetime('now', 'localtime')
+             WHERE id = ?",
+            params![task_id],
+        )?;
+
+        Ok(())
+    }
+
     /// 删除任务
     pub fn delete_task(conn: &Connection, task_id: i64) -> Result<()> {
         conn.execute("DELETE FROM tasks WHERE id = ?", params![task_id])?;
         Ok(())
+    }
+
+    /// 获取历史任务（已完成 + 已取消），支持按状态筛选
+    /// days: 天数限制，0或负数表示获取所有历史任务
+    /// status_filter: 可选状态筛选，如 "done"、"cancelled"，为空则返回所有历史任务
+    pub fn get_history_tasks(conn: &Connection, days: i64, status_filter: Option<&str>) -> Result<Vec<Task>> {
+        let status_condition = match status_filter {
+            Some("done") => "status = 'done'",
+            Some("cancelled") => "status = 'cancelled'",
+            _ => "status IN ('done', 'cancelled')",
+        };
+
+        let mut tasks = if days <= 0 {
+            let sql = format!(
+                "SELECT id, title, description, category, priority, status, git_branch,
+                        created_at, started_at, last_active_at, completed_at,
+                        estimated_hours, actual_hours, context_json, notes, quadrant,
+                        due_date, registered_at, display_date, scheduled_start_time, progress
+                 FROM tasks
+                 WHERE {}
+                 ORDER BY completed_at DESC",
+                status_condition
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt.query_map([], |row| Self::map_row_to_task(row))?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        } else {
+            let sql = format!(
+                "SELECT id, title, description, category, priority, status, git_branch,
+                        created_at, started_at, last_active_at, completed_at,
+                        estimated_hours, actual_hours, context_json, notes, quadrant,
+                        due_date, registered_at, display_date, scheduled_start_time, progress
+                 FROM tasks
+                 WHERE {}
+                   AND completed_at >= datetime('now', 'localtime', ? || ' days')
+                 ORDER BY completed_at DESC",
+                status_condition
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt.query_map(params![format!("-{}", days)], |row| Self::map_row_to_task(row))?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
+
+        // 为每个任务加载标签
+        for task in tasks.iter_mut() {
+            if let Some(task_id) = task.id {
+                task.tags = TagService::get_task_tags(conn, task_id).ok();
+            }
+        }
+
+        Ok(tasks)
     }
 
     /// 获取长时间未处理的待办任务（超过 N 天）
@@ -526,7 +605,7 @@ impl TaskService {
                     estimated_hours, actual_hours, context_json, notes, quadrant,
                     due_date, registered_at, display_date, scheduled_start_time, progress
              FROM tasks
-             WHERE status != 'done' AND quadrant = ?
+             WHERE status NOT IN ('done', 'cancelled') AND quadrant = ?
              ORDER BY priority ASC, last_active_at DESC",
         )?;
 
@@ -558,14 +637,14 @@ impl TaskService {
                  (status = 'done' AND date(completed_at) BETWEEN ? AND ?)
                  OR
                  -- 未完成任务：日期在范围内
-                 (status != 'done' AND (
+                 (status NOT IN ('done', 'cancelled') AND (
                      (display_date IS NOT NULL AND display_date BETWEEN ? AND ?)
                      OR (display_date IS NULL AND registered_at IS NOT NULL AND registered_at BETWEEN ? AND ?)
                      OR (display_date IS NULL AND registered_at IS NULL AND date(created_at) BETWEEN ? AND ?)
                  ))
                  OR
                  -- 逾期未完成任务：日期 < start_date（前端会显示在今天）
-                 (status != 'done' AND (
+                 (status NOT IN ('done', 'cancelled') AND (
                      (display_date IS NOT NULL AND display_date < ?)
                      OR (display_date IS NULL AND registered_at IS NOT NULL AND registered_at < ?)
                      OR (display_date IS NULL AND registered_at IS NULL AND date(created_at) < ?)
@@ -626,7 +705,7 @@ impl TaskService {
         let mut stmt = conn.prepare(
             "SELECT quadrant, COUNT(*) as count
              FROM tasks
-             WHERE status != 'done'
+             WHERE status NOT IN ('done', 'cancelled')
              GROUP BY quadrant",
         )?;
 
@@ -647,7 +726,7 @@ impl TaskService {
                     estimated_hours, actual_hours, context_json, notes, quadrant,
                     due_date, registered_at, display_date, scheduled_start_time, progress
              FROM tasks
-             WHERE status != 'done'
+             WHERE status NOT IN ('done', 'cancelled')
                AND scheduled_start_time IS NOT NULL
                AND datetime(scheduled_start_time) > datetime('now', 'localtime')
                AND datetime(scheduled_start_time) <= datetime('now', 'localtime', '+' || ? || ' minutes')

@@ -2406,7 +2406,7 @@ impl AiChatService {
         } else if let Some(keyword) = title_keyword {
             let search_pattern = format!("%{}%", keyword);
             conn.query_row(
-                "SELECT id, title FROM tasks WHERE title LIKE ?1 AND status != 'done' ORDER BY created_at DESC LIMIT 1",
+                "SELECT id, title FROM tasks WHERE title LIKE ?1 AND status NOT IN ('done', 'cancelled') ORDER BY created_at DESC LIMIT 1",
                 [&search_pattern],
                 |row| Ok((row.get(0)?, row.get(1)?))
             ).ok()
@@ -2790,7 +2790,7 @@ impl AiChatService {
 
             // 先尝试精确匹配，再尝试模糊匹配
             let found_id: Option<i64> = conn.query_row(
-                "SELECT id FROM tasks WHERE title = ?1 AND status != 'done' LIMIT 1",
+                "SELECT id FROM tasks WHERE title = ?1 AND status NOT IN ('done', 'cancelled') LIMIT 1",
                 [keyword],
                 |row| row.get(0),
             ).ok();
@@ -2802,7 +2802,7 @@ impl AiChatService {
                 // 尝试模糊匹配（LIKE）
                 let like_pattern = format!("%{}%", keyword);
                 let fuzzy_id: Option<i64> = conn.query_row(
-                    "SELECT id FROM tasks WHERE title LIKE ?1 AND status != 'done' ORDER BY created_at DESC LIMIT 1",
+                    "SELECT id FROM tasks WHERE title LIKE ?1 AND status NOT IN ('done', 'cancelled') ORDER BY created_at DESC LIMIT 1",
                     [&like_pattern],
                     |row| row.get(0),
                 ).ok();

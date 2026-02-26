@@ -146,6 +146,16 @@ export const useTaskStore = defineStore('task', () => {
     }
   }
 
+  async function cancelTask(taskId: number) {
+    try {
+      await taskApi.cancelTask(taskId);
+      await loadTasks();
+    } catch (e) {
+      console.error('取消任务失败:', e);
+      throw e;
+    }
+  }
+
   async function deleteTask(taskId: number) {
     try {
       await taskApi.deleteTask(taskId);
@@ -196,6 +206,7 @@ export const useTaskStore = defineStore('task', () => {
     completeTask,
     reactivateTask,
     updateTask,
+    cancelTask,
     deleteTask,
     checkStaleTasks,
     getCurrentBranch,
