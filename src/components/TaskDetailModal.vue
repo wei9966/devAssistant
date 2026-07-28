@@ -2,64 +2,33 @@
   <n-modal
     v-model:show="showModal"
     preset="card"
-    :title="task?.title || '任务详情'"
     class="task-detail-modal"
-    style="width: 700px; max-width: 90vw;"
-    :segmented="{
-      content: 'soft',
-      footer: 'soft'
-    }"
+    :segmented="{ content: true, footer: true }"
+    style="width: clamp(680px, 72vw, 1040px); max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); display: flex; flex-direction: column; --detail-modal-gutter: clamp(16px, 2.2vw, 28px);"
+    header-style="flex: 0 0 auto; padding: 20px var(--detail-modal-gutter);"
+    content-style="min-height: 0; padding: 0 var(--detail-modal-gutter) 24px; overflow-y: auto;"
+    footer-style="flex: 0 0 auto; padding: 14px var(--detail-modal-gutter);"
   >
-    <div v-if="task" class="modal-content">
-      <!-- 任务头部信息 -->
-      <div class="task-header-section">
-        <div class="task-badges-row">
-          <Badge :type="getCategoryBadgeType(task.category)">
-            {{ CATEGORY_LABELS[task.category] || '其他' }}
-          </Badge>
-          <div class="priority-badge" :class="`priority-${getPriorityBadgeType(task.priority)}`">
-            <div class="priority-dot"></div>
-            <span>{{ PRIORITY_LABELS[task.priority] }}</span>
-          </div>
-          <div class="status-badge" :class="`status-${task.status}`">
-            {{ STATUS_LABELS[task.status] }}
-          </div>
-          <!-- 四象限标识 -->
-          <div
-            v-if="task.quadrant"
-            class="quadrant-badge"
-            :style="{
-              background: QUADRANT_CONFIG[task.quadrant].bgColor,
-              borderColor: QUADRANT_CONFIG[task.quadrant].borderColor,
-              color: QUADRANT_CONFIG[task.quadrant].color
-            }"
-          >
-            <n-icon size="14">
-              <GridOutline />
-            </n-icon>
-            <span>{{ QUADRANT_CONFIG[task.quadrant].shortLabel }}</span>
-          </div>
+    <template #header>
+      <div v-if="task" class="detail-modal-header">
+        <div class="status-icon" :class="`status-${task.status}`">
+          <n-icon :component="task.status === 'done' ? CheckmarkCircleOutline : TimeOutline" />
         </div>
-
-        <!-- 标签展示 -->
-        <div v-if="task.tags && task.tags.length > 0" class="task-tags-row">
-          <div
-            v-for="tag in task.tags"
-            :key="tag.id"
-            class="task-tag"
-            :style="{
-              background: `${tag.color}30`,
-              color: tag.color,
-              borderColor: `${tag.color}60`
-            }"
-          >
-            <n-icon size="12">
-              <PricetagOutline />
-            </n-icon>
-            <span>{{ tag.name }}</span>
+        <div class="header-copy">
+          <div class="header-title-row">
+            <strong>{{ task.status === 'done' ? '任务详情' : task.status === 'active' ? '进行中的任务' : '任务详情' }}</strong>
+            <span class="status-badge" :class="`status-${task.status}`">{{ STATUS_LABELS[task.status] }}</span>
           </div>
+          <span>{{ task.status === 'done' ? '任务已完成，以下是执行记录' : task.status === 'active' ? '专注当前任务，及时同步进度' : '查看任务安排与相关信息' }}</span>
         </div>
       </div>
+    </template>
+    <div v-if="task" class="modal-content">
+      <section class="task-hero">
+        <h2>{{ task.title }}</h2>
+        <div v-if="task.description" class="markdown-content task-summary" v-html="renderedDescription"></div>
+        <p v-else class="empty-description">暂无任务描述</p>
+      </section>
 
       <!-- 任务进度（仅进行中任务显示） -->
       <div v-if="task.status === 'active'" class="detail-section">
@@ -111,57 +80,34 @@
         </div>
       </div>
 
-      <!-- 任务描述 -->
-      <div v-if="task.description" class="detail-section">
-        <div class="section-header">
-          <n-icon size="18" class="section-icon">
-            <DocumentTextOutline />
-          </n-icon>
-          <span class="section-title">任务描述</span>
+      <!-- 核心属性摘要 -->
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label">分类</span>
+          <span class="info-value"><Badge :type="getCategoryBadgeType(task.category)" :color="taskCategoryStore.getCustomColor(task.category)">{{ taskCategoryStore.getLabel(task.category) }}</Badge></span>
         </div>
-        <div class="section-content">
-          <div class="markdown-content" v-html="renderedDescription"></div>
+        <div class="info-item">
+          <span class="info-label">四象限</span>
+          <span class="info-value quadrant-value"><n-icon><GridOutline /></n-icon>{{ task.quadrant ? QUADRANT_CONFIG[task.quadrant].label : '未设置' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">优先级</span>
+          <span class="info-value priority-value" :class="`priority-${getPriorityBadgeType(task.priority)}`"><i></i>{{ PRIORITY_LABELS[task.priority] }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">标签</span>
+          <span v-if="task.tags?.length" class="info-value tag-summary">
+            <span v-for="tag in task.tags.slice(0, 2)" :key="tag.id" class="compact-tag" :style="{ color: tag.color }">{{ tag.name }}</span>
+            <small v-if="task.tags.length > 2">+{{ task.tags.length - 2 }}</small>
+          </span>
+          <span v-else class="info-value muted-value">暂无</span>
         </div>
       </div>
 
-      <!-- 任务信息网格 -->
-      <div class="detail-section">
-        <div class="section-header">
-          <n-icon size="18" class="section-icon">
-            <InformationCircleOutline />
-          </n-icon>
-          <span class="section-title">任务信息</span>
-        </div>
-        <div class="info-grid">
-          <div class="info-item">
-            <span class="info-label">任务ID</span>
-            <span class="info-value">{{ task.id || 'N/A' }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">分类</span>
-            <span class="info-value">{{ CATEGORY_LABELS[task.category] || '其他' }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">优先级</span>
-            <span class="info-value">{{ PRIORITY_LABELS[task.priority] }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">状态</span>
-            <span class="info-value">{{ STATUS_LABELS[task.status] }}</span>
-          </div>
-          <div v-if="task.gitBranch" class="info-item">
-            <span class="info-label">Git分支</span>
-            <span class="info-value monospace">{{ task.gitBranch }}</span>
-          </div>
-          <div v-if="task.estimatedHours" class="info-item">
-            <span class="info-label">预估时长</span>
-            <span class="info-value">{{ task.estimatedHours }} 小时</span>
-          </div>
-          <div v-if="task.actualHours" class="info-item">
-            <span class="info-label">实际时长</span>
-            <span class="info-value">{{ task.actualHours }} 小时</span>
-          </div>
-        </div>
+      <div v-if="task.gitBranch || task.estimatedHours || task.actualHours" class="secondary-info">
+        <span v-if="task.gitBranch">Git 分支：<b class="monospace">{{ task.gitBranch }}</b></span>
+        <span v-if="task.estimatedHours">预估 {{ task.estimatedHours }} 小时</span>
+        <span v-if="task.actualHours">实际 {{ task.actualHours }} 小时</span>
       </div>
 
       <!-- 时间信息与里程碑 -->
@@ -224,8 +170,8 @@
           </div>
         </div>
 
-        <div class="timeline">
-          <div v-if="task.createdAt" class="timeline-item">
+        <div class="timeline" :class="{ 'timeline-with-milestones': milestones.length > 0 }">
+          <div v-if="task.createdAt" class="timeline-item timeline-created">
             <div class="timeline-dot"></div>
             <div class="timeline-content">
               <span class="timeline-label">创建时间</span>
@@ -296,7 +242,7 @@
               <span class="timeline-relative">{{ formatRelativeTime(task.lastActiveAt) }}</span>
             </div>
           </div>
-          <div v-if="task.completedAt" class="timeline-item">
+          <div v-if="task.completedAt" class="timeline-item timeline-completed">
             <div class="timeline-dot completed"></div>
             <div class="timeline-content">
               <span class="timeline-label">完成时间</span>
@@ -304,6 +250,11 @@
               <span class="timeline-relative">{{ formatRelativeTime(task.completedAt) }}</span>
             </div>
           </div>
+        </div>
+        <div v-if="task.status === 'done'" class="completion-summary">
+          <n-icon><CheckmarkCircleOutline /></n-icon>
+          <strong>任务已完成</strong>
+          <span>{{ completionDuration }}</span>
         </div>
       </div>
 
@@ -400,24 +351,23 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { NModal, NIcon, NSpace, NButton, NDatePicker, NProgress, NSlider, NInput, NInputGroup, NPopconfirm, useMessage } from 'naive-ui';
 import {
-  DocumentTextOutline,
-  InformationCircleOutline,
   TimeOutline,
   CodeSlashOutline,
   CreateOutline,
   GridOutline,
-  PricetagOutline,
   CalendarOutline,
   TrendingUpOutline,
   FlagOutline,
   AddOutline,
   TrashOutline,
+  CheckmarkCircleOutline,
 } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
 import { marked } from 'marked';
-import { CATEGORY_LABELS, PRIORITY_LABELS, STATUS_LABELS, QUADRANT_CONFIG } from '@/types/task';
+import { PRIORITY_LABELS, STATUS_LABELS, QUADRANT_CONFIG } from '@/types/task';
+import { useTaskCategoryStore } from '@/stores/taskCategoryStore';
 import type { Task, TaskQuadrant, Tag, TaskMilestone } from '@/types/task';
 import { tagApi } from '@/api/tagApi';
 import { taskApi } from '@/api/taskApi';
@@ -431,6 +381,7 @@ dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
 
 const message = useMessage();
+const taskCategoryStore = useTaskCategoryStore();
 
 const props = withDefaults(
   defineProps<{
@@ -473,6 +424,17 @@ const renderedNotes = computed(() => {
     console.error('Markdown 渲染失败:', error);
     return props.task.notes;
   }
+});
+
+const completionDuration = computed(() => {
+  const task = props.task;
+  if (!task) return '';
+  if (task.actualHours) return `实际用时 ${task.actualHours} 小时`;
+  if (!task.startedAt || !task.completedAt) return task.completedAt ? `完成于 ${formatDateTime(task.completedAt)}` : '';
+  const minutes = Math.max(0, dayjs(task.completedAt).diff(dayjs(task.startedAt), 'minute'));
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+  return `总用时 ${hours ? `${hours} 小时 ` : ''}${restMinutes} 分钟`;
 });
 
 // 编辑状态
@@ -1375,10 +1337,301 @@ const getProgressColor = (progress: number) => {
   border-radius: 4px;
 }
 
-/* 响应式 */
-@media (max-width: 768px) {
-  .info-grid {
-    grid-template-columns: 1fr;
+/* 改版布局覆盖 */
+:deep(.task-detail-modal) {
+  width: min(840px, calc(100vw - 32px));
+  max-height: min(88vh, 920px);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+:deep(.task-detail-modal .n-card-header) {
+  flex: 0 0 auto;
+  padding: 20px 28px;
+}
+
+:deep(.task-detail-modal .n-card__content) {
+  min-height: 0;
+  padding: 0 28px 26px;
+  overflow-y: auto;
+}
+
+:deep(.task-detail-modal .n-card__footer) {
+  flex: 0 0 auto;
+  padding: 14px 28px;
+}
+
+.detail-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  font-size: 20px;
+}
+
+.status-icon.status-active {
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+}
+
+.status-icon.status-done {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+}
+
+.header-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.header-copy > span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-title-row strong {
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0;
+}
+
+.modal-content {
+  gap: 16px;
+}
+
+.task-hero {
+  padding: 24px 0 0;
+}
+
+.task-hero h2 {
+  margin: 0 0 8px;
+  color: var(--text-primary);
+  font-size: 22px;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+.task-summary {
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.task-summary :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.empty-description {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.info-item {
+  min-width: 0;
+  min-height: 72px;
+  padding: 11px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--card-bg) 88%, var(--bg-elevated));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.info-label {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.info-value {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.quadrant-value,
+.priority-value,
+.tag-summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.priority-value i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.priority-value.priority-high { color: var(--error); }
+.priority-value.priority-medium { color: var(--warning); }
+.priority-value.priority-low { color: var(--success); }
+
+.tag-summary {
+  flex-wrap: wrap;
+}
+
+.compact-tag {
+  white-space: nowrap;
+}
+
+.compact-tag:not(:last-of-type)::after {
+  content: '·';
+  margin-left: 5px;
+  color: var(--text-muted);
+}
+
+.muted-value { color: var(--text-muted); }
+
+.secondary-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: -10px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.detail-section {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-default);
+}
+
+.task-hero + .info-grid {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-default);
+}
+
+.progress-section {
+  padding: 0;
+}
+
+.timeline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0;
+  padding: 4px 0 0;
+}
+
+.timeline.timeline-with-milestones {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.timeline-item {
+  min-width: 0;
+  padding: 0 12px 0 18px;
+  gap: 8px;
+}
+
+.timeline-item:not(:last-child)::after {
+  left: 6px;
+  right: -1px;
+  top: 9px;
+  width: auto;
+  height: 1px;
+}
+
+.timeline-with-milestones .timeline-item:not(:last-child)::after {
+  display: none;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  margin: 0;
+}
+
+.timeline-value {
+  font-size: 12px;
+  white-space: normal;
+}
+
+.timeline-relative {
+  font-size: 11px;
+}
+
+.completion-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--success) 28%, var(--border-default));
+  border-radius: 9px;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 9%, transparent);
+  font-size: 13px;
+}
+
+.completion-summary span {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+@media (max-width: 720px) {
+  :deep(.task-detail-modal .n-card-header),
+  :deep(.task-detail-modal .n-card__content),
+  :deep(.task-detail-modal .n-card__footer) {
+    padding-left: 20px;
+    padding-right: 20px;
   }
+
+  .info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .timeline,
+  .timeline.timeline-with-milestones {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .timeline-item:not(:last-child)::after {
+    display: none;
+  }
+}
+
+@media (max-width: 460px) {
+  .info-grid { grid-template-columns: 1fr; }
+  .task-hero h2 { font-size: 19px; }
+  .completion-summary { align-items: flex-start; flex-wrap: wrap; }
+  .completion-summary span { width: 100%; margin-left: 26px; }
 }
 </style>

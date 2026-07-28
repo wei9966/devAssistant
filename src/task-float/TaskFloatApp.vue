@@ -342,12 +342,14 @@ import dayjs from 'dayjs';
 import type { Task, TaskQuadrant, Tag } from '@/types/task';
 import { aiApi } from '@/api/aiApi';
 import { tagApi } from '@/api/tagApi';
+import { useTaskCategoryStore } from '@/stores/taskCategoryStore';
 import QuadrantSelector from '@/components/QuadrantSelector.vue';
 import PrioritySelector from '@/components/PrioritySelector.vue';
 import CategorySelector from '@/components/CategorySelector.vue';
 import TagSelector from '@/components/TagSelector.vue';
 import TagManager from '@/components/TagManager.vue';
 
+const taskCategoryStore = useTaskCategoryStore();
 const activeTasks = ref<Task[]>([]);
 const todoTasks = ref<Task[]>([]);
 const maxDisplayTodo = 5;
@@ -422,6 +424,7 @@ const displayedTodoTasks = computed(() => {
 let unlistenTaskUpdate: (() => void) | null = null;
 
 onMounted(async () => {
+  await taskCategoryStore.loadCategories();
   await loadTasks();
   await loadTags();
 
@@ -435,6 +438,7 @@ onMounted(async () => {
 
   // 监听任务更新事件
   unlistenTaskUpdate = await listen('task-updated', async () => {
+    await taskCategoryStore.loadCategories(true);
     await loadTasks();
   });
 

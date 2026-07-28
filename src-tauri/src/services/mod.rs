@@ -29,6 +29,7 @@ pub mod sql_ai_service;
 pub mod sql_service;
 pub mod sql_template_service;
 pub mod tag_service;
+pub mod task_category_service;
 pub mod task_service;
 pub mod time_parser_service;
 pub mod tips_service;
@@ -84,6 +85,7 @@ pub use sql_ai_service::{AiProvider, SqlAiConfig, SqlAiService, SqlClassifyResul
 pub use sql_service::{SqlCategory, SqlRecord, SqlService};
 pub use sql_template_service::{ConsolidateResult, SqlTemplate, SqlTemplateService};
 pub use tag_service::TagService;
+pub use task_category_service::TaskCategoryService;
 pub use task_service::TaskService;
 pub use time_parser_service::{TimeExpression, TimeParserService};
 pub use tips_service::{ActivityPattern, Tip, TipCategory, TipPriority, TipsService};

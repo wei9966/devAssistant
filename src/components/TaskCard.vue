@@ -5,7 +5,7 @@
 
     <div class="card-header">
       <div class="task-badges">
-        <Badge :type="getCategoryBadgeType(task.category)">{{ CATEGORY_LABELS[task.category] || 'Other' }}</Badge>
+        <Badge :type="getCategoryBadgeType(task.category)" :color="taskCategoryStore.getCustomColor(task.category)">{{ taskCategoryStore.getLabel(task.category) }}</Badge>
         <!-- 四象限标识 -->
         <div
           v-if="task.quadrant"
@@ -22,14 +22,24 @@
           </n-icon>
         </div>
       </div>
-      <div class="task-actions-menu" @click.stop>
-        <n-dropdown :options="dropdownOptions" @select="handleDropdownSelect">
-          <n-button text size="small" class="more-btn">
-            <template #icon>
-              <n-icon><EllipsisHorizontal /></n-icon>
-            </template>
-          </n-button>
-        </n-dropdown>
+      <div class="card-header-meta">
+        <div
+          class="priority-section"
+          :title="`优先级：${PRIORITY_LABELS[task.priority]}`"
+          :aria-label="`优先级：${PRIORITY_LABELS[task.priority]}`"
+        >
+          <div class="priority-dot" :class="`priority-${getPriorityBadgeType(task.priority)}`"></div>
+          <span class="priority-label">{{ PRIORITY_LABELS[task.priority] }}</span>
+        </div>
+        <div class="task-actions-menu" @click.stop>
+          <n-dropdown :options="dropdownOptions" @select="handleDropdownSelect">
+            <n-button text size="small" class="more-btn">
+              <template #icon>
+                <n-icon><EllipsisHorizontal /></n-icon>
+              </template>
+            </n-button>
+          </n-dropdown>
+        </div>
       </div>
     </div>
 
@@ -49,36 +59,34 @@
       <span class="progress-text">{{ task.progress }}%</span>
     </div>
 
-    <!-- 标签展示 -->
-    <div v-if="task.tags && task.tags.length > 0" class="task-tags" @click.stop>
-      <div
-        v-for="tag in task.tags.slice(0, 3)"
-        :key="tag.id"
-        class="task-tag-mini"
-        :style="{
-          background: `${tag.color}40`,
-          color: tag.color,
-          borderColor: `${tag.color}60`
-        }"
-        :title="tag.name"
-      >
-        <span>{{ tag.name }}</span>
+    <div
+      v-if="(task.tags && task.tags.length > 0) || (task.status !== 'done' && task.status !== 'cancelled')"
+      class="task-meta-row"
+      @click.stop
+    >
+      <!-- 标签展示 -->
+      <div v-if="task.tags && task.tags.length > 0" class="task-tags">
+        <div
+          v-for="tag in task.tags.slice(0, 3)"
+          :key="tag.id"
+          class="task-tag-mini"
+          :style="{
+            background: `${tag.color}40`,
+            color: tag.color,
+            borderColor: `${tag.color}60`
+          }"
+          :title="tag.name"
+        >
+          <span>{{ tag.name }}</span>
+        </div>
+        <div v-if="task.tags.length > 3" class="task-tag-more" :title="`还有 ${task.tags.length - 3} 个标签`">
+          +{{ task.tags.length - 3 }}
+        </div>
       </div>
-      <div v-if="task.tags.length > 3" class="task-tag-more" :title="`还有 ${task.tags.length - 3} 个标签`">
-        +{{ task.tags.length - 3 }}
-      </div>
-    </div>
-
-    <div class="task-footer" @click.stop>
-      <div class="priority-section">
-        <div class="priority-dot" :class="`priority-${getPriorityBadgeType(task.priority)}`"></div>
-        <span class="priority-label">{{ PRIORITY_LABELS[task.priority] }}</span>
-      </div>
-      <div class="task-actions">
+      <div v-if="task.status !== 'done' && task.status !== 'cancelled'" class="task-actions">
         <n-button v-if="task.status === 'todo'" class="primary-button" size="small" @click="handleStart">开始</n-button>
         <n-button v-if="task.status === 'active'" type="warning" size="small" @click="handlePause">暂停</n-button>
-        <n-button v-if="task.status !== 'done' && task.status !== 'cancelled'" type="success" size="small" @click="handleComplete">完成</n-button>
-        <n-button v-if="!readonly && task.status !== 'done' && task.status !== 'cancelled'" type="error" text size="small" @click="handleCancel">取消</n-button>
+        <n-button type="success" size="small" @click="handleComplete">完成</n-button>
       </div>
     </div>
   </n-card>
@@ -92,7 +100,8 @@ import { EllipsisHorizontal, CreateOutline, TrashOutline, TimeOutline, GridOutli
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
-import { CATEGORY_LABELS, PRIORITY_LABELS, QUADRANT_CONFIG } from '@/types/task';
+import { PRIORITY_LABELS, QUADRANT_CONFIG } from '@/types/task';
+import { useTaskCategoryStore } from '@/stores/taskCategoryStore';
 import type { Task } from '@/types/task';
 import Badge from './Badge.vue';
 
@@ -124,6 +133,7 @@ const emit = defineEmits<{
 
 const dialog = useDialog();
 const router = useRouter();
+const taskCategoryStore = useTaskCategoryStore();
 
 const dropdownOptions = computed(() => {
   const options = [];
@@ -355,7 +365,7 @@ const getProgressColor = (progress: number) => {
 .card-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 12px;
   flex-shrink: 0;
 }
@@ -364,6 +374,14 @@ const getProgressColor = (progress: number) => {
   display: flex;
   gap: 6px;
   align-items: center;
+  min-width: 0;
+}
+
+.card-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .quadrant-mini-badge {
@@ -440,7 +458,8 @@ const getProgressColor = (progress: number) => {
   gap: 4px;
   flex-wrap: wrap;
   align-items: center;
-  margin-bottom: 8px;
+  flex: 1 1 160px;
+  min-width: 0;
 }
 
 .task-tag-mini {
@@ -476,22 +495,26 @@ const getProgressColor = (progress: number) => {
   cursor: help;
 }
 
-.task-footer {
+.task-meta-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-default);
   flex-shrink: 0;
 }
 
 .priority-section {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  flex-shrink: 0;
 }
 
 .priority-dot {
@@ -526,31 +549,22 @@ const getProgressColor = (progress: number) => {
 
 .task-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
-  opacity: 0.6;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
-/* 响应式优化: 在小屏幕上保持按钮可见 */
-@media (max-width: 1200px) {
-  .task-actions {
-    opacity: 1;
-  }
+.task-actions :deep(.n-button) {
+  flex-shrink: 0;
+}
 
-  .task-footer {
+/* 响应式优化: 窄列时允许标签区收缩，操作按钮保持完整 */
+@media (max-width: 1200px) {
+  .task-meta-row {
     gap: 6px;
   }
-
-  .priority-section {
-    flex-shrink: 0;
-  }
-}
-
-.task-card:hover .task-actions {
-  opacity: 1;
-  transform: scale(1.05);
 }
 
 /* 主要按钮样式 */

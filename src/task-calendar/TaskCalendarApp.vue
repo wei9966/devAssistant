@@ -412,7 +412,7 @@
 
               <!-- 分类选择 -->
               <n-form-item label="分类" path="category">
-                <CategorySelector v-model:value="formData.category" />
+                <CategorySelector v-model="formData.category" />
               </n-form-item>
 
               <!-- 标签选择 -->
@@ -493,7 +493,7 @@ import { getCurrentWindow, Window, LogicalSize, LogicalPosition } from '@tauri-a
 import { listen, emit } from '@tauri-apps/api/event';
 import dayjs from 'dayjs';
 import type { Task, TaskQuadrant, Tag } from '@/types/task';
-import { CATEGORY_LABELS } from '@/types/task';
+import { useTaskCategoryStore } from '@/stores/taskCategoryStore';
 import MonthView from './components/MonthView.vue';
 import WeekView from './components/WeekView.vue';
 import TaskDetailModal from '@/components/TaskDetailModal.vue';
@@ -508,6 +508,7 @@ import { tagApi } from '@/api/tagApi';
 // 日历窗口尺寸配置key
 const CALENDAR_SIZE_KEY = 'task_calendar_size';
 const CALENDAR_POSITION_KEY = 'task_calendar_position';
+const taskCategoryStore = useTaskCategoryStore();
 
 // 预设尺寸 (双栏布局需要更宽的尺寸)
 const SIZE_PRESETS = {
@@ -773,7 +774,7 @@ function handleSearchResultClick(task: Task) {
 
 // 获取分类标签
 function getCategoryLabel(category: Task['category']): string {
-  return CATEGORY_LABELS[category] || category;
+  return taskCategoryStore.getLabel(category);
 }
 
 // 加载任务
@@ -1493,6 +1494,7 @@ onMounted(async () => {
   // 恢复置顶和透明度设置
   await restoreWindowSettings();
 
+  await taskCategoryStore.loadCategories();
   await loadTasks();
   await loadTags();
 
@@ -1506,6 +1508,7 @@ onMounted(async () => {
 
   // 监听任务更新事件
   unlistenTaskUpdate = await listen('task-updated', async () => {
+    await taskCategoryStore.loadCategories(true);
     await loadTasks();
   });
 

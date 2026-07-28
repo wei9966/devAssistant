@@ -215,169 +215,108 @@
     </div>
 
     <!-- 创建/编辑任务对话框 -->
-    <n-modal v-model:show="showCreateModal" preset="card" :title="isEditing ? '编辑任务' : '新建任务'" style="width: 700px; max-height: 90vh;">
-      <div style="max-height: 70vh; overflow-y: auto; padding-right: 8px;">
-        <n-form ref="formRef" :model="formData" :rules="formRules">
+    <n-modal
+      v-model:show="showCreateModal"
+      preset="card"
+      class="task-editor-modal"
+      :title="isEditing ? '编辑任务' : '新建任务'"
+      :segmented="{ content: true, footer: true }"
+    >
+      <n-form ref="formRef" :model="formData" :rules="formRules" class="task-editor-form">
+        <div class="editor-column editor-main-column">
+          <div class="editor-section-heading">
+            <strong>核心信息</strong><span>描述任务目标与执行时间</span>
+          </div>
           <n-form-item label="任务标题" path="title">
-            <n-input
-              v-model:value="formData.title"
-              placeholder="请输入任务标题"
-              :maxlength="200"
-              show-count
-            />
+            <n-input v-model:value="formData.title" placeholder="请输入任务标题" :maxlength="200" show-count />
           </n-form-item>
           <n-form-item label="任务描述" path="description">
-            <n-space vertical style="width: 100%;">
+            <div class="description-field">
               <n-input
                 v-model:value="formData.description"
                 type="textarea"
-                placeholder="请输入任务描述（最多10000字符）"
-                :rows="3"
+                placeholder="补充任务背景、目标或验收标准"
+                :autosize="{ minRows: 5, maxRows: 8 }"
                 :maxlength="10000"
                 show-count
               />
-              <n-space>
-                <n-button
-                  size="small"
-                  @click="handleAiClassify"
-                  :loading="aiClassifying"
-                  :disabled="!formData.title"
-                >
-                  <template #icon v-if="!aiClassifying">
-                    <n-icon><GridOutline /></n-icon>
-                  </template>
-                  AI 智能分类
+              <div class="ai-actions">
+                <n-button size="small" @click="handleAiClassify" :loading="aiClassifying" :disabled="!formData.title">
+                  <template #icon v-if="!aiClassifying"><n-icon><GridOutline /></n-icon></template>AI 智能分类
                 </n-button>
-                <n-button
-                  size="small"
-                  @click="handleAiEnhance"
-                  :loading="aiEnhancing"
-                  :disabled="!formData.title"
-                  type="primary"
-                  ghost
-                >
-                  <template #icon v-if="!aiEnhancing">
-                    <n-icon>✨</n-icon>
-                  </template>
+                <n-button size="small" @click="handleAiEnhance" :loading="aiEnhancing" :disabled="!formData.title" type="primary" ghost>
                   {{ aiEnhancing ? 'AI 正在思考中...' : 'AI 增强描述' }}
                 </n-button>
-                <n-button
-                  size="small"
-                  @click="handleAiGenerateSubtasks"
-                  :loading="aiGeneratingSubtasks"
-                  :disabled="!formData.title"
-                >
-                  <template #icon v-if="!aiGeneratingSubtasks">
-                    <n-icon><AddOutline /></n-icon>
-                  </template>
-                  AI 生成子任务
+                <n-button size="small" @click="handleAiGenerateSubtasks" :loading="aiGeneratingSubtasks" :disabled="!formData.title">
+                  <template #icon v-if="!aiGeneratingSubtasks"><n-icon><AddOutline /></n-icon></template>AI 生成子任务
                 </n-button>
-              </n-space>
-            </n-space>
+              </div>
+            </div>
           </n-form-item>
-          <!-- 分类选择器 -->
-          <n-form-item label="分类" path="category">
-            <CategorySelector v-model="formData.category" />
-          </n-form-item>
-
-          <!-- 四象限选择器 -->
-          <n-form-item label="四象限" path="quadrant">
-            <QuadrantSelector v-model="formData.quadrant" />
-          </n-form-item>
-
-          <!-- 优先级和标签在同一行 -->
-          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px;">
-            <n-form-item label="优先级" path="priority">
-              <PrioritySelector v-model="formData.priority" />
-            </n-form-item>
-            <n-form-item label="标签" path="tagIds">
-              <TagSelector
-                v-model="formData.tagIds"
-                :available-tags="availableTags"
-                @manage="showTagManager = true"
-              />
-            </n-form-item>
-          </div>
-
-          <!-- 日期选择在同一行 -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="date-grid">
             <n-form-item label="登记日期" path="registeredAt">
-              <n-date-picker
-                v-model:value="formData.registeredAt"
-                type="date"
-                clearable
-                placeholder="选择登记日期"
-                style="width: 100%;"
-              />
+              <n-date-picker v-model:value="formData.registeredAt" type="date" clearable placeholder="选择登记日期" />
             </n-form-item>
             <n-form-item label="截止日期" path="dueDate">
-              <n-date-picker
-                v-model:value="formData.dueDate"
-                type="date"
-                clearable
-                placeholder="选择截止日期（可选）"
-                style="width: 100%;"
-              />
+              <n-date-picker v-model:value="formData.dueDate" type="date" clearable placeholder="选择截止日期（可选）" />
             </n-form-item>
           </div>
-
-          <!-- 计划开始时间（精确到秒，用于提醒） -->
           <n-form-item label="计划开始时间" path="scheduledStartTime">
             <n-date-picker
               v-model:value="formData.scheduledStartTime"
               type="datetime"
               clearable
               placeholder="选择计划开始时间，到时间会提醒您"
-              style="width: 100%;"
               format="yyyy-MM-dd HH:mm:ss"
             />
           </n-form-item>
-
-          <!-- 保存并完成时的里程碑输入区域 -->
           <div v-if="showSaveAndCompleteMilestone && !isEditing" class="milestone-input-section">
             <div class="milestone-input-header">完成里程碑（可选）</div>
-            <n-input
-              v-model:value="saveCompleteTitle"
-              placeholder="里程碑标题，如：完成了XX功能开发"
-              style="margin-bottom: 8px;"
-            />
-            <n-input
-              v-model:value="saveCompleteDesc"
-              type="textarea"
-              placeholder="里程碑描述（可选）"
-              :rows="2"
-            />
+            <n-input v-model:value="saveCompleteTitle" placeholder="里程碑标题，如：完成了XX功能开发" />
+            <n-input v-model:value="saveCompleteDesc" type="textarea" placeholder="里程碑描述（可选）" :rows="2" />
           </div>
-        </n-form>
-      </div>
+        </div>
+
+        <div class="editor-column editor-settings-column">
+          <div class="editor-section-heading">
+            <strong>任务属性</strong><span>用于看板归类与优先排序</span>
+          </div>
+          <section class="selector-section">
+            <div class="selector-title"><strong>分类</strong><span>单选</span></div>
+            <n-form-item path="category" :show-label="false"><CategorySelector v-model="formData.category" /></n-form-item>
+          </section>
+          <section class="selector-section decision-selector-section">
+            <div class="decision-selector-grid">
+              <div class="decision-selector-block quadrant-selector-block">
+                <div class="selector-title"><strong>四象限</strong><span>按重要 / 紧急程度</span></div>
+                <n-form-item path="quadrant" :show-label="false"><QuadrantSelector v-model="formData.quadrant" /></n-form-item>
+              </div>
+              <div class="decision-selector-block priority-selector-block">
+                <div class="selector-title"><strong>优先级</strong><span>执行顺序</span></div>
+                <n-form-item path="priority" :show-label="false"><PrioritySelector v-model="formData.priority" /></n-form-item>
+              </div>
+            </div>
+          </section>
+          <section class="selector-section">
+            <div class="selector-title"><strong>标签</strong><span>可多选</span></div>
+            <n-form-item path="tagIds" :show-label="false">
+              <TagSelector v-model="formData.tagIds" :available-tags="availableTags" @manage="showTagManager = true" />
+            </n-form-item>
+          </section>
+        </div>
+      </n-form>
       <template #footer>
-        <n-space justify="space-between" style="width: 100%;">
-          <span v-if="!isEditing && isAiEnabled" class="ai-status-hint">
-            <span class="ai-dot"></span>
-            AI 智能分析已启用
-          </span>
-          <span v-else></span>
-          <n-space>
+        <div class="editor-footer">
+          <span v-if="!isEditing && isAiEnabled" class="ai-status-hint"><span class="ai-dot"></span>AI 智能分析已启用</span>
+          <span v-else class="required-hint">任务标题为必填项</span>
+          <div class="editor-footer-actions">
             <n-button @click="handleCancelEdit" :disabled="isCreating">取消</n-button>
-            <n-button
-              v-if="!isEditing"
-              type="success"
-              @click="handleCreateAndComplete()"
-              :loading="isCreating"
-              :disabled="isCreating"
-            >
-              保存并完成
+            <n-button v-if="!isEditing" type="success" @click="handleCreateAndComplete()" :loading="isCreating" :disabled="isCreating">保存并完成</n-button>
+            <n-button class="primary-button" @click="isEditing ? handleUpdate() : handleCreate()" :loading="isCreating" :disabled="isCreating">
+              {{ isCreating ? 'AI 分析中...' : (isEditing ? '保存修改' : (isAiEnabled ? 'AI 智能创建' : '创建任务')) }}
             </n-button>
-            <n-button
-              class="primary-button"
-              @click="isEditing ? handleUpdate() : handleCreate()"
-              :loading="isCreating"
-              :disabled="isCreating"
-            >
-              {{ isCreating ? 'AI 分析中...' : (isEditing ? '保存' : (isAiEnabled ? 'AI 智能创建' : '创建')) }}
-            </n-button>
-          </n-space>
-        </n-space>
+          </div>
+        </div>
       </template>
     </n-modal>
 
@@ -547,6 +486,7 @@ import { NCard, NSpace, NButton, NIcon, NEmpty, NCollapse, NCollapseItem, NModal
 import dayjs from 'dayjs';
 import { AddOutline, RefreshOutline, CloudUploadOutline, GridOutline, PricetagsOutline, CloseCircleOutline, LayersOutline, CalendarOutline, BulbOutline } from '@vicons/ionicons5';
 import { useTaskStore } from '@/stores/taskStore';
+import { useTaskCategoryStore } from '@/stores/taskCategoryStore';
 import { tagApi } from '@/api/tagApi';
 import { aiApi } from '@/api/aiApi';
 import { taskApi } from '@/api/taskApi';
@@ -559,10 +499,11 @@ import TagManager from '@/components/TagManager.vue';
 import PrioritySelector from '@/components/PrioritySelector.vue';
 import CategorySelector from '@/components/CategorySelector.vue';
 import PredictedTaskList from '@/components/PredictedTaskList.vue';
-import { CATEGORY_LABELS, PRIORITY_LABELS, QUADRANT_LABELS } from '@/types/task';
+import { PRIORITY_LABELS, QUADRANT_LABELS } from '@/types/task';
 import type { Task, TaskQuadrant, Tag } from '@/types/task';
 
 const taskStore = useTaskStore();
+const taskCategoryStore = useTaskCategoryStore();
 const message = useMessage();
 const showCreateModal = ref(false);
 const showImportModal = ref(false);
@@ -717,10 +658,6 @@ const formRules = {
   },
 };
 
-const categoryOptions = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({
-  label,
-  value,
-}));
 
 const priorityOptions = Object.entries(PRIORITY_LABELS).map(([value, label]) => ({
   label,
@@ -795,6 +732,7 @@ const resetFilters = () => {
 onMounted(async () => {
   await taskStore.loadTasks();
   await taskStore.loadCompletedTasks(7);
+  await taskCategoryStore.loadCategories();
 
   // 加载标签
   await loadTags();
@@ -823,6 +761,14 @@ onMounted(async () => {
     isCalendarFloatVisible.value = false;
   });
 
+  unlistenTaskUpdated = await listen('task-updated', async () => {
+    await Promise.all([
+      taskStore.loadTasks(),
+      taskStore.loadCompletedTasks(7),
+      taskCategoryStore.loadCategories(true),
+    ]);
+  });
+
   // 加载预测任务数量 (延迟加载，等组件就绪)
   setTimeout(() => {
     updatePredictionCount();
@@ -831,6 +777,7 @@ onMounted(async () => {
 
 let unlistenFloatHidden: (() => void) | null = null;
 let unlistenCalendarHidden: (() => void) | null = null;
+let unlistenTaskUpdated: (() => void) | null = null;
 
 onUnmounted(() => {
   if (unlistenFloatHidden) {
@@ -838,6 +785,9 @@ onUnmounted(() => {
   }
   if (unlistenCalendarHidden) {
     unlistenCalendarHidden();
+  }
+  if (unlistenTaskUpdated) {
+    unlistenTaskUpdated();
   }
 });
 
@@ -1603,6 +1553,210 @@ async function handleAiGenerateSubtasks() {
 </script>
 
 <style scoped>
+:deep(.task-editor-modal) {
+  width: min(940px, calc(100vw - 32px));
+  max-height: min(88vh, 920px);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+:deep(.task-editor-modal .n-card-header) {
+  flex: 0 0 auto;
+  padding: 22px 28px 18px;
+}
+
+:deep(.task-editor-modal .n-card__content) {
+  min-height: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+:deep(.task-editor-modal .n-card__footer) {
+  flex: 0 0 auto;
+  padding: 14px 28px;
+}
+
+.task-editor-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(340px, .88fr);
+  gap: 26px;
+  padding: 24px 28px 26px;
+}
+
+.editor-column {
+  min-width: 0;
+}
+
+.editor-section-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin-bottom: 18px;
+}
+
+.editor-section-heading strong {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.editor-section-heading span,
+.selector-title span,
+.required-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.description-field {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 100%;
+}
+
+.ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.date-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.date-grid :deep(.n-date-picker),
+.editor-main-column > :deep(.n-form-item .n-date-picker) {
+  width: 100%;
+}
+
+.editor-settings-column {
+  padding-left: 2px;
+}
+
+.selector-section {
+  padding: 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--card-bg) 88%, var(--bg-elevated));
+}
+
+.decision-selector-section {
+  container-type: inline-size;
+}
+
+.decision-selector-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(132px, 0.38fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.decision-selector-block {
+  min-width: 0;
+}
+
+.decision-selector-block :deep(.quadrant-selector),
+.decision-selector-block :deep(.priority-selector) {
+  width: 100%;
+}
+
+.priority-selector-block {
+  padding-left: 14px;
+  border-left: 1px solid var(--border-default);
+}
+
+.priority-selector-block :deep(.priority-grid) {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.priority-selector-block :deep(.priority-item) {
+  min-height: 34px;
+}
+
+@container (max-width: 520px) {
+  .decision-selector-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .priority-selector-block {
+    padding-top: 12px;
+    padding-left: 0;
+    border-top: 1px solid var(--border-default);
+    border-left: 0;
+  }
+
+  .priority-selector-block :deep(.priority-grid) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.selector-title {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-bottom: 7px;
+}
+
+.selector-title strong {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.selector-section :deep(.n-form-item) {
+  margin-bottom: 0;
+}
+
+.selector-section :deep(.n-form-item-blank) {
+  min-height: 0;
+}
+
+.editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.editor-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 820px) {
+  .task-editor-form {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+
+  :deep(.task-editor-modal .n-card-header),
+  :deep(.task-editor-modal .n-card__footer) {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+@media (max-width: 560px) {
+  .date-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .editor-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .editor-footer-actions {
+    width: 100%;
+  }
+}
+
 .task-board {
   height: 100%;
   display: flex;
