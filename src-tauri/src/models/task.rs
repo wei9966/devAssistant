@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -14,9 +14,9 @@ pub struct Task {
     pub started_at: Option<String>,
     pub last_active_at: Option<String>,
     pub completed_at: Option<String>,
-    pub due_date: Option<String>,       // 截止日期
-    pub registered_at: Option<String>,  // 登记日期
-    pub display_date: Option<String>,   // 日历显示日期
+    pub due_date: Option<String>,             // 截止日期
+    pub registered_at: Option<String>,        // 登记日期
+    pub display_date: Option<String>,         // 日历显示日期
     pub scheduled_start_time: Option<String>, // 计划开始时间（精确到秒，用于提醒）
     pub estimated_hours: Option<f32>,
     pub actual_hours: Option<f32>,
@@ -60,14 +60,14 @@ impl TaskStatus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TaskCategory {
     Backend,  // 后端开发
     Database, // 数据库
     Feature,  // 功能开发
     Docs,     // 文档
     Other,    // 其他
+    Custom(String),
 }
 
 impl TaskCategory {
@@ -78,17 +78,38 @@ impl TaskCategory {
             TaskCategory::Feature => "feature",
             TaskCategory::Docs => "docs",
             TaskCategory::Other => "other",
+            TaskCategory::Custom(value) => value.as_str(),
         }
     }
 
     pub fn from_str(s: &str) -> Self {
-        match s {
+        match s.trim() {
             "backend" => TaskCategory::Backend,
             "database" => TaskCategory::Database,
             "feature" => TaskCategory::Feature,
             "docs" => TaskCategory::Docs,
-            _ => TaskCategory::Other,
+            "other" | "" => TaskCategory::Other,
+            value => TaskCategory::Custom(value.to_string()),
         }
+    }
+}
+
+impl Serialize for TaskCategory {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for TaskCategory {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Ok(TaskCategory::from_str(&value))
     }
 }
 

@@ -1,402 +1,63 @@
 <template>
   <div class="tag-selector">
-    <div class="tag-header">
-      <n-button
-        text
-        size="small"
-        class="manage-tags-btn"
-        @click="emit('manage')"
-      >
-        <template #icon>
-          <n-icon><SettingsOutline /></n-icon>
-        </template>
-        管理标签
+    <div class="tag-toolbar">
+      <span class="selection-summary">{{ modelValue.length ? `已选 ${modelValue.length} 个` : '可多选' }}</span>
+      <n-button text size="small" class="manage-tags-btn" @click="emit('manage')">
+        <template #icon><n-icon><SettingsOutline /></n-icon></template>管理标签
       </n-button>
     </div>
 
-    <!-- 常用标签区域 -->
-    <div v-if="favoriteTags.length > 0" class="tag-list">
-      <div
-        v-for="tag in favoriteTags"
+    <div v-if="displayTags.length" class="tag-list" aria-label="任务标签">
+      <button
+        v-for="tag in displayTags"
         :key="tag.id"
+        type="button"
         class="tag-item"
-        :class="{ 'selected': isSelected(tag.id!) }"
-        :style="{
-          '--tag-color': tag.color,
-          '--tag-bg': `${tag.color}20`,
-          '--tag-border': `${tag.color}40`,
-        }"
+        :class="{ selected: isSelected(tag.id!) }"
+        :style="{ '--tag-color': tag.color, '--tag-bg': `${tag.color}18`, '--tag-border': `${tag.color}55` }"
+        :aria-pressed="isSelected(tag.id!)"
         @click="toggleTag(tag)"
       >
-        <span class="tag-name">{{ tag.name }}</span>
-        <n-icon
-          v-if="isSelected(tag.id!)"
-          size="14"
-          class="check-icon"
-        >
-          <CheckmarkCircle />
-        </n-icon>
-      </div>
+        <span class="tag-dot"></span><span>{{ tag.name }}</span>
+        <n-icon v-if="isSelected(tag.id!)"><CheckmarkCircle /></n-icon>
+      </button>
+      <button v-if="hasMoreTags" type="button" class="expand-button" @click="showAllTags = !showAllTags">
+        {{ showAllTags ? '收起' : `+${availableTags.length - compactTags.length} 更多` }}
+      </button>
+      <button v-if="modelValue.length" type="button" class="clear-button" @click="emit('update:modelValue', [])">清空</button>
     </div>
 
-    <!-- 展开/收起按钮 -->
-    <div v-if="otherTags.length > 0" class="expand-section">
-      <div class="expand-divider">
-        <span class="divider-line"></span>
-        <n-button
-          text
-          size="small"
-          class="expand-btn"
-          @click="showAllTags = !showAllTags"
-        >
-          <template #icon>
-            <n-icon :component="showAllTags ? ChevronUpOutline : ChevronDownOutline" />
-          </template>
-          {{ showAllTags ? '收起' : `展开全部 (${otherTags.length})` }}
-        </n-button>
-        <span class="divider-line"></span>
-      </div>
+    <div v-else class="empty-inline">
+      <span>暂无标签</span><n-button text size="small" @click="emit('manage')">＋ 新建标签</n-button>
     </div>
-
-    <!-- 其他标签（展开后显示） -->
-    <div v-if="showAllTags && otherTags.length > 0" class="tag-list other-tags">
-      <div
-        v-for="tag in otherTags"
-        :key="tag.id"
-        class="tag-item"
-        :class="{ 'selected': isSelected(tag.id!) }"
-        :style="{
-          '--tag-color': tag.color,
-          '--tag-bg': `${tag.color}20`,
-          '--tag-border': `${tag.color}40`,
-        }"
-        @click="toggleTag(tag)"
-      >
-        <span class="tag-name">{{ tag.name }}</span>
-        <n-icon
-          v-if="isSelected(tag.id!)"
-          size="14"
-          class="check-icon"
-        >
-          <CheckmarkCircle />
-        </n-icon>
-      </div>
-    </div>
-
-    <!-- 无常用标签时显示全部 -->
-    <div v-if="favoriteTags.length === 0 && availableTags.length > 0" class="tag-list">
-      <div
-        v-for="tag in availableTags"
-        :key="tag.id"
-        class="tag-item"
-        :class="{ 'selected': isSelected(tag.id!) }"
-        :style="{
-          '--tag-color': tag.color,
-          '--tag-bg': `${tag.color}20`,
-          '--tag-border': `${tag.color}40`,
-        }"
-        @click="toggleTag(tag)"
-      >
-        <span class="tag-name">{{ tag.name }}</span>
-        <n-icon
-          v-if="isSelected(tag.id!)"
-          size="14"
-          class="check-icon"
-        >
-          <CheckmarkCircle />
-        </n-icon>
-      </div>
-    </div>
-
-    <!-- 已选标签展示 -->
-    <div v-if="selectedTags.length > 0" class="selected-tags">
-      <div class="selected-tags-header">
-        <span class="selected-count">已选 {{ selectedTags.length }} 个标签</span>
-        <n-button text size="tiny" @click="clearAll">
-          清空
-        </n-button>
-      </div>
-      <div class="selected-tags-list">
-        <div
-          v-for="tag in selectedTags"
-          :key="tag.id"
-          class="selected-tag-chip"
-          :style="{ background: `${tag.color}30`, color: tag.color, borderColor: `${tag.color}60` }"
-        >
-          <span>{{ tag.name }}</span>
-          <n-icon
-            size="12"
-            class="remove-icon"
-            @click.stop="removeTag(tag.id!)"
-          >
-            <CloseOutline />
-          </n-icon>
-        </div>
-      </div>
-    </div>
-
-    <!-- 空状态 -->
-    <n-empty
-      v-if="availableTags.length === 0"
-      description="暂无可用标签"
-      class="empty-state"
-      size="small"
-    >
-      <template #extra>
-        <n-button size="small" @click="emit('manage')">
-          创建标签
-        </n-button>
-      </template>
-    </n-empty>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { NIcon, NButton, NEmpty } from 'naive-ui';
-import {
-  PricetagsOutline,
-  SettingsOutline,
-  CheckmarkCircle,
-  CloseOutline,
-  ChevronDownOutline,
-  ChevronUpOutline,
-} from '@vicons/ionicons5';
+import { NButton, NIcon } from 'naive-ui';
+import { CheckmarkCircle, SettingsOutline } from '@vicons/ionicons5';
 import type { Tag } from '@/types/task';
 
-const props = defineProps<{
-  modelValue: number[];
-  availableTags: Tag[];
-}>();
-
-const emit = defineEmits<{
-  'update:modelValue': [value: number[]];
-  'manage': [];
-}>();
-
+const props = defineProps<{ modelValue: number[]; availableTags: Tag[] }>();
+const emit = defineEmits<{ 'update:modelValue': [value: number[]]; 'manage': [] }>();
 const showAllTags = ref(false);
 
-// 常用标签
-const favoriteTags = computed(() => {
-  return props.availableTags.filter(tag => tag.isFavorite);
+const compactTags = computed(() => {
+  const selected = props.availableTags.filter(tag => props.modelValue.includes(tag.id!));
+  const favorites = props.availableTags.filter(tag => tag.isFavorite && !props.modelValue.includes(tag.id!));
+  const others = props.availableTags.filter(tag => !selected.includes(tag) && !favorites.includes(tag));
+  return [...selected, ...favorites, ...others].slice(0, 6);
 });
-
-// 非常用标签（排除已选中的，已选中的会在常用区显示或已选区显示）
-const otherTags = computed(() => {
-  return props.availableTags.filter(tag => !tag.isFavorite);
-});
-
-const selectedTags = computed(() => {
-  return props.availableTags.filter(tag => props.modelValue.includes(tag.id!));
-});
-
-const isSelected = (tagId: number) => {
-  return props.modelValue.includes(tagId);
-};
-
-const toggleTag = (tag: Tag) => {
-  const tagId = tag.id!;
-  const newValue = isSelected(tagId)
-    ? props.modelValue.filter(id => id !== tagId)
-    : [...props.modelValue, tagId];
-  emit('update:modelValue', newValue);
-};
-
-const removeTag = (tagId: number) => {
-  emit('update:modelValue', props.modelValue.filter(id => id !== tagId));
-};
-
-const clearAll = () => {
-  emit('update:modelValue', []);
-};
+const displayTags = computed(() => showAllTags.value ? props.availableTags : compactTags.value);
+const hasMoreTags = computed(() => props.availableTags.length > compactTags.value.length);
+const isSelected = (id: number) => props.modelValue.includes(id);
+function toggleTag(tag: Tag) {
+  const id = tag.id!;
+  emit('update:modelValue', isSelected(id) ? props.modelValue.filter(value => value !== id) : [...props.modelValue, id]);
+}
 </script>
 
 <style scoped>
-.tag-selector {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.tag-header {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 4px;
-}
-
-.manage-tags-btn {
-  color: var(--text-muted);
-  font-size: 12px;
-  padding: 4px 8px;
-  transition: color 0.2s;
-}
-
-.manage-tags-btn:hover {
-  color: var(--accent-primary);
-}
-
-/* 标签列表 */
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.tag-list.other-tags {
-  animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.tag-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
-  border-radius: 6px;
-  background: var(--tag-bg);
-  border: 1px solid var(--tag-border);
-  color: var(--tag-color);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  user-select: none;
-}
-
-.tag-item:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.2);
-  border-color: var(--tag-color);
-}
-
-.tag-item.selected {
-  background: var(--tag-color);
-  color: #ffffff;
-  border-color: var(--tag-color);
-  box-shadow: 0 0 0 2px var(--tag-border);
-}
-
-.tag-name {
-  line-height: 1;
-}
-
-.check-icon {
-  flex-shrink: 0;
-  animation: check-appear 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes check-appear {
-  from {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* 展开/收起按钮 */
-.expand-section {
-  margin: 4px 0;
-}
-
-.expand-divider {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.divider-line {
-  flex: 1;
-  height: 1px;
-  background: var(--border-default);
-}
-
-.expand-btn {
-  color: var(--text-muted);
-  font-size: 11px;
-  white-space: nowrap;
-  transition: color 0.2s;
-}
-
-.expand-btn:hover {
-  color: var(--accent-primary);
-}
-
-/* 已选标签 */
-.selected-tags {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-default);
-}
-
-.selected-tags-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.selected-count {
-  font-size: 11px;
-  color: var(--text-dim);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.selected-tags-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.selected-tag-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  border: 1px solid;
-  cursor: default;
-  transition: all 0.2s;
-}
-
-.selected-tag-chip:hover {
-  opacity: 0.8;
-}
-
-.remove-icon {
-  cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.2s;
-}
-
-.remove-icon:hover {
-  opacity: 1;
-}
-
-/* 空状态 */
-.empty-state {
-  padding: 20px 0;
-}
-
-.empty-state:deep(.n-empty__description) {
-  color: var(--text-muted);
-  font-size: 12px;
-}
+.tag-selector{display:flex;flex-direction:column;gap:9px}.tag-toolbar{display:flex;align-items:center;justify-content:space-between;min-height:28px}.selection-summary{font-size:12px;color:var(--text-muted)}.manage-tags-btn{color:var(--accent-primary);font-size:12px;font-weight:600}.tag-list{display:flex;flex-wrap:wrap;gap:7px}.tag-item,.expand-button,.clear-button{min-height:36px;border-radius:8px;border:1px solid var(--tag-border,var(--border-default));background:var(--tag-bg,var(--card-bg));color:var(--tag-color,var(--text-secondary));padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;cursor:pointer;transition:border-color .2s,background .2s,box-shadow .2s}.tag-item:hover{border-color:var(--tag-color)}.tag-item:focus-visible,.expand-button:focus-visible,.clear-button:focus-visible{outline:3px solid color-mix(in srgb,var(--accent-primary) 35%,transparent);outline-offset:2px}.tag-item.selected{background:var(--tag-color);border-color:var(--tag-color);color:#fff;box-shadow:0 0 0 2px var(--tag-border)}.tag-dot{width:7px;height:7px;border-radius:50%;background:currentColor}.expand-button{border-style:dashed;color:var(--accent-primary);background:transparent}.clear-button{border-color:transparent;background:transparent;color:var(--text-muted)}.empty-inline{min-height:44px;border:1px dashed var(--border-default);border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--text-muted);font-size:12px}
 </style>

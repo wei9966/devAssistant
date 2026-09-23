@@ -26,6 +26,7 @@ pub mod tips_commands;
 pub mod statistics_commands;
 pub mod system_commands;
 pub mod tag_commands;
+pub mod task_category_commands;
 pub mod task_commands;
 pub mod timeline_commands;
 pub mod vlm_commands;

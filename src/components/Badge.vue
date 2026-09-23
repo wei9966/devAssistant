@@ -1,5 +1,5 @@
 <template>
-  <span :class="['badge', badgeClass]">
+  <span :class="['badge', badgeClass]" :style="customStyle">
     <slot></slot>
   </span>
 </template>
@@ -10,6 +10,7 @@ import { computed } from 'vue';
 const props = withDefaults(
   defineProps<{
     type?: 'high' | 'medium' | 'low' | 'Backend' | 'Database' | 'Feature' | 'Docs' | 'default';
+    color?: string;
   }>(),
   {
     type: 'default'
@@ -17,6 +18,7 @@ const props = withDefaults(
 );
 
 const badgeClass = computed(() => {
+  if (props.color) return 'badge-custom';
   const classMap = {
     // 优先级徽章
     high: 'badge-high',
@@ -32,6 +34,10 @@ const badgeClass = computed(() => {
   };
   return classMap[props.type] || classMap.default;
 });
+
+const customStyle = computed(() =>
+  props.color ? { '--badge-color': props.color } : undefined
+);
 </script>
 
 <style scoped>
@@ -88,6 +94,12 @@ const badgeClass = computed(() => {
   background: var(--bg-surface);
   color: var(--text-secondary);
   border-color: var(--border-default);
+}
+
+.badge-custom {
+  background: color-mix(in srgb, var(--badge-color) 12%, transparent);
+  color: var(--badge-color);
+  border-color: color-mix(in srgb, var(--badge-color) 32%, transparent);
 }
 
 /* 默认 */

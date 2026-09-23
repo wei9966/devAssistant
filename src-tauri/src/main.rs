@@ -1365,6 +1365,12 @@ fn main() {
             commands::tag_commands::get_tags_with_usage_count,
             commands::tag_commands::search_tags,
             commands::tag_commands::toggle_tag_favorite,
+            // 任务分类相关命令
+            commands::task_category_commands::get_task_categories,
+            commands::task_category_commands::create_task_category,
+            commands::task_category_commands::update_task_category,
+            commands::task_category_commands::set_task_category_hidden,
+            commands::task_category_commands::delete_task_category,
             // 剪切板历史相关命令
             commands::clipboard_commands::get_clipboard_history,
             commands::clipboard_commands::copy_from_clipboard_history,

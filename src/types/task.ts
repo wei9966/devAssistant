@@ -2,7 +2,7 @@ export interface Task {
   id?: number;
   title: string;
   description?: string;
-  category: 'backend' | 'database' | 'feature' | 'docs' | 'other';
+  category: string;
   priority: 1 | 2 | 3;  // 1-高 | 2-中 | 3-低
   status: 'todo' | 'active' | 'done' | 'deferred' | 'cancelled';
   quadrant?: TaskQuadrant;
@@ -21,6 +21,20 @@ export interface Task {
   context?: WorkContext;
   notes?: string;
   progress?: number;     // 任务进度百分比（0-100）
+}
+
+export interface TaskCategoryDefinition {
+  id?: number;
+  key: string;
+  name: string;
+  color: string;
+  icon: string;
+  isSystem: boolean;
+  isHidden: boolean;
+  sortOrder: number;
+  usageCount: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // 任务里程碑
@@ -62,7 +76,7 @@ export interface FileContext {
 }
 
 // 任务分类的中文映射
-export const CATEGORY_LABELS: Record<Task['category'], string> = {
+export const CATEGORY_LABELS: Record<string, string> = {
   backend: '后端开发',
   database: '数据库',
   feature: '功能开发',

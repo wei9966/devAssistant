@@ -702,18 +702,20 @@ function getIsoWeekKey(timestamp: number): string {
 import { useWorkLogStore } from '@/stores/workLogStore';
 import { useWeeklyPlanStore } from '@/stores/weeklyPlanStore';
 import { useTaskStore } from '@/stores/taskStore';
+import { useTaskCategoryStore } from '@/stores/taskCategoryStore';
 import { aiApi } from '@/api/aiApi';
 import { taskApi } from '@/api/taskApi';
 import { promptApi } from '@/api/promptApi';
 import type { WorkLog, WeeklyPlan } from '@/types/workLog';
 import type { Task } from '@/types/task';
-import { CATEGORY_LABELS } from '@/types/task';
+
 
 const message = useMessage();
 const dialog = useDialog();
 const workLogStore = useWorkLogStore();
 const weeklyPlanStore = useWeeklyPlanStore();
 const taskStore = useTaskStore();
+const taskCategoryStore = useTaskCategoryStore();
 
 // 日志模式：日报 / 周报 / 周计划
 const logMode = ref<'daily' | 'weekly' | 'plan'>('daily');
@@ -1129,7 +1131,7 @@ async function handlePolishPlan() {
 
 // 获取分类标签
 function getCategoryLabel(category: Task['category']): string {
-  return CATEGORY_LABELS[category] || category;
+  return taskCategoryStore.getLabel(category);
 }
 
 // 格式化任务完成时间
@@ -1138,6 +1140,7 @@ function formatTaskTime(time: string): string {
 }
 
 onMounted(async () => {
+  await taskCategoryStore.loadCategories();
   await loadLogs();
   // 加载草稿
   loadDraft();

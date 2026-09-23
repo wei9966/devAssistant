@@ -38,6 +38,11 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     create_tags_table(conn)?;
     create_tags_indexes(conn)?;
 
+    // 创建任务分类配置表并写入系统分类
+    create_task_categories_table(conn)?;
+    create_task_categories_indexes(conn)?;
+    seed_default_task_categories(conn)?;
+
     create_task_tags_table(conn)?;
     create_task_tags_indexes(conn)?;
 
@@ -1019,6 +1024,56 @@ fn create_app_settings_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// 创建任务分类配置表
+fn create_task_categories_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS task_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category_key TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+            color TEXT NOT NULL DEFAULT '#64748b',
+            icon TEXT NOT NULL DEFAULT 'folder',
+            is_system INTEGER NOT NULL DEFAULT 0,
+            is_hidden INTEGER NOT NULL DEFAULT 0,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 创建任务分类配置索引
+fn create_task_categories_indexes(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_task_categories_visibility_order
+         ON task_categories(is_hidden, sort_order)",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 写入内置任务分类；已存在的数据不会被覆盖
+fn seed_default_task_categories(conn: &Connection) -> Result<()> {
+    let defaults = [
+        ("backend", "后端开发", "#10b981", "code", 10),
+        ("database", "数据库", "#3b82f6", "database", 20),
+        ("feature", "功能开发", "#f59e0b", "bulb", 30),
+        ("docs", "文档", "#8b5cf6", "document", 40),
+        ("other", "其他", "#64748b", "ellipsis", 50),
+    ];
+
+    for (key, name, color, icon, sort_order) in defaults {
+        conn.execute(
+            "INSERT OR IGNORE INTO task_categories
+                (category_key, name, color, icon, is_system, is_hidden, sort_order)
+             VALUES (?1, ?2, ?3, ?4, 1, 0, ?5)",
+            rusqlite::params![key, name, color, icon, sort_order],
+        )?;
+    }
+    Ok(())
+}
 /// 创建 tags 表（标签）
 fn create_tags_table(conn: &Connection) -> Result<()> {
     conn.execute(
